@@ -13,6 +13,17 @@
 
 A cross-platform Discord music bot with a clean interface, and that is easy to set up and run yourself!
 
+## ⚠️ Important Migration Notice (JDA 6 Update)
+
+This version of JMusicBot includes a major infrastructure update to **JDA 6.2.0** and **Lavaplayer 2.2.6**. To ensure your bot continues to function correctly, please note the following mandatory changes:
+
+*   **Java 17 Minimum:** The bot now requires **Java 17 or higher**. Please update your hosting environment (check `java -version`) before running the new JAR.
+*   **Privileged Gateway Intents:** You **must** enable the **Message Content Intent** in your [Discord Developer Portal](https://discord.com/developers/applications).
+    *   *Navigate to: Your Application > Bot > Privileged Gateway Intents > Toggle "Message Content Intent" to ON.*
+    *   *Without this, the bot will not see your commands.*
+*   **Audio Provider Update:** We have switched to the `dev.arbjerg` Lavaplayer fork and added the `dev.lavalink.youtube` source manager. This provides the most stable and up-to-date support for YouTube and other modern audio sources.
+*   **Dependency Cleanup:** Support for niche/legacy sources provided by the old DuncteBot library (such as TikTok or Reddit audio) has been removed to reduce the project's footprint and improve stability. Standard sources (YouTube, SoundCloud, Bandcamp, Twitch, etc.) are unaffected.
+
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://jmusicbot.com/setup)
 
 ## Features
