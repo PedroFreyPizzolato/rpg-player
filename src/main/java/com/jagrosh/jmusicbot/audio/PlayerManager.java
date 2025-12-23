@@ -15,7 +15,6 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
-import com.dunctebot.sourcemanagers.DuncteBotSources;
 import com.jagrosh.jmusicbot.Bot;
 import com.sedmelluq.discord.lavaplayer.container.MediaContainerRegistry;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
@@ -64,7 +63,8 @@ public class PlayerManager extends DefaultAudioPlayerManager
 
         AudioSourceManagers.registerLocalSource(this);
 
-        DuncteBotSources.registerAll(this, "en-US");
+        // Removing this since it is deprecated/gone
+        //DuncteBotSources.registerAll(this, "en-US");
     }
     
     public Bot getBot()

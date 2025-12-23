@@ -36,7 +36,9 @@ public class RequestMetadata
     
     public RequestMetadata(User user, RequestInfo requestInfo)
     {
-        this.user = user == null ? null : new UserInfo(user.getIdLong(), user.getName(), user.getDiscriminator(), user.getEffectiveAvatarUrl());
+        this.user = user == null
+            ? null
+            : new UserInfo(user.getIdLong(), user.getName(), user.getDiscriminator(), user.getEffectiveAvatarUrl());
         this.requestInfo = requestInfo;
     }
     
