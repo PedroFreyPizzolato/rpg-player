@@ -72,7 +72,7 @@ public class NowPlayingHandler
         // update bot status if applicable
         if(bot.getConfig().getSongInStatus())
         {
-            if(track!=null && bot.getJDA().getGuilds().stream().filter(g -> g.getSelfMember().getVoiceState().getChannel() != null).count()<=1)
+            if(track != null)
                 bot.getJDA().getPresence().setActivity(Activity.listening(track.getInfo().title));
             else
                 bot.resetGame();
@@ -101,6 +101,8 @@ public class NowPlayingHandler
         }
 
         NPLocation loc = lastNP.get(guildId);
+        if(loc == null)
+            return;
         TextChannel tc = guild.getTextChannelById(loc.channelId());
         if (tc == null) {
             lastNP.remove(guildId);
