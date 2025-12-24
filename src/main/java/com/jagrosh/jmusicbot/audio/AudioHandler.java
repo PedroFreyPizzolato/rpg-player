@@ -20,16 +20,21 @@ import com.jagrosh.jmusicbot.queue.AbstractQueue;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.settings.Settings;
-import com.jagrosh.jmusicbot.utils.MessageFormatter;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
+import com.jagrosh.jmusicbot.utils.TimeUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
+import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioTrack;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.audio.AudioSendHandler;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.LoggerFactory;
 
@@ -116,9 +121,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     {
         // Check that the selfMember is connected to a channel where they can receive audio
         // Check that the audioPlayer has a playingTrack
-        var isBotConnectedToVoice = jda.getGuildById(guildId).getSelfMember().getVoiceState().getChannel() != null;
-        var isAudioPlaying = audioPlayer.getPlayingTrack() != null;
-        return isBotConnectedToVoice && isAudioPlaying;
+        return guild(jda).getSelfMember().getVoiceState().getChannel() != null && audioPlayer.getPlayingTrack() != null;
     }
     
     public Set<String> getVotes()
@@ -186,7 +189,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         {
             if(!playFromDefault())
             {
-                manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, null);
+                manager.getBot().getNowplayingHandler().onTrackUpdate(null);
                 if(!manager.getBot().getConfig().getStay())
                     manager.getBot().closeAudioConnection(guildId);
                 // unpause, in the case when the player was paused and the track has been skipped.
@@ -203,38 +206,76 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
 
     @Override
     public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
-        LoggerFactory.getLogger("AudioHandler").error("Track {} has failed to play", track.getIdentifier(), exception);
+        LoggerFactory.getLogger("AudioHandler").error("Track " + track.getIdentifier() + " has failed to play", exception);
     }
 
     @Override
     public void onTrackStart(AudioPlayer player, AudioTrack track) 
     {
         votes.clear();
-        manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, track);
+        manager.getBot().getNowplayingHandler().onTrackUpdate(track);
     }
 
-    //
-    public NowPlayingInfo getNowPlayingInfo(JDA jda)
-    {
-        return new NowPlayingInfo(
-            audioPlayer.getPlayingTrack(),
-            jda.getGuildById(guildId),
-            audioPlayer.isPaused(),
-            audioPlayer.getVolume()
-        );
-    }
-
+    
     // Formatting
     public MessageCreateData getNowPlaying(JDA jda)
     {
         if(isMusicPlaying(jda))
-            return MessageFormatter.buildNowPlayingMessage(manager.getBot(), getNowPlayingInfo(jda));
-        return null;
-    }
+        {
+            Guild guild = guild(jda);
+            AudioTrack track = audioPlayer.getPlayingTrack();
+            MessageCreateBuilder mb = new MessageCreateBuilder();
+            mb.addContent(FormatUtil.filter(manager.getBot().getConfig().getSuccess()+" **Now Playing in "+guild.getSelfMember().getVoiceState().getChannel().getAsMention()+"...**"));
+            EmbedBuilder eb = new EmbedBuilder();
+            eb.setColor(guild.getSelfMember().getColors().getPrimary());
+            RequestMetadata rm = getRequestMetadata();
+            if(rm.getOwner() != 0L)
+            {
+                User u = guild.getJDA().getUserById(rm.user.id);
+                if(u==null)
+                    eb.setAuthor(FormatUtil.formatUsername(rm.user), null, rm.user.avatar);
+                else
+                    eb.setAuthor(FormatUtil.formatUsername(u), null, u.getEffectiveAvatarUrl());
+            }
 
+            try 
+            {
+                eb.setTitle(track.getInfo().title, track.getInfo().uri);
+            }
+            catch(Exception e) 
+            {
+                eb.setTitle(track.getInfo().title);
+            }
+
+            if(track instanceof YoutubeAudioTrack && manager.getBot().getConfig().useNPImages())
+            {
+                eb.setThumbnail("https://img.youtube.com/vi/"+track.getIdentifier()+"/mqdefault.jpg");
+            }
+            
+            if(track.getInfo().author != null && !track.getInfo().author.isEmpty())
+                eb.setFooter("Source: " + track.getInfo().author, null);
+
+            double progress = (double)audioPlayer.getPlayingTrack().getPosition()/track.getDuration();
+            eb.setDescription(getStatusEmoji()
+                    + " "+FormatUtil.progressBar(progress)
+                    + " `[" + TimeUtil.formatTime(track.getPosition()) + "/" + TimeUtil.formatTime(track.getDuration()) + "]` "
+                    + FormatUtil.volumeIcon(audioPlayer.getVolume()));
+            
+            return mb.setEmbeds(eb.build()).build();
+        }
+        else return null;
+    }
+    
     public MessageCreateData getNoMusicPlaying(JDA jda)
     {
-        return MessageFormatter.buildNoMusicPlayingMessage(manager.getBot(), getNowPlayingInfo(jda));
+        Guild guild = guild(jda);
+        return new MessageCreateBuilder()
+                .setContent(FormatUtil.filter(manager.getBot().getConfig().getSuccess()+" **Now Playing...**"))
+                .setEmbeds(new EmbedBuilder()
+                .setTitle("No music playing")
+                .setDescription(STOP_EMOJI+" "+FormatUtil.progressBar(-1)+" "+FormatUtil.volumeIcon(audioPlayer.getVolume()))
+                .setColor(guild.getSelfMember().getColors().getPrimary())
+                .build()).build();
     }
 
     public String getStatusEmoji()
@@ -281,5 +322,12 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     public boolean isOpus() 
     {
         return true;
+    }
+    
+    
+    // Private methods
+    private Guild guild(JDA jda)
+    {
+        return jda.getGuildById(guildId);
     }
 }
