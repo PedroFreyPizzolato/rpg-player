@@ -16,18 +16,18 @@
 package com.jagrosh.jmusicbot.audio;
 
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.entities.Pair;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,72 +36,39 @@ import java.util.concurrent.TimeUnit;
  */
 public class NowPlayingHandler
 {
+    private record NPLocation(long channelId, long messageId) {}
+
     private final Bot bot;
-    private final HashMap<Long, Pair<Long,Long>> lastNP; // guild -> channel,message
+    private final Map<Long, NPLocation> lastNP; // guild -> channel,message
     
     public NowPlayingHandler(Bot bot)
     {
         this.bot = bot;
-        this.lastNP = new HashMap<>();
+        this.lastNP = new ConcurrentHashMap<>();
     }
     
     public void init()
     {
         if(!bot.getConfig().useNPImages())
-            bot.getThreadpool().scheduleWithFixedDelay(this::updateAll, 0, 5, TimeUnit.SECONDS);
+            bot.getThreadpool().scheduleWithFixedDelay(this::updateAll, 0, 10, TimeUnit.SECONDS);
     }
     
     public void setLastNPMessage(Message m)
     {
-        lastNP.put(m.getGuild().getIdLong(), new Pair<>(m.getChannel().getIdLong(), m.getIdLong()));
+        lastNP.put(m.getGuild().getIdLong(), new NPLocation(m.getChannel().getIdLong(), m.getIdLong()));
     }
     
     public void clearLastNPMessage(Guild guild)
     {
         lastNP.remove(guild.getIdLong());
     }
-    
-    private void updateAll()
-    {
-        Set<Long> toRemove = new HashSet<>();
-        for(long guildId: lastNP.keySet())
-        {
-            Guild guild = bot.getJDA().getGuildById(guildId);
-            if(guild==null)
-            {
-                toRemove.add(guildId);
-                continue;
-            }
-            Pair<Long,Long> pair = lastNP.get(guildId);
-            TextChannel tc = guild.getTextChannelById(pair.getKey());
-            if(tc==null)
-            {
-                toRemove.add(guildId);
-                continue;
-            }
-            AudioHandler handler = (AudioHandler)guild.getAudioManager().getSendingHandler();
-            //TODO should we assert handler is not null?
-            MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
-            if(msg==null)
-            {
-                msg = handler.getNoMusicPlaying(bot.getJDA());
-                toRemove.add(guildId);
-            }
-            try
-            {
-                tc.editMessageById(pair.getValue(), MessageEditData.fromCreateData(msg)).queue(m->{}, t -> lastNP.remove(guildId));
-            }
-            catch(Exception e)
-            {
-                toRemove.add(guildId);
-            }
-        }
-        toRemove.forEach(lastNP::remove);
-    }
 
     // "event"-based methods
-    public void onTrackUpdate(AudioTrack track)
+    public void onTrackUpdate(long guildId, AudioTrack track)
     {
+        // Trigger immediate UI update for this guild
+        updateSingleGuild(guildId);
+
         // update bot status if applicable
         if(bot.getConfig().getSongInStatus())
         {
@@ -114,10 +81,62 @@ public class NowPlayingHandler
     
     public void onMessageDelete(Guild guild, long messageId)
     {
-        Pair<Long,Long> pair = lastNP.get(guild.getIdLong());
-        if(pair==null)
-            return;
-        if(pair.getValue() == messageId)
+        NPLocation loc = lastNP.get(guild.getIdLong());
+        if(loc != null && loc.messageId() == messageId)
             lastNP.remove(guild.getIdLong());
+    }
+
+    private void updateAll()
+    {
+        lastNP.keySet().forEach(this::updateSingleGuild);
+    }
+
+    private void updateSingleGuild(long guildId)
+    {
+        Guild guild = bot.getJDA().getGuildById(guildId);
+        if(guild == null)
+        {
+            lastNP.remove(guildId);
+            return;
+        }
+
+        NPLocation loc = lastNP.get(guildId);
+        TextChannel tc = guild.getTextChannelById(loc.channelId());
+        if (tc == null) {
+            lastNP.remove(guildId);
+            return;
+        }
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
+        if (msg == null) {
+            msg = handler.getNoMusicPlaying(bot.getJDA());
+            lastNP.remove(guildId);
+        }
+        tc.editMessageById(loc.messageId(), MessageEditData.fromCreateData(msg)).queue(
+                success -> {},
+                throwable -> handleUpdateError(guildId, throwable)
+        );
+    }
+
+    private void handleUpdateError(long guildId, Throwable t)
+    {
+        if (t instanceof ErrorResponseException ex)
+        {
+            ErrorResponse response = ex.getErrorResponse();
+            switch (response)
+            {
+                // Permanent errors: Remove the tracking
+                case UNKNOWN_MESSAGE:
+                case UNKNOWN_CHANNEL:
+                case MISSING_ACCESS:
+                case MISSING_PERMISSIONS:
+                    lastNP.remove(guildId);
+                    break;
+
+                // Transient errors: Do nothing, let the next loop or event try again
+                default:
+                    break;
+            }
+        }
     }
 }

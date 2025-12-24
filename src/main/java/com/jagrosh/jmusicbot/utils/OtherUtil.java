@@ -164,20 +164,6 @@ public class OtherUtil
                     "It appears that you may not be using a supported Java version. Please use 64-bit java.");
     }
     
-    public static void checkVersion(Prompt prompt)
-    {
-        // Get current version number
-        String version = getCurrentVersion();
-        
-        // Check for new version
-        String latestVersion = getLatestVersion();
-        
-        if(latestVersion!=null && !latestVersion.equals(version))
-        {
-            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
-        }
-    }
-    
     public static String getCurrentVersion()
     {
         if(JMusicBot.class.getPackage()!=null && JMusicBot.class.getPackage().getImplementationVersion()!=null)
@@ -199,7 +185,10 @@ public class OtherUtil
                 try(Reader reader = body.charStream())
                 {
                     JSONObject obj = new JSONObject(new JSONTokener(reader));
-                    return obj.getString("tag_name");
+                    String tag = obj.getString("tag_name");
+                    if(tag.startsWith("v"))
+                        tag = tag.substring(1);
+                    return tag;
                 }
                 finally
                 {
@@ -213,6 +202,40 @@ public class OtherUtil
         {
             return null;
         }
+    }
+
+    public static void checkVersion(Prompt prompt)
+    {
+        // Get current version number
+        String version = getCurrentVersion();
+
+        // Check for new version
+        String latestVersion = getLatestVersion();
+
+        if(latestVersion != null && isNewerVersion(version, latestVersion))
+        {
+            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
+        }
+    }
+
+    public static boolean isNewerVersion(String current, String latest)
+    {
+        if (current.equalsIgnoreCase("UNKNOWN"))
+            return true;
+
+        String[] currentParts = current.split("\\.");
+        String[] latestParts = latest.split("\\.");
+        int length = Math.max(currentParts.length, latestParts.length);
+
+        for (int i = 0; i < length; i++)
+        {
+            int curr = i < currentParts.length ? Integer.parseInt(currentParts[i].replaceAll("\\D", "")) : 0;
+            int late = i < latestParts.length ? Integer.parseInt(latestParts[i].replaceAll("\\D", "")) : 0;
+
+            if (late > curr) return true;
+            if (late < curr) return false;
+        }
+        return false;
     }
 
     /**

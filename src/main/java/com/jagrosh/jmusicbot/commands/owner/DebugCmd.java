@@ -69,11 +69,11 @@ public class DebugCmd extends OwnerCommand
                 .append("\n  JDA Version = ").append(JDAInfo.VERSION)
                 .append("\n  JDA-Utilities Version = ").append(JDAUtilitiesInfo.VERSION)
                 .append("\n  Lavaplayer Version = ").append(PlayerLibrary.VERSION);
-        long total = Runtime.getRuntime().totalMemory() / 1024 / 1024;
-        long used = total - (Runtime.getRuntime().freeMemory() / 1024 / 1024);
+        long totalMb = Runtime.getRuntime().totalMemory() / 1024 / 1024;
+        long usedMb = totalMb - (Runtime.getRuntime().freeMemory() / 1024 / 1024);
         sb.append("\n\nRuntime Information:")
-                .append("\n  Total Memory = ").append(total)
-                .append("\n  Used Memory = ").append(used);
+                .append("\n  Total Memory = ").append(totalMb).append(" MB")
+                .append("\n  Used Memory = ").append(usedMb).append(" MB");
         sb.append("\n\nDiscord Information:")
                 .append("\n  ID = ").append(event.getJDA().getSelfUser().getId())
                 .append("\n  Guilds = ").append(event.getJDA().getGuildCache().size())
