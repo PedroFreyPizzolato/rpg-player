@@ -163,20 +163,6 @@ public class OtherUtil
             prompt.alert(Prompt.Level.WARNING, "Java Version", 
                     "It appears that you may not be using a supported Java version. Please use 64-bit java.");
     }
-
-    public static void checkVersion(Prompt prompt)
-    {
-        // Get current version number
-        String version = getCurrentVersion();
-
-        // Check for new version
-        String latestVersion = getLatestVersion();
-
-        if(latestVersion != null && isNewerVersion(version, latestVersion))
-        {
-            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
-        }
-    }
     
     public static String getCurrentVersion()
     {
@@ -218,26 +204,21 @@ public class OtherUtil
         }
     }
 
-    /**
-     * Checks if the bot JMusicBot is being run on is supported & returns the reason if it is not.
-     * @return A string with the reason, or null if it is supported.
-     */
-    public static String getUnsupportedBotReason(JDA jda) 
+    public static void checkVersion(Prompt prompt)
     {
-        if (jda.getSelfUser().getFlags().contains(User.UserFlag.VERIFIED_BOT))
-            return "The bot is verified. Using JMusicBot in a verified bot is not supported.";
+        // Get current version number
+        String version = getCurrentVersion();
 
-        ApplicationInfo info = jda.retrieveApplicationInfo().complete();
-        if (info.isBotPublic())
-            return "\"Public Bot\" is enabled. Using JMusicBot as a public bot is not supported. Please disable it in the "
-                    + "Developer Dashboard at https://discord.com/developers/applications/" + jda.getSelfUser().getId() + "/bot ."
-                    + "You may also need to disable all Installation Contexts at https://discord.com/developers/applications/" 
-                    + jda.getSelfUser().getId() + "/installation .";
+        // Check for new version
+        String latestVersion = getLatestVersion();
 
-        return null;
+        if(latestVersion != null && isNewerVersion(version, latestVersion))
+        {
+            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
+        }
     }
 
-    private static boolean isNewerVersion(String current, String latest)
+    public static boolean isNewerVersion(String current, String latest)
     {
         if (current.equalsIgnoreCase("UNKNOWN"))
             return true;
@@ -255,5 +236,24 @@ public class OtherUtil
             if (late < curr) return false;
         }
         return false;
+    }
+
+    /**
+     * Checks if the bot JMusicBot is being run on is supported & returns the reason if it is not.
+     * @return A string with the reason, or null if it is supported.
+     */
+    public static String getUnsupportedBotReason(JDA jda) 
+    {
+        if (jda.getSelfUser().getFlags().contains(User.UserFlag.VERIFIED_BOT))
+            return "The bot is verified. Using JMusicBot in a verified bot is not supported.";
+
+        ApplicationInfo info = jda.retrieveApplicationInfo().complete();
+        if (info.isBotPublic())
+            return "\"Public Bot\" is enabled. Using JMusicBot as a public bot is not supported. Please disable it in the "
+                    + "Developer Dashboard at https://discord.com/developers/applications/" + jda.getSelfUser().getId() + "/bot ."
+                    + "You may also need to disable all Installation Contexts at https://discord.com/developers/applications/" 
+                    + jda.getSelfUser().getId() + "/installation .";
+
+        return null;
     }
 }
