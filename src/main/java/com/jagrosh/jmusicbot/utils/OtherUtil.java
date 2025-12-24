@@ -199,7 +199,10 @@ public class OtherUtil
                 try(Reader reader = body.charStream())
                 {
                     JSONObject obj = new JSONObject(new JSONTokener(reader));
-                    return obj.getString("tag_name");
+                    String tag = obj.getString("tag_name");
+                    if(tag.startsWith("v"))
+                        tag = tag.substring(1);
+                    return tag;
                 }
                 finally
                 {
