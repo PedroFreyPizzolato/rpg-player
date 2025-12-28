@@ -1,0 +1,111 @@
+package com.jagrosh.jmusicbot.commands.v1;
+
+import com.jagrosh.jdautilities.command.CommandClient;
+import com.jagrosh.jdautilities.command.CommandClientBuilder;
+import com.jagrosh.jdautilities.examples.command.AboutCommand;
+import com.jagrosh.jdautilities.examples.command.PingCommand;
+import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.BotConfig;
+import com.jagrosh.jmusicbot.JMusicBot;
+import com.jagrosh.jmusicbot.commands.v1.admin.*;
+import com.jagrosh.jmusicbot.commands.v1.dj.*;
+import com.jagrosh.jmusicbot.commands.v1.general.SettingsCmd;
+import com.jagrosh.jmusicbot.commands.v1.music.*;
+import com.jagrosh.jmusicbot.commands.v1.owner.*;
+import com.jagrosh.jmusicbot.commands.v2.music.NowPlayingSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.PlaySlashCmd;
+import com.jagrosh.jmusicbot.service.PlayerService;
+import com.jagrosh.jmusicbot.settings.SettingsManager;
+import com.jagrosh.jmusicbot.utils.OtherUtil;
+import net.dv8tion.jda.api.OnlineStatus;
+import org.jetbrains.annotations.NotNull;
+
+import java.awt.*;
+
+public class CommandFactory {
+
+    public static CommandClient createCommandClient(BotConfig config, SettingsManager settings, Bot bot) {
+        AboutCommand aboutCommand = createAboutCommand();
+        PlayerService playerService = new PlayerService(bot);
+
+        CommandClientBuilder cb = new CommandClientBuilder()
+            .setPrefix(config.getPrefix())
+            .setAlternativePrefix(config.getAltPrefix())
+            .setOwnerId(Long.toString(config.getOwnerId()))
+            .setEmojis(config.getSuccess(), config.getWarning(), config.getError())
+            .setHelpWord(config.getHelp())
+            .setLinkedCacheSize(200)
+            .setGuildSettingsManager(settings)
+            .addCommands(aboutCommand,
+                    new PingCommand(),
+                    new SettingsCmd(bot),
+
+                    // Lyrics functionality removed - JLyrics dependency removed
+                    // new LyricsCmd(bot),
+                    new NowPlayingCmd(bot),
+                    new PlayCmd(bot, playerService),
+                    new PlaylistsCmd(bot),
+                    new QueueCmd(bot),
+                    new RemoveCmd(bot),
+                    new SearchCmd(bot),
+                    new SCSearchCmd(bot),
+                    new SeekCmd(bot),
+                    new ShuffleCmd(bot),
+                    new SkipCmd(bot),
+
+                    new ForceRemoveCmd(bot),
+                    new ForceskipCmd(bot),
+                    new MoveTrackCmd(bot),
+                    new PauseCmd(bot),
+                    new PlaynextCmd(bot),
+                    new RepeatCmd(bot),
+                    new SkiptoCmd(bot),
+                    new StopCmd(bot),
+                    new VolumeCmd(bot),
+
+                    new PrefixCmd(bot),
+                    new QueueTypeCmd(bot),
+                    new SetdjCmd(bot),
+                    new SkipratioCmd(bot),
+                    new SettcCmd(bot),
+                    new SetvcCmd(bot),
+
+                    new AutoplaylistCmd(bot),
+                    new DebugCmd(bot),
+                    new PlaylistCmd(bot),
+                    new SetavatarCmd(bot),
+                    new SetgameCmd(bot),
+                    new SetnameCmd(bot),
+                    new SetstatusCmd(bot),
+                    new ShutdownCmd(bot)
+            ).addSlashCommands(
+                    new PlaySlashCmd(bot, playerService),
+                    new NowPlayingSlashCmd(bot)
+            ).setManualUpsert(true);
+
+        if (config.useEval())
+            cb.addCommand(new EvalCmd(bot));
+
+        if (config.getStatus() != OnlineStatus.UNKNOWN)
+            cb.setStatus(config.getStatus());
+
+        if (config.getGame() == null)
+            cb.useDefaultGame();
+        else if (config.isGameNone())
+            cb.setActivity(null);
+        else
+            cb.setActivity(config.getGame());
+
+        return cb.build();
+    }
+
+    private static @NotNull AboutCommand createAboutCommand() {
+        AboutCommand aboutCommand = new AboutCommand(Color.BLUE.brighter(),
+                "a music bot that is [easy to host yourself!](https://github.com/arif-banai/MusicBot) (v" + OtherUtil.getCurrentVersion() + ")",
+                new String[]{"High-quality music playback", "FairQueue™ Technology", "Easy to host yourself"},
+                JMusicBot.RECOMMENDED_PERMS);
+        aboutCommand.setIsAuthor(false);
+        aboutCommand.setReplacementCharacter("\uD83C\uDFB6");
+        return aboutCommand;
+    }
+}

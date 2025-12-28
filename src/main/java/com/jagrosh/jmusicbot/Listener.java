@@ -15,6 +15,9 @@
  */
 package com.jagrosh.jmusicbot;
 
+import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.RequestMetadata;
+import com.jagrosh.jmusicbot.commands.v1.DJCommand;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
@@ -24,10 +27,12 @@ import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,6 +120,69 @@ public class Listener extends ListenerAdapter
     {
         if(event.isFromGuild())
             bot.getNowplayingHandler().onMessageDelete(event.getGuild(), event.getMessageIdLong());
+    }
+
+    @Override
+    public void onButtonInteraction(ButtonInteractionEvent event)
+    {
+        if (!event.getComponentId().equals("stop") && !event.getComponentId().equals("pause") && !event.getComponentId().equals("skip"))
+            return;
+
+        if (event.getGuild() == null || event.getMember() == null) return;
+
+        AudioHandler handler = (AudioHandler) event.getGuild().getAudioManager().getSendingHandler();
+        if (handler == null)
+        {
+            event.reply("There is no music playing!").setEphemeral(true).queue();
+            return;
+        }
+
+        // Permissions check
+        if (!event.getMember().getVoiceState().inAudioChannel() ||
+                !event.getMember().getVoiceState().getChannel().equals(event.getGuild().getSelfMember().getVoiceState().getChannel()))
+        {
+            event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
+            return;
+        }
+
+        boolean isDJ = DJCommand.checkDJPermission(bot, event.getGuild(), event.getMember());
+
+        switch (event.getComponentId())
+        {
+            case "stop":
+                if (!isDJ)
+                {
+                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
+                    return;
+                }
+                handler.stopAndClear();
+                event.getGuild().getAudioManager().closeAudioConnection();
+                event.editMessage(MessageEditData.fromCreateData(handler.getNoMusicPlaying(event.getJDA()))).queue();
+                break;
+
+            case "pause":
+                if (!isDJ)
+                {
+                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
+                    return;
+                }
+                handler.getPlayer().setPaused(!handler.getPlayer().isPaused());
+                // Update the message to reflect new pause state (and button icon)
+                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                break;
+
+            case "skip":
+                RequestMetadata rm = handler.getRequestMetadata();
+                if (!isDJ && rm.getOwner() != event.getMember().getIdLong())
+                {
+                    event.reply("You need to be a DJ or the requester to skip!").setEphemeral(true).queue();
+                    return;
+                }
+                handler.setLastReason(event.getMember().getUser().getName() + " skipped forward.");
+                handler.getPlayer().stopTrack();
+                event.reply("Skipped!").setEphemeral(true).queue();
+                break;
+        }
     }
 
     @Override

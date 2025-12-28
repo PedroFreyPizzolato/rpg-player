@@ -16,6 +16,8 @@
 package com.jagrosh.jmusicbot.utils;
 
 import com.jagrosh.jmusicbot.audio.RequestMetadata.UserInfo;
+import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -109,5 +111,21 @@ public class FormatUtil {
                 .replace("@everyone", "@\u0435veryone") // cyrillic letter e
                 .replace("@here", "@h\u0435re") // cyrillic letter e
                 .trim();
+    }
+
+    public static String getTrackTitle(AudioTrack track) {
+        String title = track.getInfo().title;
+        if (track instanceof LocalAudioTrack && (title == null || title.equals("Unknown title"))) {
+            String identifier = track.getIdentifier();
+            int lastSeparator = Math.max(identifier.lastIndexOf('/'), identifier.lastIndexOf('\\'));
+            return (lastSeparator != -1) ? identifier.substring(lastSeparator + 1) : identifier;
+        }
+
+        // Truncate if the title is too long for Discord displays
+        if (title != null && title.length() > 100) {
+            title = title.substring(0, 97) + "...";
+        }
+
+        return title;
     }
 }

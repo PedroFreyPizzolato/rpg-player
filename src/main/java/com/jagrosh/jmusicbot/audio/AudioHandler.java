@@ -51,17 +51,17 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     public final static String PAUSE_EMOJI = "\u23F8"; // ⏸
     public final static String STOP_EMOJI  = "\u23F9"; // ⏹
 
-    private final static Logger LOGGER = LoggerFactory.getLogger(AudioHandler.class);
-
+    private final Logger log = LoggerFactory.getLogger(AudioHandler.class);
     private final List<AudioTrack> defaultQueue = new LinkedList<>();
     private final Set<String> votes = new HashSet<>();
     
     private final PlayerManager manager;
     private final AudioPlayer audioPlayer;
     private final long guildId;
-    
+
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
+    private String lastReason = null;
 
     protected AudioHandler(PlayerManager manager, Guild guild, AudioPlayer player)
     {
@@ -77,6 +77,11 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         queue = type.createInstance(queue);
     }
 
+    public void setLastReason(String reason)
+    {
+        this.lastReason = reason;
+    }
+
     public int addTrackToFront(QueuedTrack qtrack)
     {
         if(audioPlayer.getPlayingTrack()==null)
@@ -86,6 +91,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         }
         else
         {
+            log.debug("Added track to front of queue: {}", qtrack.getTrack().getInfo().title);
             queue.addAt(0, qtrack);
             return 0;
         }
@@ -99,7 +105,10 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             return -1;
         }
         else
+        {
+            log.debug("Added track to queue: {}", qtrack.getTrack().getInfo().title);
             return queue.add(qtrack);
+        }
     }
     
     public AbstractQueue<QueuedTrack> getQueue()
@@ -109,6 +118,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     
     public void stopAndClear()
     {
+        log.debug("Stopping and clearing queue");
         queue.clear();
         defaultQueue.clear();
         audioPlayer.stopTrack();
@@ -176,7 +186,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     {
         // Log track end with details for debugging
         if (endReason != AudioTrackEndReason.FINISHED) {
-            LOGGER.debug("Track {} ended with reason: {} (Track: {})", 
+            log.debug("Track {} ended with reason: {} (Track: {})", 
                     track != null ? track.getIdentifier() : "null",
                     endReason.name(),
                     track != null && track.getInfo() != null ? track.getInfo().title : "N/A");
@@ -188,15 +198,22 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         {
             QueuedTrack clone = new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class));
             if(repeatMode == RepeatMode.ALL)
+            {
                 queue.add(clone);
+                lastReason = "Repeating the queue.";
+            }
             else
+            {
                 queue.addAt(0, clone);
+                lastReason = "Repeating the song.";
+            }
         }
         
         if(queue.isEmpty())
         {
             if(!playFromDefault())
             {
+                lastReason = null;
                 manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, null);
                 if(!manager.getBot().getConfig().getStay())
                     manager.getBot().closeAudioConnection(guildId);
@@ -208,6 +225,8 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         else
         {
             QueuedTrack qt = queue.pull();
+            if (lastReason == null || (!lastReason.startsWith("Repeating") && !lastReason.startsWith("Skipped")))
+                lastReason = "Playing next song.";
             player.playTrack(qt.getTrack());
         }
     }
@@ -259,7 +278,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             || exception.getMessage().equals("Please sign in")
             || exception.getMessage().equals("This video requires login."))
         {
-            LOGGER.error(
+            log.error(
                     "Track {} has failed to play: {}. "
                             + "You will need to sign in to Google to play YouTube tracks. "
                             + "More info: https://jmusicbot.com/youtube-oauth2\n{}",
@@ -269,24 +288,40 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             );
         }
         else {
-            LOGGER.error("Track {} has failed to play\n{}", track.getIdentifier(), errorDetails.toString(), exception);
+            log.error("Track {} has failed to play\n{}", track.getIdentifier(), errorDetails.toString(), exception);
         }
     }
 
     @Override
-    public void onTrackStart(AudioPlayer player, AudioTrack track) 
+    public void onTrackStart(AudioPlayer player, AudioTrack track)
     {
+        // Access the metadata object
+        var info = track.getInfo();
+
+        log.debug("Track Started Details:");
+        log.debug(" - Title:      {}", info.title);
+        log.debug(" - Author:     {}", info.author);
+        log.debug(" - Duration:   {} ms", info.length);
+        log.debug(" - Identifier: {}", info.identifier);
+        log.debug(" - URI:        {}", info.uri);
+        log.debug(" - Is Stream:  {}", info.isStream);
+        log.debug(" - Source:     {}", track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "unknown");
+        log.debug(" - Player Vol: {}", player.getVolume());
+        log.debug(" - Is Paused:  {}", player.isPaused());
         votes.clear();
         
         // Log track start with details for debugging
         if (track != null && track.getInfo() != null) {
-            LOGGER.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
+            log.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
                     track.getInfo().title,
                     track.getIdentifier(),
                     track.getInfo().uri,
                     track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown");
         }
-        
+
+        if (lastReason == null)
+            lastReason = "Playing next song.";
+
         manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, track);
     }
 
@@ -297,7 +332,9 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             audioPlayer.getPlayingTrack(),
             jda.getGuildById(guildId),
             audioPlayer.isPaused(),
-            audioPlayer.getVolume()
+            audioPlayer.getVolume(),
+            queue.size(),
+            lastReason
         );
     }
 
@@ -320,27 +357,6 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     }
     
     // Audio Send Handler methods
-    /*@Override
-    public boolean canProvide() 
-    {
-        if (lastFrame == null)
-            lastFrame = audioPlayer.provide();
-
-        return lastFrame != null;
-    }
-
-    @Override
-    public byte[] provide20MsAudio() 
-    {
-        if (lastFrame == null) 
-            lastFrame = audioPlayer.provide();
-
-        byte[] data = lastFrame != null ? lastFrame.getData() : null;
-        lastFrame = null;
-
-        return data;
-    }*/
-    
     @Override
     public boolean canProvide() 
     {

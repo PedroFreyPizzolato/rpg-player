@@ -16,6 +16,8 @@
 package com.jagrosh.jmusicbot.audio;
 
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
+import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
@@ -66,19 +68,65 @@ public class NowPlayingHandler
     // "event"-based methods
     public void onTrackUpdate(long guildId, AudioTrack track)
     {
-        // Trigger immediate UI update for this guild
-        updateSingleGuild(guildId);
+        // For track updates (start/stop), we want to potentially send a NEW message
+        if (track != null)
+        {
+            // Send new message
+            sendNewMessage(guildId);
+        }
+        else
+        {
+            // Track stopped, just update UI (which will probably clear it or show "No music playing")
+            updateSingleGuild(guildId);
+        }
 
         // update bot status if applicable
         if(bot.getConfig().getSongInStatus())
         {
             if(track != null)
-                bot.getJDA().getPresence().setActivity(Activity.listening(track.getInfo().title));
+            {
+                String title = FormatUtil.getTrackTitle(track);
+                bot.getJDA().getPresence().setActivity(Activity.listening(title));
+            }
             else
+            {
                 bot.resetGame();
+            }
         }
     }
-    
+
+    private void sendNewMessage(long guildId)
+    {
+        Guild guild = bot.getJDA().getGuildById(guildId);
+        if(guild == null)
+        {
+            lastNP.remove(guildId);
+            return;
+        }
+
+        NPLocation loc = lastNP.get(guildId);
+        if(loc == null)
+            return;
+
+        TextChannel tc = guild.getTextChannelById(loc.channelId());
+        if (tc == null) {
+            lastNP.remove(guildId);
+            return;
+        }
+
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
+        if (msg == null) return;
+
+        // Clean up previous message if it exists
+        tc.deleteMessageById(loc.messageId()).queue(s -> {}, t -> {});
+
+        tc.sendMessage(msg).queue(
+                m -> setLastNPMessage(m),
+                throwable -> handleUpdateError(guildId, throwable)
+        );
+    }
+
     public void onMessageDelete(Guild guild, long messageId)
     {
         NPLocation loc = lastNP.get(guild.getIdLong());
