@@ -127,6 +127,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         log.debug("Stopping and clearing queue");
         queue.clear();
         defaultQueue.clear();
+        previousTracks.clear();
         audioPlayer.stopTrack();
         //current = null;
     }
@@ -239,7 +240,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
                 player.setPaused(false);
             }
         }
-        else
+        else if (endReason != AudioTrackEndReason.REPLACED)
         {
             QueuedTrack qt = queue.pull();
             if (lastReason == null || (!lastReason.startsWith("Repeating") && !lastReason.startsWith("Skipped")))

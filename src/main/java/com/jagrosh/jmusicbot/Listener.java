@@ -22,6 +22,7 @@ import com.jagrosh.jmusicbot.commands.v1.DJCommand;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
@@ -160,13 +161,26 @@ public class Listener extends ListenerAdapter
                     event.reply("You need to be a DJ or the requester to go back!").setEphemeral(true).queue();
                     return;
                 }
+                AudioTrack playing = handler.getPlayer().getPlayingTrack();
+
+                // If the track has played for more than 5 seconds, restart it
+                if (playing != null && playing.getPosition() > 5000)
+                {
+                    playing.setPosition(0);
+                    event.reply("Restarted **" + playing.getInfo().title + "**").setEphemeral(true).queue();
+                    return;
+                }
                 if (handler.getPreviousTracks().isEmpty())
                 {
                     event.reply("There are no previous tracks!").setEphemeral(true).queue();
                     return;
                 }
                 QueuedTrack previous = handler.getPreviousTracks().remove(0);
-                handler.getQueue().addAt(0, new QueuedTrack(handler.getPlayer().getPlayingTrack().makeClone(), handler.getRequestMetadata()));
+                AudioTrack currentlyPlaying = handler.getPlayer().getPlayingTrack();
+                if (currentlyPlaying != null)
+                {
+                    handler.getQueue().addAt(0, new QueuedTrack(currentlyPlaying.makeClone(), handler.getRequestMetadata()));
+                }
                 handler.getPlayer().playTrack(previous.getTrack());
                 event.reply("Went back to **" + previous.getTrack().getInfo().title + "**").setEphemeral(true).queue();
                 break;
