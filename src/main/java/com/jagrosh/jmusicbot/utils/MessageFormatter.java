@@ -4,8 +4,8 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingInfo;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioTrack;
-import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioTrack;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -47,6 +47,11 @@ public class MessageFormatter {
         eb.addField("Queue", String.valueOf(info.queueSize), true);
         eb.addField("Volume", info.volume + "%", true);
 
+        RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
+        if (repeatMode != RepeatMode.OFF) {
+            eb.addField("Repeat", repeatMode.getEmoji() + " " + repeatMode.getUserFriendlyName(), true);
+        }
+
         RequestMetadata rm = info.track.getUserData(RequestMetadata.class);
         if (rm != null && rm.getOwner() != 0L) {
             User u = info.guild.getJDA().getUserById(rm.user.id);
@@ -67,11 +72,28 @@ public class MessageFormatter {
         mb.setEmbeds(eb.build());
 
         // Add interactive buttons using ActionRow.of for better compatibility
-        mb.setComponents(ActionRow.of(
-                Button.secondary("stop", Emoji.fromUnicode("\u23F9")), // Stop ⏹
-                Button.primary("pause", Emoji.fromUnicode(info.isPaused ? "\u25B6" : "\u23F8")), // Pause/Resume ▶ or ⏸
-                Button.secondary("skip", Emoji.fromUnicode("\u23ED")) // Skip ⏭
-        ));
+        Button repeatButton = switch (repeatMode) {
+            case ALL -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+            case SINGLE -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
+            default -> Button.secondary("repeat", Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+        };
+
+        mb.setComponents(
+                ActionRow.of(
+                        Button.secondary("previous", Emoji.fromUnicode("\u23EE")), // Previous ⏮
+                        info.isPaused
+                                ? Button.primary("pause", Emoji.fromUnicode("\u25B6"))    // Pause ⏸
+                                : Button.secondary("pause", Emoji.fromUnicode("\u23F8")), // or Resume ▶
+                        Button.secondary("skip", Emoji.fromUnicode("\u23ED")), // Skip ⏭
+                        Button.secondary("stop", Emoji.fromUnicode("\u23F9")) // Stop ⏹
+                ),
+                ActionRow.of(
+                        Button.secondary("shuffle", Emoji.fromUnicode("\uD83D\uDD00")), // Shuffle 🔀
+                        repeatButton, // Repeat cycle
+                        Button.secondary("voldown", Emoji.fromUnicode("\uD83D\uDD09")), // Vol Down 🔉
+                        Button.secondary("volup", Emoji.fromUnicode("\uD83D\uDD0A")) // Vol Up 🔊
+                )
+        );
 
         return mb.build();
     }

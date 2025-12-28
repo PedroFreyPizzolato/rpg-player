@@ -58,6 +58,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     private final PlayerManager manager;
     private final AudioPlayer audioPlayer;
     private final long guildId;
+    private final List<QueuedTrack> previousTracks = new LinkedList<>();
 
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
@@ -111,6 +112,11 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         }
     }
     
+    public List<QueuedTrack> getPreviousTracks()
+    {
+        return previousTracks;
+    }
+
     public AbstractQueue<QueuedTrack> getQueue()
     {
         return queue;
@@ -191,7 +197,18 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
                     endReason.name(),
                     track != null && track.getInfo() != null ? track.getInfo().title : "N/A");
         }
-        
+        else if (track != null && track.getInfo() != null) {
+            log.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
+        }
+
+        // Add to previous tracks
+        if (endReason.mayStartNext && track != null)
+        {
+            previousTracks.add(0, new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
+            if (previousTracks.size() > 10)
+                previousTracks.remove(10);
+        }
+
         RepeatMode repeatMode = manager.getBot().getSettingsManager().getSettings(guildId).getRepeatMode();
         // if the track ended normally, and we're in repeat mode, re-add it to the queue
         if(endReason==AudioTrackEndReason.FINISHED && repeatMode != RepeatMode.OFF)

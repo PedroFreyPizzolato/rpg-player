@@ -94,7 +94,7 @@ public abstract class AbstractQueue<T extends Queueable>
         List<Integer> iset = new ArrayList<>();
         for(int i=0; i<list.size(); i++)
         {
-            if(list.get(i).getIdentifier()==identifier)
+            if(identifier == 0 || list.get(i).getIdentifier()==identifier)
                 iset.add(i);
         }
         for(int j=0; j<iset.size(); j++)
