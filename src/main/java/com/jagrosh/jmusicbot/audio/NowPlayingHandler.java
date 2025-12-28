@@ -104,22 +104,39 @@ public class NowPlayingHandler
             return;
         }
 
-        NPLocation loc = lastNP.get(guildId);
-        if(loc == null)
-            return;
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
+        if (msg == null) return;
 
-        TextChannel tc = guild.getTextChannelById(loc.channelId());
+        NPLocation loc = lastNP.get(guildId);
+        TextChannel tc;
+        if(loc == null)
+        {
+            // If we don't have a last NP message, try to use the channel from the current track's metadata
+            AudioTrack track = handler.getPlayer().getPlayingTrack();
+            if (track != null && track.getUserData(RequestMetadata.class) != null)
+            {
+                long channelId = track.getUserData(RequestMetadata.class).channelId;
+                tc = guild.getTextChannelById(channelId);
+            }
+            else
+            {
+                tc = null;
+            }
+        }
+        else
+        {
+            tc = guild.getTextChannelById(loc.channelId());
+        }
+
         if (tc == null) {
             lastNP.remove(guildId);
             return;
         }
 
-        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
-        MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
-        if (msg == null) return;
-
         // Clean up previous message if it exists
-        tc.deleteMessageById(loc.messageId()).queue(s -> {}, t -> {});
+        if (loc != null)
+            tc.deleteMessageById(loc.messageId()).queue(s -> {}, t -> {});
 
         tc.sendMessage(msg).queue(
                 m -> setLastNPMessage(m),

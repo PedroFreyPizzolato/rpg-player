@@ -16,8 +16,10 @@
 package com.jagrosh.jmusicbot;
 
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
@@ -172,11 +174,17 @@ public class Listener extends ListenerAdapter
                 break;
 
             case "skip":
-                RequestMetadata rm = handler.getRequestMetadata();
-                if (!isDJ && rm.getOwner() != event.getMember().getIdLong())
+                RequestMetadata skipRm = handler.getRequestMetadata();
+                if (!isDJ && skipRm.getOwner() != event.getMember().getIdLong())
                 {
                     event.reply("You need to be a DJ or the requester to skip!").setEphemeral(true).queue();
                     return;
+                }
+                if (bot.getSettingsManager().getSettings(event.getGuild()).getRepeatMode() == RepeatMode.ALL)
+                {
+                    var track = handler.getPlayer().getPlayingTrack();
+                    if (track != null)
+                        handler.addTrack(new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
                 }
                 handler.setLastReason(event.getMember().getUser().getName() + " skipped forward.");
                 handler.getPlayer().stopTrack();

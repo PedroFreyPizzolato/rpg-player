@@ -34,7 +34,10 @@ public class PlayerService
 
     public void play(Guild guild, Member member, String args, TextChannel channel, OutputAdapter output)
     {
-        if (args.isEmpty())
+        if (args != null && args.startsWith("\"") && args.endsWith("\""))
+            args = args.substring(1, args.length() - 1);
+
+        if (args == null || args.isEmpty())
         {
             AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
             if (handler.getPlayer().getPlayingTrack() != null && handler.getPlayer().isPaused())
@@ -104,7 +107,7 @@ public class PlayerService
 
             AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
             handler.setLastReason(member.getUser().getName() + " added to the queue.");
-            int pos = handler.addTrack(new QueuedTrack(track, new RequestMetadata(member.getUser(), new RequestMetadata.RequestInfo(args, track.getInfo().uri)))) + 1;
+            int pos = handler.addTrack(new QueuedTrack(track, new RequestMetadata(member.getUser(), new RequestMetadata.RequestInfo(args, track.getInfo().uri), channel.getIdLong()))) + 1;
             String addMsg = FormatUtil.filter(bot.getConfig().getSuccess()+" Added **"+title
                     +"** (`"+ TimeUtil.formatTime(track.getDuration())+"`) "+(pos==0?"to begin playing":" to the queue at position "+pos));
             if(playlist==null || !guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_ADD_REACTION))
@@ -139,7 +142,7 @@ public class PlayerService
                 {
                     AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
                     handler.setLastReason(member.getUser().getName() + " added a playlist.");
-                    handler.addTrack(new QueuedTrack(track, new RequestMetadata(member.getUser(), new RequestMetadata.RequestInfo(args, track.getInfo().uri))));
+                    handler.addTrack(new QueuedTrack(track, new RequestMetadata(member.getUser(), new RequestMetadata.RequestInfo(args, track.getInfo().uri), channel.getIdLong())));
                     count[0]++;
                 }
             });
