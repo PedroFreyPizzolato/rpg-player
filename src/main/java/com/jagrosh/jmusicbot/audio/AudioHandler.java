@@ -58,7 +58,6 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     private final PlayerManager manager;
     private final AudioPlayer audioPlayer;
     private final long guildId;
-    private final List<QueuedTrack> previousTracks = new LinkedList<>();
 
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
@@ -71,11 +70,15 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         this.guildId = guild.getIdLong();
 
         this.setQueueType(manager.getBot().getSettingsManager().getSettings(guildId).getQueueType());
+        // Set default history size to 50 tracks
+        this.queue.setMaxHistorySize(50);
     }
 
     public void setQueueType(QueueType type)
     {
         queue = type.createInstance(queue);
+        // History and its max size are preserved when changing queue types
+        // If this is a new queue (first initialization), max size will be set in constructor
     }
 
     public void setLastReason(String reason)
@@ -112,9 +115,15 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         }
     }
     
+    /**
+     * Gets the playback history from the queue.
+     * Most recent tracks are at index 0.
+     * 
+     * @return A list of previously played tracks
+     */
     public List<QueuedTrack> getPreviousTracks()
     {
-        return previousTracks;
+        return queue.getHistory().getList();
     }
 
     public AbstractQueue<QueuedTrack> getQueue()
@@ -125,9 +134,8 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     public void stopAndClear()
     {
         log.debug("Stopping and clearing queue");
-        queue.clear();
+        queue.clearAll();
         defaultQueue.clear();
-        previousTracks.clear();
         audioPlayer.stopTrack();
         //current = null;
     }
@@ -202,12 +210,11 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             log.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
         }
 
-        // Add to previous tracks
+        // Add to queue history for tracking previously played tracks
         if (endReason.mayStartNext && track != null)
         {
-            previousTracks.add(0, new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
-            if (previousTracks.size() > 10)
-                previousTracks.remove(10);
+            QueuedTrack completedTrack = new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class));
+            queue.addToHistory(completedTrack);
         }
 
         RepeatMode repeatMode = manager.getBot().getSettingsManager().getSettings(guildId).getRepeatMode();

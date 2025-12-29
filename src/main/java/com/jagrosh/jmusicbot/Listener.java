@@ -170,19 +170,30 @@ public class Listener extends ListenerAdapter
                     event.reply("Restarted **" + playing.getInfo().title + "**").setEphemeral(true).queue();
                     return;
                 }
-                if (handler.getPreviousTracks().isEmpty())
+                
+                // Check if there's history available
+                if (handler.getQueue().getHistory().isEmpty())
                 {
                     event.reply("There are no previous tracks!").setEphemeral(true).queue();
                     return;
                 }
-                QueuedTrack previous = handler.getPreviousTracks().remove(0);
+                
+                // Use queue's rewind method to go back to previous track
                 AudioTrack currentlyPlaying = handler.getPlayer().getPlayingTrack();
-                if (currentlyPlaying != null)
+                QueuedTrack currentQueued = currentlyPlaying != null 
+                    ? new QueuedTrack(currentlyPlaying.makeClone(), handler.getRequestMetadata())
+                    : null;
+                
+                QueuedTrack previous = handler.getQueue().rewind(currentQueued);
+                if (previous != null)
                 {
-                    handler.getQueue().addAt(0, new QueuedTrack(currentlyPlaying.makeClone(), handler.getRequestMetadata()));
+                    handler.getPlayer().playTrack(previous.getTrack());
+                    event.reply("Went back to **" + previous.getTrack().getInfo().title + "**").setEphemeral(true).queue();
                 }
-                handler.getPlayer().playTrack(previous.getTrack());
-                event.reply("Went back to **" + previous.getTrack().getInfo().title + "**").setEphemeral(true).queue();
+                else
+                {
+                    event.reply("There are no previous tracks!").setEphemeral(true).queue();
+                }
                 break;
 
             case "shuffle":
