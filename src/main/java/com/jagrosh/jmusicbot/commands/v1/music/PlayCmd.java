@@ -69,6 +69,8 @@ public class PlayCmd extends MusicCommand
                 @Override public void replyWarning(String content) { event.replyWarning(content); }
                 @Override public void editMessage(String content) { /* No-op for unpause */ }
                 @Override public void editMessage(String content, Consumer<Message> onSuccess) { /* No-op for unpause */ }
+                @Override public void editNowPlaying(AudioHandler handler) { /* No-op for v1 play */ }
+                @Override public void editNoMusic(AudioHandler handler) { /* No-op for v1 play */ }
                 @Override public void onShowHelp() {
                     StringBuilder builder = new StringBuilder(event.getClient().getWarning()+" Play Commands:\n");
                     builder.append("\n`").append(event.getClient().getPrefix()).append(name).append(" <song title>` - plays the first result from Youtube");
@@ -96,6 +98,9 @@ public class PlayCmd extends MusicCommand
                 public void editMessage(String content, Consumer<Message> onSuccess) {
                     m.editMessage(content).queue(onSuccess);
                 }
+
+                @Override public void editNowPlaying(AudioHandler handler) { /* No-op for v1 play */ }
+                @Override public void editNoMusic(AudioHandler handler) { /* No-op for v1 play */ }
 
                 @Override public void onShowHelp() { /* Should not happen as args are checked */ }
             });

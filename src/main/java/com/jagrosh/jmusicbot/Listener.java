@@ -36,11 +36,13 @@ import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
+import com.jagrosh.jmusicbot.service.PlayerService;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  *
@@ -151,147 +153,74 @@ public class Listener extends ListenerAdapter
             return;
         }
 
-        boolean isDJ = DJCommand.checkDJPermission(bot, event.getGuild(), event.getMember());
+        PlayerService playerService = bot.getPlayerService();
+        PlayerService.OutputAdapter adapter = new PlayerService.OutputAdapter() {
+            @Override
+            public void replySuccess(String content) {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyError(String content) {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyWarning(String content) {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void editMessage(String content) {
+                event.editMessage(content).queue();
+            }
+
+            @Override
+            public void editMessage(String content, Consumer<net.dv8tion.jda.api.entities.Message> onSuccess) {
+                event.editMessage(content).queue(hook -> hook.retrieveOriginal().queue(onSuccess));
+            }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler) {
+                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+            }
+
+            @Override
+            public void editNoMusic(AudioHandler handler) {
+                event.editMessage(MessageEditData.fromCreateData(handler.getNoMusicPlaying(event.getJDA()))).queue();
+            }
+
+            @Override
+            public void onShowHelp() {
+                // Not used for buttons
+            }
+        };
 
         switch (event.getComponentId())
         {
             case "previous":
-                if (!isDJ && handler.getRequestMetadata().getOwner() != event.getMember().getIdLong())
-                {
-                    event.reply("You need to be a DJ or the requester to go back!").setEphemeral(true).queue();
-                    return;
-                }
-                AudioTrack playing = handler.getPlayer().getPlayingTrack();
-
-                // If the track has played for more than 5 seconds, restart it
-                if (playing != null && playing.getPosition() > 5000)
-                {
-                    playing.setPosition(0);
-                    event.reply("Restarted **" + playing.getInfo().title + "**").setEphemeral(true).queue();
-                    return;
-                }
-                
-                // Check if there's history available
-                if (handler.getQueue().getHistory().isEmpty())
-                {
-                    event.reply("There are no previous tracks!").setEphemeral(true).queue();
-                    return;
-                }
-                
-                // Use queue's rewind method to go back to previous track
-                AudioTrack currentlyPlaying = handler.getPlayer().getPlayingTrack();
-                QueuedTrack currentQueued = currentlyPlaying != null 
-                    ? new QueuedTrack(currentlyPlaying.makeClone(), handler.getRequestMetadata())
-                    : null;
-                
-                QueuedTrack previous = handler.getQueue().rewind(currentQueued);
-                if (previous != null)
-                {
-                    handler.getPlayer().playTrack(previous.getTrack());
-                    event.reply("Went back to **" + previous.getTrack().getInfo().title + "**").setEphemeral(true).queue();
-                }
-                else
-                {
-                    event.reply("There are no previous tracks!").setEphemeral(true).queue();
-                }
+                playerService.previous(event.getGuild(), event.getMember(), adapter);
                 break;
-
             case "shuffle":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                int s = handler.getQueue().shuffle(0);
-                event.reply("Shuffled " + s + " tracks!").setEphemeral(true).queue();
+                playerService.shuffle(event.getGuild(), event.getMember(), 0, adapter);
                 break;
-
             case "repeat":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                RepeatMode mode = bot.getSettingsManager().getSettings(event.getGuild()).getRepeatMode();
-                RepeatMode nextMode;
-                switch (mode) {
-                    case OFF:
-                        nextMode = RepeatMode.ALL;
-                        break;
-                    case ALL:
-                        nextMode = RepeatMode.SINGLE;
-                        break;
-                    case SINGLE:
-                    default:
-                        nextMode = RepeatMode.OFF;
-                        break;
-                }
-                bot.getSettingsManager().getSettings(event.getGuild()).setRepeatMode(nextMode);
-                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                playerService.cycleRepeatMode(event.getGuild(), event.getMember(), adapter);
                 break;
-
             case "voldown":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                int newVolDown = Math.max(0, handler.getPlayer().getVolume() - 10);
-                handler.getPlayer().setVolume(newVolDown);
-                bot.getSettingsManager().getSettings(event.getGuild()).setVolume(newVolDown);
-                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                playerService.adjustVolume(event.getGuild(), event.getMember(), -10, adapter);
                 break;
-
             case "volup":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                int newVolUp = Math.min(150, handler.getPlayer().getVolume() + 10);
-                handler.getPlayer().setVolume(newVolUp);
-                bot.getSettingsManager().getSettings(event.getGuild()).setVolume(newVolUp);
-                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                playerService.adjustVolume(event.getGuild(), event.getMember(), 10, adapter);
                 break;
-
             case "stop":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                handler.stopAndClear();
-                event.getGuild().getAudioManager().closeAudioConnection();
-                event.editMessage(MessageEditData.fromCreateData(handler.getNoMusicPlaying(event.getJDA()))).queue();
+                playerService.stop(event.getGuild(), event.getMember(), adapter);
                 break;
-
             case "pause":
-                if (!isDJ)
-                {
-                    event.reply("You need to be a DJ to use this button!").setEphemeral(true).queue();
-                    return;
-                }
-                handler.getPlayer().setPaused(!handler.getPlayer().isPaused());
-                // Update the message to reflect new pause state (and button icon)
-                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                playerService.pause(event.getGuild(), event.getMember(), adapter);
                 break;
-
             case "skip":
-                RequestMetadata skipRm = handler.getRequestMetadata();
-                if (!isDJ && skipRm.getOwner() != event.getMember().getIdLong())
-                {
-                    event.reply("You need to be a DJ or the requester to skip!").setEphemeral(true).queue();
-                    return;
-                }
-                if (bot.getSettingsManager().getSettings(event.getGuild()).getRepeatMode() == RepeatMode.ALL)
-                {
-                    var track = handler.getPlayer().getPlayingTrack();
-                    if (track != null)
-                        handler.addTrack(new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
-                }
-                handler.setLastReason(event.getMember().getUser().getName() + " skipped forward.");
-                handler.getPlayer().stopTrack();
-                event.reply("Skipped!").setEphemeral(true).queue();
+                playerService.skip(event.getGuild(), event.getMember(), adapter);
                 break;
         }
     }

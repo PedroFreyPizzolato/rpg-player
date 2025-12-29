@@ -13,12 +13,14 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException.Severity;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.exceptions.PermissionException;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -58,6 +60,161 @@ public class PlayerService
         bot.getPlayerManager().loadItemOrdered(guild, args, new ResultHandler(output, guild, member, args, false, channel));
     }
 
+    public void previous(Guild guild, Member member, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ && handler.getRequestMetadata().getOwner() != member.getIdLong())
+        {
+            output.replyError("You need to be a DJ or the requester to go back!");
+            return;
+        }
+        AudioTrack playing = handler.getPlayer().getPlayingTrack();
+
+        // If the track has played for more than 5 seconds, restart it
+        if (playing != null && playing.getPosition() > 5000)
+        {
+            playing.setPosition(0);
+            output.replySuccess("Restarted **" + playing.getInfo().title + "**");
+            return;
+        }
+
+        // Check if there's history available
+        if (handler.getQueue().getHistory().isEmpty())
+        {
+            output.replyError("There are no previous tracks!");
+            return;
+        }
+
+        // Use queue's rewind method to go back to previous track
+        AudioTrack currentlyPlaying = handler.getPlayer().getPlayingTrack();
+        QueuedTrack currentQueued = currentlyPlaying != null
+                ? new QueuedTrack(currentlyPlaying.makeClone(), handler.getRequestMetadata())
+                : null;
+
+        QueuedTrack previous = handler.getQueue().rewind(currentQueued);
+        if (previous != null)
+        {
+            handler.getPlayer().playTrack(previous.getTrack());
+            output.replySuccess("Went back to **" + previous.getTrack().getInfo().title + "**");
+        }
+        else
+        {
+            output.replyError("There are no previous tracks!");
+        }
+    }
+
+    public void shuffle(Guild guild, Member member, int startIndex, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ)
+        {
+            output.replyError("You need to be a DJ to use this button!");
+            return;
+        }
+        int s = handler.getQueue().shuffle(startIndex);
+        output.replySuccess("Shuffled " + s + " tracks!");
+    }
+
+    public void cycleRepeatMode(Guild guild, Member member, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ)
+        {
+            output.replyError("You need to be a DJ to use this button!");
+            return;
+        }
+        RepeatMode mode = bot.getSettingsManager().getSettings(guild).getRepeatMode();
+        RepeatMode nextMode;
+        switch (mode) {
+            case OFF:
+                nextMode = RepeatMode.ALL;
+                break;
+            case ALL:
+                nextMode = RepeatMode.SINGLE;
+                break;
+            case SINGLE:
+            default:
+                nextMode = RepeatMode.OFF;
+                break;
+        }
+        bot.getSettingsManager().getSettings(guild).setRepeatMode(nextMode);
+        output.editNowPlaying(handler);
+    }
+
+    public void adjustVolume(Guild guild, Member member, int change, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ)
+        {
+            output.replyError("You need to be a DJ to use this button!");
+            return;
+        }
+        int newVol = handler.getPlayer().getVolume() + change;
+        newVol = Math.max(0, Math.min(150, newVol));
+        handler.getPlayer().setVolume(newVol);
+        bot.getSettingsManager().getSettings(guild).setVolume(newVol);
+        output.editNowPlaying(handler);
+    }
+
+    public void stop(Guild guild, Member member, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ)
+        {
+            output.replyError("You need to be a DJ to use this button!");
+            return;
+        }
+        handler.stopAndClear();
+        guild.getAudioManager().closeAudioConnection();
+        output.editNoMusic(handler);
+    }
+
+    public void pause(Guild guild, Member member, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        if (!isDJ)
+        {
+            output.replyError("You need to be a DJ to use this button!");
+            return;
+        }
+        handler.getPlayer().setPaused(!handler.getPlayer().isPaused());
+        output.editNowPlaying(handler);
+    }
+
+    public void skip(Guild guild, Member member, OutputAdapter output)
+    {
+        AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        boolean isDJ = DJCommand.checkDJPermission(bot, guild, member);
+
+        RequestMetadata skipRm = handler.getRequestMetadata();
+        if (!isDJ && skipRm.getOwner() != member.getIdLong())
+        {
+            output.replyError("You need to be a DJ or the requester to skip!");
+            return;
+        }
+        if (bot.getSettingsManager().getSettings(guild).getRepeatMode() == RepeatMode.ALL)
+        {
+            var track = handler.getPlayer().getPlayingTrack();
+            if (track != null)
+                handler.addTrack(new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
+        }
+        handler.setLastReason(member.getUser().getName() + " skipped forward.");
+        handler.getPlayer().stopTrack();
+        output.replySuccess("Skipped!");
+    }
+
     public interface OutputAdapter
     {
         void replySuccess(String content);
@@ -65,6 +222,8 @@ public class PlayerService
         void replyWarning(String content);
         void editMessage(String content);
         void editMessage(String content, Consumer<Message> onSuccess);
+        void editNowPlaying(AudioHandler handler);
+        void editNoMusic(AudioHandler handler);
         void onShowHelp();
     }
 

@@ -23,6 +23,7 @@ import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
+import com.jagrosh.jmusicbot.service.PlayerService;
 import com.jagrosh.jmusicbot.utils.InstanceLock;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
@@ -48,6 +49,7 @@ public class Bot
     private final PlaylistLoader playlists;
     private final NowPlayingHandler nowplaying;
     private final AloneInVoiceHandler aloneInVoiceHandler;
+    private final PlayerService playerService;
     private final YoutubeOauth2TokenHandler youTubeOauth2TokenHandler;
     private final Instant startTime;
     
@@ -72,6 +74,7 @@ public class Bot
         this.nowplaying.init();
         this.aloneInVoiceHandler = new AloneInVoiceHandler(this);
         this.aloneInVoiceHandler.init();
+        this.playerService = new PlayerService(this);
     }
     
     public BotConfig getConfig()
@@ -113,7 +116,12 @@ public class Bot
     {
         return aloneInVoiceHandler;
     }
-    
+
+    public PlayerService getPlayerService()
+    {
+        return playerService;
+    }
+
     public JDA getJDA()
     {
         return jda;

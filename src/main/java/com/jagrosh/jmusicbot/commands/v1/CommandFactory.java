@@ -26,7 +26,7 @@ public class CommandFactory {
 
     public static CommandClient createCommandClient(BotConfig config, SettingsManager settings, Bot bot) {
         AboutCommand aboutCommand = createAboutCommand();
-        PlayerService playerService = new PlayerService(bot);
+        PlayerService playerService = bot.getPlayerService();
 
         CommandClientBuilder cb = new CommandClientBuilder()
             .setPrefix(config.getPrefix())

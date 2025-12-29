@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
 import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -72,6 +73,16 @@ public class PlaySlashCmd extends MusicSlashCommand
                 }
 
                 @Override
+                public void editNowPlaying(com.jagrosh.jmusicbot.audio.AudioHandler handler) {
+                    event.reply(handler.getNowPlaying(event.getJDA())).queue();
+                }
+
+                @Override
+                public void editNoMusic(com.jagrosh.jmusicbot.audio.AudioHandler handler) {
+                    event.reply(handler.getNoMusicPlaying(event.getJDA())).queue();
+                }
+
+                @Override
                 public void onShowHelp() {
                     event.reply(event.getClient().getWarning() + " Please include a song title or URL!").setEphemeral(true).queue();
                 }
@@ -105,6 +116,16 @@ public class PlaySlashCmd extends MusicSlashCommand
                 @Override
                 public void editMessage(String content, Consumer<Message> onSuccess) {
                     hook.editOriginal(content).queue(onSuccess);
+                }
+
+                @Override
+                public void editNowPlaying(com.jagrosh.jmusicbot.audio.AudioHandler handler) {
+                    hook.editOriginal(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                }
+
+                @Override
+                public void editNoMusic(com.jagrosh.jmusicbot.audio.AudioHandler handler) {
+                    hook.editOriginal(MessageEditData.fromCreateData(handler.getNoMusicPlaying(event.getJDA()))).queue();
                 }
 
                 @Override
