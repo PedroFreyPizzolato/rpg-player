@@ -24,6 +24,8 @@ import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,6 +38,7 @@ import java.nio.file.Path;
  */
 public class BotConfig
 {
+    private final static Logger LOG = LoggerFactory.getLogger(BotConfig.class);
     private final Prompt prompt;
     private final static String CONTEXT = "Config";
     private final static String START_TOKEN = "/// START OF JMUSICBOT CONFIG ///";
@@ -52,6 +55,8 @@ public class BotConfig
     private OnlineStatus status;
     private Activity game;
     private Config aliases, transforms;
+
+    private String ipv6Block;
 
     private boolean valid = false;
     
@@ -102,6 +107,9 @@ public class BotConfig
             transforms = config.getConfig("transforms");
             skipratio = config.getDouble("skipratio");
             dbots = owner == 113156185389092864L;
+
+            ipv6Block = config.hasPath("ipv6block") ? config.getString("ipv6block") : null;
+            LOG.info("IPv6 Block is set to: {}", ipv6Block);
             
             // we may need to write a new config file
             boolean write = false;
@@ -383,5 +391,10 @@ public class BotConfig
     public Config getTransforms()
     {
         return transforms;
+    }
+
+    public String getIPv6Block()
+    {
+        return ipv6Block;
     }
 }

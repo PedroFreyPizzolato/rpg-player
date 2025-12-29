@@ -69,6 +69,7 @@ public class JMusicBot
      */
     public static void main(String[] args)
     {
+        LOG.info("--- JMUSICBOT STARTING UP ---");
         if(args.length > 0) {
             if (args[0].equalsIgnoreCase("generate-config")) {
                 BotConfig.writeDefaultConfig();
@@ -117,6 +118,9 @@ public class JMusicBot
                 LOG.error("Could not start GUI. Use -Dnogui=true for server environments.");
             }
         }
+
+        // Now that GUI/Logging is ready, initialize the player manager
+        bot.getPlayerManager().init();
 
         // attempt to log in and start
         try

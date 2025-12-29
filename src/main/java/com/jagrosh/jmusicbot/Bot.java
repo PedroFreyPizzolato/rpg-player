@@ -58,7 +58,8 @@ public class Bot
         this.playlists = new PlaylistLoader(config);
         this.threadpool = Executors.newSingleThreadScheduledExecutor();
         this.players = new PlayerManager(this);
-        this.players.init();
+        // delaying this until the GUI starts
+        // this.players.init();
         this.nowplaying = new NowPlayingHandler(this);
         this.nowplaying.init();
         this.aloneInVoiceHandler = new AloneInVoiceHandler(this);

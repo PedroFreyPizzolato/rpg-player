@@ -28,8 +28,15 @@ import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
+import com.sedmelluq.lava.extensions.youtuberotator.YoutubeIpRotatorSetup;
+import com.sedmelluq.lava.extensions.youtuberotator.planner.NanoIpRoutePlanner;
+import com.sedmelluq.lava.extensions.youtuberotator.tools.ip.Ipv6Block;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import net.dv8tion.jda.api.entities.Guild;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
 
 /**
  *
@@ -37,19 +44,43 @@ import net.dv8tion.jda.api.entities.Guild;
  */
 public class PlayerManager extends DefaultAudioPlayerManager
 {
+    private final static Logger LOG = LoggerFactory.getLogger(PlayerManager.class);
     private final Bot bot;
     
     public PlayerManager(Bot bot)
     {
         this.bot = bot;
     }
-    
+
     public void init()
     {
         TransformativeAudioSourceManager.createTransforms(bot.getConfig().getTransforms()).forEach(t -> registerSourceManager(t));
 
         YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(true);
         yt.setPlaylistPageCount(bot.getConfig().getMaxYTPlaylistPages());
+
+        // Setup IPv6 Rotation if a block is provided
+        String ipv6Block = bot.getConfig().getIPv6Block();
+        if (ipv6Block != null && !ipv6Block.isEmpty())
+        {
+            LOG.info("Setting up IPv6 rotation with block: {}", ipv6Block);
+            try
+            {
+                // We use NanoIpRoutePlanner from the rotator extension
+                NanoIpRoutePlanner routePlanner = new NanoIpRoutePlanner(Collections.singletonList(new Ipv6Block(ipv6Block)), true);
+
+                // Use YoutubeIpRotatorSetup to apply the planner to the source manager
+                new YoutubeIpRotatorSetup(routePlanner)
+                        .forConfiguration(yt.getHttpInterfaceManager(), false)
+                        .withMainDelegateFilter(yt.getContextFilter())
+                        .setup();
+            }
+            catch (Exception ex)
+            {
+                LOG.error("Failed to setup IPv6 rotation: {}", ex.getMessage());
+            }
+        }
+
         registerSourceManager(yt);
 
         registerSourceManager(SoundCloudAudioSourceManager.createDefault());
