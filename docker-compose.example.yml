@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  jmusicbot:
+    image: ghcr.io/arif-banai/musicbot:latest # or ghcr.io/arif-banai/musicbot:0.3.9 for a specific version
+    container_name: jmusicbot
+    environment:
+      # Optional: additional JVM options (e.g., memory settings)
+      # - JAVA_OPTS=-Xmx512m -Xms256m
+    volumes:
+      - /your/path/to/config:/config
+    restart: unless-stopped
