@@ -16,9 +16,11 @@
 package com.jagrosh.jmusicbot;
 
 import com.jagrosh.jmusicbot.utils.OtherUtil;
+import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
@@ -85,6 +87,26 @@ public class Listener extends ListenerAdapter
                 }
                 catch(Exception ignored) {} // ignored
             }, 0, 24, TimeUnit.HOURS);
+        }
+        if (bot.getConfig().useYouTubeOauth())
+        {
+            YoutubeOauth2TokenHandler.Data data = bot.getYouTubeOauth2Handler().getData();
+            if (data != null)
+            {
+                try
+                {
+                    PrivateChannel channel = bot.getJDA().openPrivateChannelById(bot.getConfig().getOwnerId()).complete();
+                    channel
+                            .sendMessage(
+                                    "# DO NOT AUTHORISE THIS WITH YOUR MAIN GOOGLE ACCOUNT!!!\n"
+                                            + "## Create or use an alternative/burner Google account!\n"
+                                            + "To give JMusicBot access to your Google account, go to "
+                                            + data.getAuthorisationUrl()
+                                            + " and enter the code **" + data.getCode() + "**")
+                            .queue();
+                }
+                catch (Exception ignored) {}
+            }
         }
     }
 

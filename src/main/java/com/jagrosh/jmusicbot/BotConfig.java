@@ -45,7 +45,7 @@ public class BotConfig
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
             evalEngine;
-    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots;
+    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private int maxYTPlaylistPages;
     private double skipratio;
@@ -96,6 +96,7 @@ public class BotConfig
             evalEngine = config.getString("evalengine");
             maxSeconds = config.getLong("maxtime");
             maxYTPlaylistPages = config.getInt("maxytplaylistpages");
+            useYouTubeOauth = config.getBoolean("useyoutubeoauth");
             aloneTimeUntilStop = config.getLong("alonetimeuntilstop");
             playlistsFolder = config.getString("playlistsfolder");
             aliases = config.getConfig("aliases");
@@ -350,7 +351,12 @@ public class BotConfig
     {
         return maxYTPlaylistPages;
     }
-    
+
+    public boolean useYouTubeOauth()
+    {
+        return useYouTubeOauth;
+    }
+
     public String getMaxTime()
     {
         return TimeUtil.formatTime(maxSeconds * 1000);

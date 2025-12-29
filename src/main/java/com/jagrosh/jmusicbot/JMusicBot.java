@@ -118,6 +118,9 @@ public class JMusicBot
             }
         }
 
+        // Now that GUI/Logging is ready, initialize the player manager
+        bot.getPlayerManager().init();
+
         // attempt to log in and start
         try
         {
