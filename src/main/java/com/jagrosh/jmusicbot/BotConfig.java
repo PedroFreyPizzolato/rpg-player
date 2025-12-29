@@ -60,7 +60,7 @@ public class BotConfig {
             evalEngine;
     private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
     private long owner, maxSeconds, aloneTimeUntilStop;
-    private int maxYTPlaylistPages;
+    private int maxYTPlaylistPages, maxHistorySize;
     private double skipratio;
     private OnlineStatus status;
     private Activity game;
@@ -258,6 +258,7 @@ public class BotConfig {
         evalEngine = EVAL_ENGINE.getString(config);
         maxSeconds = MAX_SECONDS.getLong(config);
         maxYTPlaylistPages = MAX_YT_PLAYLIST_PAGES.getInt(config);
+        maxHistorySize = MAX_HISTORY_SIZE.getInt(config);
         useYouTubeOauth = USE_YOUTUBE_OAUTH.getBoolean(config);
         aloneTimeUntilStop = ALONE_TIME_UNTIL_STOP.getLong(config);
         playlistsFolder = PLAYLISTS_FOLDER.getString(config);
@@ -450,6 +451,10 @@ public class BotConfig {
 
     public int getMaxYTPlaylistPages() {
         return maxYTPlaylistPages;
+    }
+
+    public int getMaxHistorySize() {
+        return maxHistorySize;
     }
 
     public boolean useYouTubeOauth() {
