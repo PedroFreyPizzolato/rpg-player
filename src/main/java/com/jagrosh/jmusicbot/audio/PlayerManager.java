@@ -30,6 +30,7 @@ import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceM
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.YoutubeSourceOptions;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Embedded;
 import dev.lavalink.youtube.clients.skeleton.Client;
@@ -105,11 +106,20 @@ public class PlayerManager extends DefaultAudioPlayerManager
 
     private YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth)
     {
+        YoutubeSourceOptions options = new YoutubeSourceOptions().setAllowSearch(true);
         YoutubeAudioSourceManager yt;
         if(useOauth)
-            yt = new YoutubeAudioSourceManager(true, new Client[]{ new TvHtml5Embedded(), new Tv()});
+        {
+            // url, password, userAgent (userAgent is optional, but nice for metrics)
+            options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
+            yt = new YoutubeAudioSourceManager(options, new Client[] {
+                    new TvHtml5Embedded(),
+                    new Tv()
+            });
+        }
         else
-            yt = new YoutubeAudioSourceManager(true);
+            yt = new YoutubeAudioSourceManager(options);
+
         yt.setPlaylistPageCount(bot.getConfig().getMaxYTPlaylistPages());
 
         // OAuth2 setup
