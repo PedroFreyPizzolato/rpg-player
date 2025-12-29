@@ -103,7 +103,7 @@ public class MessageFormatter {
                 .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**"))
                 .setEmbeds(new EmbedBuilder()
                         .setTitle("No music playing")
-                        .setDescription(AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume))
+                        .setDescription(AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume))
                         .setColor(info.guild.getSelfMember().getColors().getPrimary())
                         .build()).build();
     }
