@@ -30,12 +30,16 @@ import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceM
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
+import dev.lavalink.youtube.clients.Tv;
+import dev.lavalink.youtube.clients.TvHtml5Embedded;
+import dev.lavalink.youtube.clients.skeleton.Client;
 import net.dv8tion.jda.api.entities.Guild;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 
 /**
  *
@@ -55,7 +59,7 @@ public class PlayerManager extends DefaultAudioPlayerManager
     {
         TransformativeAudioSourceManager.createTransforms(bot.getConfig().getTransforms()).forEach(t -> registerSourceManager(t));
 
-        YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager();
+        YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(bot.getConfig().useYouTubeOauth());
         registerSourceManager(yt);
 
         registerSourceManager(SoundCloudAudioSourceManager.createDefault());
@@ -99,9 +103,13 @@ public class PlayerManager extends DefaultAudioPlayerManager
         return handler;
     }
 
-    private YoutubeAudioSourceManager setupYoutubeAudioSourceManager()
+    private YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth)
     {
-        YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(true);
+        YoutubeAudioSourceManager yt;
+        if(useOauth)
+            yt = new YoutubeAudioSourceManager(true, new Client[]{ new TvHtml5Embedded(), new Tv()});
+        else
+            yt = new YoutubeAudioSourceManager(true);
         yt.setPlaylistPageCount(bot.getConfig().getMaxYTPlaylistPages());
 
         // OAuth2 setup
