@@ -31,6 +31,7 @@ import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceMan
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.YoutubeSourceOptions;
+import dev.lavalink.youtube.clients.AndroidVr;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Embedded;
 import dev.lavalink.youtube.clients.skeleton.Client;
@@ -106,20 +107,29 @@ public class PlayerManager extends DefaultAudioPlayerManager
 
     private YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth)
     {
-        YoutubeSourceOptions options = new YoutubeSourceOptions().setAllowSearch(true);
-        YoutubeAudioSourceManager yt;
+        YoutubeSourceOptions options = new YoutubeSourceOptions()
+                .setAllowSearch(true)
+                .setAllowDirectVideoIds(true)
+                .setAllowDirectPlaylistIds(true);
+        Client[] clients;
         if(useOauth)
         {
             // url, password, userAgent (userAgent is optional, but nice for metrics)
             options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
-            yt = new YoutubeAudioSourceManager(options, new Client[] {
+            clients = new Client[] {
                     new TvHtml5Embedded(),
                     new Tv()
-            });
+            };
         }
         else
-            yt = new YoutubeAudioSourceManager(options);
+        {
+            // Clients are required even without OAuth to properly handle YouTube URLs
+            clients = new Client[] {
+                    new AndroidVr()
+            };
+        }
 
+        YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(options, clients);
         yt.setPlaylistPageCount(bot.getConfig().getMaxYTPlaylistPages());
 
         // OAuth2 setup
