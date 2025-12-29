@@ -69,4 +69,12 @@ public class OtherUtilTest
     {
         assertEquals(reason, expected, OtherUtil.isNewerVersion(current, latest));
     }
+
+    @Test
+    public void testMakeNonEmpty()
+    {
+        assertEquals("test", OtherUtil.makeNonEmpty("test"));
+        assertEquals("\u200B", OtherUtil.makeNonEmpty(null));
+        assertEquals("\u200B", OtherUtil.makeNonEmpty(""));
+    }
 }
