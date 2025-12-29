@@ -25,16 +25,16 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Set Version
-        uses: datamonsters/replace-action@v2
-        with:
-          files: 'pom.xml'
-          replacements: 'Snapshot=${{ github.event.inputs.version_number }}'
+        run: |
+          mvn -B versions:set -DnewVersion=${{ github.event.inputs.version_number }}
+          mvn -B versions:commit
+
       - name: Build with Maven
         run: mvn --batch-mode --update-snapshots verify
       - name: Rename jar
         run: mv target/*-All.jar JMusicBot-${{ github.event.inputs.version_number }}.jar
       - name: Upload jar
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: jar
           path: JMusicBot-${{ github.event.inputs.version_number }}.jar
@@ -45,7 +45,7 @@ jobs:
     needs: build_jar
     steps:
       - name: Download a Build Artifact
-        uses: actions/download-artifact@v3.0.0
+        uses: actions/download-artifact@v4
         with:
           name: jar
           path: .
@@ -55,8 +55,8 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.event.inputs.version_number }}
-          name: Version ${{ github.event.inputs.version_number }}
+          tag: v${{ github.event.inputs.version_number }}
+          name: v${{ github.event.inputs.version_number }}
           draft: true
           prerelease: false
           artifacts: "*.jar"
@@ -67,4 +67,4 @@ jobs:
             ### Setup
             https://jmusicbot.com/setup  
             https://jmusicbot.com/config  
-            # Download: [JMusicBot-${{ github.event.inputs.version_number }}.jar](https://github.com/jagrosh/MusicBot/releases/download/${{ github.event.inputs.version_number }}/JMusicBot-${{ github.event.inputs.version_number }}.jar)
+            # Download: [JMusicBot-${{ github.event.inputs.version_number }}.jar](https://github.com/arif-banai/MusicBot/releases/download/v${{ github.event.inputs.version_number }}/JMusicBot-${{ github.event.inputs.version_number }}.jar)
