@@ -45,13 +45,14 @@ public class BotConfig
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
             evalEngine;
-    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
+    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth, useLavalink, lavalinkSecure;
     private long owner, maxSeconds, aloneTimeUntilStop;
-    private int maxYTPlaylistPages;
+    private int maxYTPlaylistPages, lavalinkPort;
     private double skipratio;
     private OnlineStatus status;
     private Activity game;
     private Config aliases, transforms;
+    private String lavalinkHost, lavalinkPassword, lavalinkNodeId, lavalinkCustomNodeUrl;
 
     private boolean valid = false;
     
@@ -103,6 +104,29 @@ public class BotConfig
             transforms = config.getConfig("transforms");
             skipratio = config.getDouble("skipratio");
             dbots = owner == 113156185389092864L;
+            
+            // Lavalink configuration
+            useLavalink = config.getBoolean("uselavalink");
+            if(useLavalink)
+            {
+                Config lavalinkConfig = config.getConfig("lavalink");
+                lavalinkHost = lavalinkConfig.getString("host");
+                lavalinkPort = lavalinkConfig.getInt("port");
+                lavalinkPassword = lavalinkConfig.getString("password");
+                lavalinkSecure = lavalinkConfig.getBoolean("secure");
+                lavalinkNodeId = lavalinkConfig.hasPath("nodeid") ? lavalinkConfig.getString("nodeid") : "default";
+                lavalinkCustomNodeUrl = lavalinkConfig.hasPath("customnodeurl") ? lavalinkConfig.getString("customnodeurl") : "";
+            }
+            else
+            {
+                // Set defaults even if not using Lavalink
+                lavalinkHost = "localhost";
+                lavalinkPort = 2333;
+                lavalinkPassword = "youshallnotpass";
+                lavalinkSecure = false;
+                lavalinkNodeId = "default";
+                lavalinkCustomNodeUrl = "";
+            }
             
             // we may need to write a new config file
             boolean write = false;
@@ -389,5 +413,40 @@ public class BotConfig
     public Config getTransforms()
     {
         return transforms;
+    }
+    
+    public boolean useLavalink()
+    {
+        return useLavalink;
+    }
+    
+    public String getLavalinkHost()
+    {
+        return lavalinkHost;
+    }
+    
+    public int getLavalinkPort()
+    {
+        return lavalinkPort;
+    }
+    
+    public String getLavalinkPassword()
+    {
+        return lavalinkPassword;
+    }
+    
+    public boolean getLavalinkSecure()
+    {
+        return lavalinkSecure;
+    }
+    
+    public String getLavalinkNodeId()
+    {
+        return lavalinkNodeId;
+    }
+    
+    public String getLavalinkCustomNodeUrl()
+    {
+        return lavalinkCustomNodeUrl;
     }
 }

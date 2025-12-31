@@ -15,6 +15,7 @@
  */
 package com.jagrosh.jmusicbot;
 
+import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
@@ -27,6 +28,8 @@ import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
+// VoiceServerUpdateEvent may not be available in JDA 6.2.0
+// We'll handle voice updates through GuildVoiceUpdateEvent and AudioManager
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -57,15 +60,33 @@ public class Listener extends ListenerAdapter
             log.warn(event.getJDA().getInviteUrl(JMusicBot.RECOMMENDED_PERMS));
         }
         credit(event.getJDA());
+        
+        // If using Lavalink and not yet connected, connect now
+        if(bot.getConfig().useLavalink() && bot.getAudioProvider() instanceof com.jagrosh.jmusicbot.audio.LavalinkProvider)
+        {
+            com.jagrosh.jmusicbot.audio.LavalinkProvider lavalinkProvider = 
+                (com.jagrosh.jmusicbot.audio.LavalinkProvider) bot.getAudioProvider();
+            if(!lavalinkProvider.isAvailable())
+            {
+                lavalinkProvider.initAfterJDAReady();
+            }
+        }
+        
         event.getJDA().getGuilds().forEach((Guild guild) ->
         {
             try
             {
                 String defpl = bot.getSettingsManager().getSettings(guild).getDefaultPlaylist();
                 VoiceChannel vc = bot.getSettingsManager().getSettings(guild).getVoiceChannel(guild);
-                if(defpl!=null && vc!=null && bot.getPlayerManager().setUpHandler(guild).playFromDefault())
+                if(defpl!=null && vc!=null)
                 {
-                    guild.getAudioManager().openAudioConnection(vc);
+                    AudioHandler handler = bot.getAudioProvider().createHandler(guild);
+                    if(handler.playFromDefault())
+                    {
+                        guild.getAudioManager().openAudioConnection(vc);
+                        // For Lavalink, voice connection is handled via events
+                        // The openAudioConnection will trigger voice state/server events
+                    }
                 }
             }
             catch(Exception ignore) {}
@@ -121,7 +142,17 @@ public class Listener extends ListenerAdapter
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event)
     {
         bot.getAloneInVoiceHandler().onVoiceUpdate(event);
+        
+        // Handle Lavalink voice state updates
+        if(bot.getConfig().useLavalink() && event.getMember().equals(event.getGuild().getSelfMember()))
+        {
+            bot.getAudioProvider().handleVoiceStateUpdate(event);
+        }
     }
+    
+    // Note: VoiceServerUpdateEvent may not be available in JDA 6.2.0
+    // Voice server information is typically obtained through AudioManager
+    // For now, we'll handle voice updates through GuildVoiceUpdateEvent
 
     @Override
     public void onShutdown(@NotNull ShutdownEvent event)

@@ -86,11 +86,31 @@ public class PlayerManager extends DefaultAudioPlayerManager
     
     public boolean hasHandler(Guild guild)
     {
+        // Use AudioProvider if available, otherwise check directly
+        if(bot.getConfig().useLavalink())
+        {
+            return bot.getAudioProvider().hasHandler(guild);
+        }
         return guild.getAudioManager().getSendingHandler()!=null;
     }
     
     public AudioHandler setUpHandler(Guild guild)
     {
+        // Use AudioProvider if Lavalink is enabled
+        if(bot.getConfig().useLavalink())
+        {
+            AudioHandler handler = bot.getAudioProvider().createHandler(guild);
+            // Set as sending handler only if not already set (Lavalink doesn't need AudioSendHandler)
+            if(guild.getAudioManager().getSendingHandler() == null)
+            {
+                // For Lavalink, we don't set a sending handler since Lavalink handles audio
+                // But we still need to set it for compatibility with existing code
+                guild.getAudioManager().setSendingHandler(handler);
+            }
+            return handler;
+        }
+        
+        // Original Lavaplayer implementation
         AudioHandler handler;
         if(guild.getAudioManager().getSendingHandler()==null)
         {

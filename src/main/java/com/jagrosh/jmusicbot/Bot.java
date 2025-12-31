@@ -18,6 +18,9 @@ package com.jagrosh.jmusicbot;
 import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.audio.AloneInVoiceHandler;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.AudioProvider;
+import com.jagrosh.jmusicbot.audio.LavalinkProvider;
+import com.jagrosh.jmusicbot.audio.LavaplayerProvider;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.gui.GUI;
@@ -43,6 +46,7 @@ public class Bot
     private final BotConfig config;
     private final SettingsManager settings;
     private final PlayerManager players;
+    private final AudioProvider audioProvider;
     private final PlaylistLoader playlists;
     private final NowPlayingHandler nowplaying;
     private final AloneInVoiceHandler aloneInVoiceHandler;
@@ -62,8 +66,17 @@ public class Bot
         this.youTubeOauth2TokenHandler = new YoutubeOauth2TokenHandler();
         this.youTubeOauth2TokenHandler.init();
         this.players = new PlayerManager(this);
-        // Delay init of the PlayerManager until the GUI has started
-        // this.players.init();
+        // Initialize AudioProvider based on config
+        if(config.useLavalink())
+        {
+            this.audioProvider = new LavalinkProvider(this);
+        }
+        else
+        {
+            this.audioProvider = new LavaplayerProvider(this.players);
+        }
+        // Delay init of the AudioProvider until the GUI has started
+        // this.audioProvider.init();
         this.nowplaying = new NowPlayingHandler(this);
         this.nowplaying.init();
         this.aloneInVoiceHandler = new AloneInVoiceHandler(this);
@@ -93,6 +106,11 @@ public class Bot
     public PlayerManager getPlayerManager()
     {
         return players;
+    }
+    
+    public AudioProvider getAudioProvider()
+    {
+        return audioProvider;
     }
     
     public PlaylistLoader getPlaylistLoader()

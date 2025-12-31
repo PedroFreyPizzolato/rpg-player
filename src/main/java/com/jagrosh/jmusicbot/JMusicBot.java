@@ -118,14 +118,15 @@ public class JMusicBot
             }
         }
 
-        // Now that GUI/Logging is ready, initialize the player manager
-        bot.getPlayerManager().init();
+        // Initialize audio provider (Lavaplayer doesn't need JDA, Lavalink will connect later)
+        bot.getAudioProvider().init();
 
         // attempt to log in and start
         try
         {
             JDA jda = DiscordService.createJDA(config, bot, waiter, client, prompt);
             bot.setJDA(jda);
+            // Lavalink connection will be handled in the Ready event handler
         }
         catch(IllegalArgumentException ex)
         {
