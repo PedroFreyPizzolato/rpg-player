@@ -51,7 +51,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     public final static String PAUSE_EMOJI = "\u23F8"; // ⏸
     public final static String STOP_EMOJI  = "\u23F9"; // ⏹
 
-    private final Logger log = LoggerFactory.getLogger(AudioHandler.class);
+    private final static Logger LOGGER = LoggerFactory.getLogger(AudioHandler.class);
     private final List<AudioTrack> defaultQueue = new LinkedList<>();
     private final Set<String> votes = new HashSet<>();
     
@@ -70,8 +70,8 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         this.guildId = guild.getIdLong();
 
         this.setQueueType(manager.getBot().getSettingsManager().getSettings(guildId).getQueueType());
-        // Set default history size to 50 tracks
-        this.queue.setMaxHistorySize(50);
+        // Set history size from config
+        this.queue.setMaxHistorySize(manager.getBot().getConfig().getMaxHistorySize());
     }
 
     public void setQueueType(QueueType type)
@@ -95,7 +95,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         }
         else
         {
-            log.debug("Added track to front of queue: {}", qtrack.getTrack().getInfo().title);
+            LOGGER.debug("Added track to front of queue: {}", qtrack.getTrack().getInfo().title);
             queue.addAt(0, qtrack);
             return 0;
         }
@@ -108,11 +108,9 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             audioPlayer.playTrack(qtrack.getTrack());
             return -1;
         }
-        else
-        {
-            log.debug("Added track to queue: {}", qtrack.getTrack().getInfo().title);
-            return queue.add(qtrack);
-        }
+
+        LOGGER.debug("Added track to queue: {}", qtrack.getTrack().getInfo().title);
+        return queue.add(qtrack);
     }
     
     /**
@@ -133,7 +131,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     
     public void stopAndClear()
     {
-        log.debug("Stopping and clearing queue");
+        LOGGER.debug("Stopping and clearing queue");
         queue.clearAll();
         defaultQueue.clear();
         audioPlayer.stopTrack();
@@ -201,13 +199,13 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     {
         // Log track end with details for debugging
         if (endReason != AudioTrackEndReason.FINISHED) {
-            log.debug("Track {} ended with reason: {} (Track: {})", 
+            LOGGER.debug("Track {} ended with reason: {} (Track: {})", 
                     track != null ? track.getIdentifier() : "null",
                     endReason.name(),
                     track != null && track.getInfo() != null ? track.getInfo().title : "N/A");
         }
         else if (track != null && track.getInfo() != null) {
-            log.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
+            LOGGER.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
         }
 
         // Add to queue history for tracking previously played tracks
@@ -303,7 +301,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             || exception.getMessage().equals("Please sign in")
             || exception.getMessage().equals("This video requires login."))
         {
-            log.error(
+            LOGGER.error(
                     "Track {} has failed to play: {}. "
                             + "You will need to sign in to Google to play YouTube tracks. "
                             + "More info: https://jmusicbot.com/youtube-oauth2\n{}",
@@ -313,7 +311,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             );
         }
         else {
-            log.error("Track {} has failed to play\n{}", track.getIdentifier(), errorDetails.toString(), exception);
+            LOGGER.error("Track {} has failed to play\n{}", track.getIdentifier(), errorDetails.toString(), exception);
         }
     }
 
@@ -323,21 +321,21 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         // Access the metadata object
         var info = track.getInfo();
 
-        log.debug("Track Started Details:");
-        log.debug(" - Title:      {}", info.title);
-        log.debug(" - Author:     {}", info.author);
-        log.debug(" - Duration:   {} ms", info.length);
-        log.debug(" - Identifier: {}", info.identifier);
-        log.debug(" - URI:        {}", info.uri);
-        log.debug(" - Is Stream:  {}", info.isStream);
-        log.debug(" - Source:     {}", track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "unknown");
-        log.debug(" - Player Vol: {}", player.getVolume());
-        log.debug(" - Is Paused:  {}", player.isPaused());
+        LOGGER.debug("Track Started Details:");
+        LOGGER.debug(" - Title:      {}", info.title);
+        LOGGER.debug(" - Author:     {}", info.author);
+        LOGGER.debug(" - Duration:   {} ms", info.length);
+        LOGGER.debug(" - Identifier: {}", info.identifier);
+        LOGGER.debug(" - URI:        {}", info.uri);
+        LOGGER.debug(" - Is Stream:  {}", info.isStream);
+        LOGGER.debug(" - Source:     {}", track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "unknown");
+        LOGGER.debug(" - Player Vol: {}", player.getVolume());
+        LOGGER.debug(" - Is Paused:  {}", player.isPaused());
         votes.clear();
         
         // Log track start with details for debugging
         if (track != null && track.getInfo() != null) {
-            log.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
+            LOGGER.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
                     track.getInfo().title,
                     track.getIdentifier(),
                     track.getInfo().uri,

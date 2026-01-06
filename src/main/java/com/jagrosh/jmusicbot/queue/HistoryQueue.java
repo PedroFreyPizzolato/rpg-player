@@ -7,7 +7,7 @@ import java.util.List;
  * A bounded LIFO (Last In, First Out) queue for tracking playback history.
  * Most recently played tracks are stored at the front (index 0) and are the first to be removed.
  * 
- * @author John Grosh <john.a.grosh@gmail.com>
+ * @author Arif Banai
  * @param <T> The type of items to store in history
  */
 public class HistoryQueue<T> {
@@ -15,11 +15,11 @@ public class HistoryQueue<T> {
     private int maxSize;
 
     /**
-     * Creates a new HistoryQueue with a default max size of 50.
+     * Creates a new HistoryQueue.
+     * The max size must be set via setMaxSize() before use.
      */
     public HistoryQueue() {
         this.history = new LinkedList<>();
-        this.maxSize = 50;
     }
 
     /**
