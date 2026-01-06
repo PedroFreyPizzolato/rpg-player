@@ -24,6 +24,7 @@ public class LinearQueueTest {
     @Test
     public void testRewind() {
         LinearQueue<Q> queue = new LinearQueue<>(null);
+        queue.setMaxHistorySize(10);
         Q q1 = new Q(1);
         Q q2 = new Q(2);
         

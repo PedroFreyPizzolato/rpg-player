@@ -42,6 +42,7 @@ public class HistoryQueueTest {
     @Test
     public void testRemoveFirst() {
         HistoryQueue<String> queue = new HistoryQueue<>();
+        queue.setMaxSize(10);
         queue.add("one");
         queue.add("two");
 
@@ -79,6 +80,7 @@ public class HistoryQueueTest {
     @Test
     public void testClear() {
         HistoryQueue<String> queue = new HistoryQueue<>();
+        queue.setMaxSize(10);
         queue.add("one");
         queue.clear();
         assertTrue(queue.isEmpty());
