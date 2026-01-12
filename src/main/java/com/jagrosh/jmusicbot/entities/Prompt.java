@@ -42,7 +42,15 @@ public class Prompt implements UserInteraction
     
     public Prompt(String title, String noguiMessage)
     {
-        this(title, noguiMessage, "true".equalsIgnoreCase(System.getProperty("nogui")), "true".equalsIgnoreCase(System.getProperty("noprompt")));
+        this(title, noguiMessage, 
+             isPropertyEnabled("nogui"), 
+             isPropertyEnabled("noprompt"));
+    }
+    
+    private static boolean isPropertyEnabled(String propertyName)
+    {
+        String prop = System.getProperty(propertyName);
+        return prop != null && !"false".equalsIgnoreCase(prop);
     }
     
     public Prompt(String title, String noguiMessage, boolean nogui, boolean noprompt)
