@@ -52,7 +52,7 @@ public class ConfigFileManager {
      * Loads the default config content from reference.conf.
      */
     public static String loadDefaultConfig() {
-        String original = OtherUtil.loadResource(new JMusicBot(), "/reference.conf");
+        String original = OtherUtil.loadResource(JMusicBot.class, "/reference.conf");
         if (original == null) {
             // Fallback to legacy format if resource not found
             return "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID";
@@ -104,7 +104,7 @@ public class ConfigFileManager {
      * @return the reference.conf content as a string, or null if not found
      */
     public static String loadReferenceConfigAsString() {
-        String original = OtherUtil.loadResource(new JMusicBot(), "/reference.conf");
+        String original = OtherUtil.loadResource(JMusicBot.class, "/reference.conf");
         if (original == null) {
             return null;
         }
