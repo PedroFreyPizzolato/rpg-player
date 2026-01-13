@@ -15,58 +15,42 @@
  */
 package com.jagrosh.jmusicbot.utils;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@RunWith(Parameterized.class)
 public class OtherUtilTest
 {
-    private final String current;
-    private final String latest;
-    private final boolean expected;
-    private final String reason;
-
-    public OtherUtilTest(String current, String latest, boolean expected, String reason)
+    @ParameterizedTest(name = "{index}: isNewerVersion({0}, {1}) should be {2} - {3}")
+    @MethodSource("testData")
+    public void testIsNewerVersion(String current, String latest, boolean expected, String reason)
     {
-        this.current = current;
-        this.latest = latest;
-        this.expected = expected;
-        this.reason = reason;
+        assertEquals(expected, OtherUtil.isNewerVersion(current, latest), reason);
     }
 
-    @Parameters(name = "{index}: isNewerVersion({0}, {1}) should be {2} - {3}")
-    public static Collection<Object[]> data()
+    private static Stream<Arguments> testData()
     {
-        return Arrays.asList(new Object[][]{
+        return Stream.of(
                 // Newer versions
-                {"0.5.1", "1.0.0", true, "Latest is newer (major)"},
-                {"0.5.1", "0.6.0", true, "Latest is newer (minor)"},
-                {"0.5.1", "0.5.2", true, "Latest is newer (patch)"},
+                Arguments.of("0.5.1", "1.0.0", true, "Latest is newer (major)"),
+                Arguments.of("0.5.1", "0.6.0", true, "Latest is newer (minor)"),
+                Arguments.of("0.5.1", "0.5.2", true, "Latest is newer (patch)"),
 
                 // Equal versions
-                {"0.5.1", "0.5.1", false, "Versions are equal"},
+                Arguments.of("0.5.1", "0.5.1", false, "Versions are equal"),
 
                 // Older versions (User is ahead)
-                {"0.5.2", "0.5.1", false, "Current is newer (patch)"},
-                {"0.6.0", "0.5.1", false, "Current is newer (minor)"},
+                Arguments.of("0.5.2", "0.5.1", false, "Current is newer (patch)"),
+                Arguments.of("0.6.0", "0.5.1", false, "Current is newer (minor)"),
 
                 // Edge cases
-                {"UNKNOWN", "0.5.1", true, "Unknown version should prompt update"},
-                {"0.5.1-RELEASE", "0.5.1", false, "Handles non-numeric suffixes (equal)"},
-                {"0.5.1", "0.5.2-BETA", true, "Handles suffixes in latest (newer)"}
-        });
-    }
-
-    @Test
-    public void testIsNewerVersion()
-    {
-        assertEquals(reason, expected, OtherUtil.isNewerVersion(current, latest));
+                Arguments.of("UNKNOWN", "0.5.1", true, "Unknown version should prompt update"),
+                Arguments.of("0.5.1-RELEASE", "0.5.1", false, "Handles non-numeric suffixes (equal)"),
+                Arguments.of("0.5.1", "0.5.2-BETA", true, "Handles suffixes in latest (newer)")
+        );
     }
 }
