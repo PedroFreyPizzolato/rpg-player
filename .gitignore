@@ -6,3 +6,5 @@
 *.txt
 nb*.xml
 /.idea/
+/.vscode/
+/.cursor/
