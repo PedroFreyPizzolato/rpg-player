@@ -28,6 +28,7 @@ import com.typesafe.config.ConfigValue;
  */
 public class ConfigDiagnostics {
     private static final String META_CONFIG_VERSION_KEY = "meta.configVersion";
+    private static final String LYRICS_PREFIX = "lyrics.";
     
     /**
      * Analyzes a user configuration against defaults and returns a diagnostic report.
@@ -105,6 +106,11 @@ public class ConfigDiagnostics {
                 continue;
             }
             
+            // Skip lyrics keys as lyrics functionality is being removed
+            if (fullPath.startsWith(LYRICS_PREFIX)) {
+                continue;
+            }
+            
             ConfigValue value = config.getValue(key);
             
             // If it's a nested object, recurse
@@ -159,6 +165,11 @@ public class ConfigDiagnostics {
             
             // Skip meta.configVersion as it's expected in migrated configs
             if (META_CONFIG_VERSION_KEY.equals(fullPath)) {
+                continue;
+            }
+            
+            // Skip lyrics keys as lyrics functionality is being removed
+            if (fullPath.startsWith(LYRICS_PREFIX)) {
                 continue;
             }
             

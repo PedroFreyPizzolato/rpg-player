@@ -27,10 +27,9 @@ import com.jagrosh.jmusicbot.config.migration.Migration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValue;
 
 /**
- * Migration from version 0 (legacy flat config) to version 1 (nested canonical schema).
+ * Migration from version 0 (legacy config) to version 1 (new config format).
  * 
  * @author Arif Banai (arif-banai)
  */
@@ -209,14 +208,8 @@ public class MigrationV0ToV1 implements Migration {
             migrated.put("updates", updates);
         }
         
-        // Lyrics section: lyrics.default (note: dot notation in legacy, stays as nested in new format)
-        Map<String, Object> lyrics = new HashMap<>();
-        if (source.hasPath("lyrics.default")) {
-            lyrics.put("default", source.getString("lyrics.default"));
-        }
-        if (!lyrics.isEmpty()) {
-            migrated.put("lyrics", lyrics);
-        }
+        // Lyrics section: Skip lyrics keys as lyrics functionality is being removed
+        // (lyrics keys will be ignored and not migrated)
         
         // Logging section: loglevel
         Map<String, Object> logging = new HashMap<>();

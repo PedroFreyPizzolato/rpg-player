@@ -134,4 +134,19 @@ public class ConfigLoader {
         // Merge with defaults (migrated user config takes precedence)
         return migratedUserConfig.withFallback(defaults).resolve();
     }
+    
+    /**
+     * Loads the merged config using an already-migrated user config.
+     * This avoids re-running migration when the migrated config is already available.
+     * 
+     * @param migratedUserConfig the already-migrated user config
+     * @return the merged config with defaults
+     */
+    public static Config loadMergedConfig(Config migratedUserConfig) {
+        // Load defaults
+        Config defaults = ConfigFileManager.loadDefaults();
+        
+        // Merge with defaults (migrated user config takes precedence)
+        return migratedUserConfig.withFallback(defaults).resolve();
+    }
 }

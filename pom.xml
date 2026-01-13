@@ -59,27 +59,39 @@
             <artifactId>common</artifactId>
             <version>1.16.0</version>
         </dependency>
-        <dependency>
+        <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
+        <!-- <dependency>
             <groupId>com.github.jagrosh</groupId>
             <artifactId>JLyrics</artifactId>
             <version>master-SNAPSHOT</version>
-        </dependency>
+        </dependency> -->
 
         <!-- Misc Internal Dependencies -->
+        <!-- Source: https://mvnrepository.com/artifact/ch.qos.logback/logback-classic -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.18</version>
+            <version>1.5.24</version>
         </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/com.typesafe/config -->
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
             <version>1.4.3</version>
         </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/org.jsoup/jsoup -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.21.2</version>
+            <version>1.22.1</version>
+            <scope>compile</scope>
+        </dependency>
+        <!-- Using Jackson (already included via JDA transitive dependency) to reduce shaded jar size -->
+        <!-- Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.20.1</version>
         </dependency>
 
         <!-- Testing Dependencies -->

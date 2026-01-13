@@ -15,11 +15,13 @@
  */
 package com.jagrosh.jmusicbot.settings;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jagrosh.jdautilities.command.GuildSettingsManager;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.entities.Guild;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +29,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  *
@@ -37,42 +41,51 @@ public class SettingsManager implements GuildSettingsManager<Settings>
     private final static Logger LOG = LoggerFactory.getLogger("Settings");
     private final static String SETTINGS_FILE = "serversettings.json";
     private final HashMap<Long,Settings> settings;
+    private final static ObjectMapper objectMapper = new ObjectMapper();
 
     public SettingsManager()
     {
         this.settings = new HashMap<>();
 
         try {
-            JSONObject loadedSettings = new JSONObject(new String(Files.readAllBytes(OtherUtil.getPath(SETTINGS_FILE))));
-            loadedSettings.keySet().forEach((id) -> {
-                JSONObject o = loadedSettings.getJSONObject(id);
+            String jsonContent = new String(Files.readAllBytes(OtherUtil.getPath(SETTINGS_FILE)));
+            JsonNode loadedSettings = objectMapper.readTree(jsonContent);
+            
+            if (loadedSettings != null && loadedSettings.isObject()) {
+                Iterator<Map.Entry<String, JsonNode>> fields = loadedSettings.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> entry = fields.next();
+                    String id = entry.getKey();
+                    JsonNode o = entry.getValue();
 
-                // Legacy version support: On versions 0.3.3 and older, the repeat mode was represented as a boolean.
-                if (!o.has("repeat_mode") && o.has("repeat") && o.getBoolean("repeat"))
-                    o.put("repeat_mode", RepeatMode.ALL);
+                    // Legacy version support: On versions 0.3.3 and older, the repeat mode was represented as a boolean.
+                    if (!o.has("repeat_mode") && o.has("repeat") && o.get("repeat").asBoolean()) {
+                        ((ObjectNode) o).put("repeat_mode", RepeatMode.ALL.name());
+                    }
 
-
-                settings.put(Long.parseLong(id), new Settings(this,
-                        o.has("text_channel_id") ? o.getString("text_channel_id")            : null,
-                        o.has("voice_channel_id")? o.getString("voice_channel_id")           : null,
-                        o.has("dj_role_id")      ? o.getString("dj_role_id")                 : null,
-                        o.has("volume")          ? o.getInt("volume")                        : 100,
-                        o.has("default_playlist")? o.getString("default_playlist")           : null,
-                        o.has("repeat_mode")     ? o.getEnum(RepeatMode.class, "repeat_mode"): RepeatMode.OFF,
-                        o.has("prefix")          ? o.getString("prefix")                     : null,
-                        o.has("skip_ratio")      ? o.getDouble("skip_ratio")                 : -1,
-                        o.has("queue_type")      ? o.getEnum(QueueType.class, "queue_type")  : QueueType.FAIR));
-            });
+                    settings.put(Long.parseLong(id), new Settings(this,
+                            o.has("text_channel_id") ? o.get("text_channel_id").asText()            : null,
+                            o.has("voice_channel_id")? o.get("voice_channel_id").asText()           : null,
+                            o.has("dj_role_id")      ? o.get("dj_role_id").asText()                 : null,
+                            o.has("volume")          ? o.get("volume").asInt()                        : 100,
+                            o.has("default_playlist")? o.get("default_playlist").asText()           : null,
+                            o.has("repeat_mode")     ? RepeatMode.valueOf(o.get("repeat_mode").asText()) : RepeatMode.OFF,
+                            o.has("prefix")          ? o.get("prefix").asText()                     : null,
+                            o.has("skip_ratio")      ? o.get("skip_ratio").asDouble()                 : -1,
+                            o.has("queue_type")      ? QueueType.valueOf(o.get("queue_type").asText())  : QueueType.FAIR));
+                }
+            }
         } catch (NoSuchFileException e) {
             // create an empty json file
             try {
                 LOG.info("serversettings.json will be created in " + OtherUtil.getPath("serversettings.json").toAbsolutePath());
-                Files.write(OtherUtil.getPath("serversettings.json"), new JSONObject().toString(4).getBytes());
+                ObjectNode emptyJson = JsonNodeFactory.instance.objectNode();
+                Files.write(OtherUtil.getPath("serversettings.json"), objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(emptyJson));
             } catch(IOException ex) {
                 LOG.warn("Failed to create new settings file: "+ex);
             }
             return;
-        } catch(IOException | JSONException e) {
+        } catch(IOException e) {
             LOG.warn("Failed to load server settings: "+e);
         }
 
@@ -103,9 +116,9 @@ public class SettingsManager implements GuildSettingsManager<Settings>
 
     protected void writeSettings()
     {
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = JsonNodeFactory.instance.objectNode();
         settings.keySet().stream().forEach(key -> {
-            JSONObject o = new JSONObject();
+            ObjectNode o = JsonNodeFactory.instance.objectNode();
             Settings s = settings.get(key);
             if(s.textId!=0)
                 o.put("text_channel_id", Long.toString(s.textId));
@@ -114,21 +127,22 @@ public class SettingsManager implements GuildSettingsManager<Settings>
             if(s.roleId!=0)
                 o.put("dj_role_id", Long.toString(s.roleId));
             if(s.getVolume()!=100)
-                o.put("volume",s.getVolume());
+                o.put("volume", s.getVolume());
             if(s.getDefaultPlaylist() != null)
                 o.put("default_playlist", s.getDefaultPlaylist());
             if(s.getRepeatMode()!=RepeatMode.OFF)
-                o.put("repeat_mode", s.getRepeatMode());
+                o.put("repeat_mode", s.getRepeatMode().name());
             if(s.getPrefix() != null)
                 o.put("prefix", s.getPrefix());
             if(s.getSkipRatio() != -1)
                 o.put("skip_ratio", s.getSkipRatio());
             if(s.getQueueType() != QueueType.FAIR)
                 o.put("queue_type", s.getQueueType().name());
-            obj.put(Long.toString(key), o);
+            obj.set(Long.toString(key), o);
         });
         try {
-            Files.write(OtherUtil.getPath(SETTINGS_FILE), obj.toString(4).getBytes());
+            // Use Jackson with pretty printing (indentation)
+            Files.write(OtherUtil.getPath(SETTINGS_FILE), objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(obj));
         } catch(IOException ex){
             LOG.warn("Failed to write to file: "+ex);
         }

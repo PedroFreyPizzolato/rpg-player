@@ -16,7 +16,9 @@
 package com.jagrosh.jmusicbot.config;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,32 +33,40 @@ import com.typesafe.config.ConfigRenderOptions;
  */
 public class ConfigUpdater {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigUpdater.class);
-    private static final String UPDATED_CONFIG_FILENAME = "config.updated.conf";
+    private static final String BACKUP_SUFFIX = ".bak";
     
     /**
-     * Generates an updated config file with migrated values and missing defaults.
-     * The generated file is placed next to the user's config file.
+     * Updates the config file in place by backing up the original and writing the migrated config.
+     * The original config file is backed up with a .bak extension.
      * 
      * @param userConfigPath the path to the user's config file
      * @param migratedConfig the migrated/merged configuration
      * @param diagnostics the diagnostic report
-     * @return the path to the generated file, or null if generation failed
+     * @return the path to the updated config file, or null if update failed
      */
     public static Path generateUpdatedConfig(Path userConfigPath, Config migratedConfig, 
                                              ConfigDiagnostics.Report diagnostics) {
         try {
-            Path outputPath = userConfigPath.getParent().resolve(UPDATED_CONFIG_FILENAME);
+            // Normalize to absolute path
+            Path normalizedPath = userConfigPath.toAbsolutePath().normalize();
+            Path backupPath = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + BACKUP_SUFFIX);
+            
+            // Backup the original config file if it exists
+            if (normalizedPath.toFile().exists()) {
+                Files.copy(normalizedPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
+                LOGGER.info("Backed up original config to: {}", backupPath);
+            }
             
             // Generate HOCON content
             String content = generateConfigContent(migratedConfig, diagnostics);
             
-            // Write to file
-            ConfigFileManager.writeConfigFile(outputPath, content);
+            // Write the migrated config to the original location
+            ConfigFileManager.writeConfigFile(normalizedPath, content);
             
-            LOGGER.info("Generated updated config file: {}", outputPath);
-            return outputPath;
+            LOGGER.info("Updated config file: {} (original backed up to: {})", normalizedPath, backupPath);
+            return normalizedPath;
         } catch (IOException e) {
-            LOGGER.error("Failed to generate updated config file: {}", e.getMessage());
+            LOGGER.error("Failed to update config file: {}", e.getMessage());
             return null;
         }
     }
@@ -74,9 +84,8 @@ public class ConfigUpdater {
         // Header comment
         sb.append("// START OF JMUSICBOT CONFIG //\n");
         sb.append("//\n");
-        sb.append("// This file was automatically generated.\n");
-        sb.append("// Review the changes and manually merge them into your config file.\n");
-        sb.append("// Your original config file has NOT been modified.\n");
+        sb.append("// This file was automatically migrated and updated.\n");
+        sb.append("// Your original config file has been backed up with a .bak extension.\n");
         sb.append("//\n");
         
         if (diagnostics.hasIssues()) {
@@ -112,13 +121,14 @@ public class ConfigUpdater {
     }
     
     /**
-     * Checks if an updated config file exists.
+     * Checks if a backup of the config file exists.
      * 
      * @param userConfigPath the path to the user's config file
-     * @return true if the updated config file exists
+     * @return true if a backup file exists
      */
-    public static boolean updatedConfigExists(Path userConfigPath) {
-        Path updatedPath = userConfigPath.getParent().resolve(UPDATED_CONFIG_FILENAME);
-        return updatedPath.toFile().exists();
+    public static boolean backupExists(Path userConfigPath) {
+        Path normalizedPath = userConfigPath.toAbsolutePath().normalize();
+        Path backupPath = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + BACKUP_SUFFIX);
+        return backupPath.toFile().exists();
     }
 }

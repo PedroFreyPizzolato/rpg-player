@@ -16,34 +16,41 @@
 package com.jagrosh.jmusicbot.commands.music;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
-import com.jagrosh.jlyrics.LyricsClient;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.MusicCommand;
-import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.Permission;
+
+// Lyrics functionality removed - JLyrics dependency removed
+// import net.dv8tion.jda.api.EmbedBuilder;
+// import net.dv8tion.jda.api.Permission;
+// import com.jagrosh.jlyrics.LyricsClient;
+// import com.jagrosh.jmusicbot.audio.AudioHandler;
 
 /**
- *
+ * Lyrics command - functionality removed (JLyrics dependency removed)
  * @author John Grosh (john.a.grosh@gmail.com)
  */
 public class LyricsCmd extends MusicCommand
 {
-    private final LyricsClient client = new LyricsClient();
+    // Lyrics functionality removed - JLyrics dependency removed
+    // private final LyricsClient client = new LyricsClient();
     
     public LyricsCmd(Bot bot)
     {
         super(bot);
         this.name = "lyrics";
         this.arguments = "[song name]";
-        this.help = "shows the lyrics of a song";
+        this.help = "shows the lyrics of a song (unimplemented - JLyrics dependency removed)";
         this.aliases = bot.getConfig().getAliases(this.name);
-        this.botPermissions = new Permission[]{Permission.MESSAGE_EMBED_LINKS};
+        // this.botPermissions = new Permission[]{Permission.MESSAGE_EMBED_LINKS};
     }
 
     @Override
     public void doCommand(CommandEvent event)
     {
+        // Lyrics functionality removed - JLyrics dependency removed
+        event.replyError("Lyrics functionality has been removed.");
+        
+        /* Original implementation commented out:
         String title;
         if(event.getArgs().isEmpty())
         {
@@ -96,5 +103,6 @@ public class LyricsCmd extends MusicCommand
             else
                 event.reply(eb.setDescription(lyrics.getContent()).build());
         });
+        */
     }
 }

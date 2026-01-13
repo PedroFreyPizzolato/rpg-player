@@ -18,7 +18,6 @@ package com.jagrosh.jmusicbot;
 import static com.jagrosh.jmusicbot.config.ConfigOption.*;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,6 +34,7 @@ import com.jagrosh.jmusicbot.config.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.ConfigValidator;
 import com.jagrosh.jmusicbot.config.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
+import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
@@ -80,13 +80,18 @@ public class BotConfig {
             // get the path to the config, default config.txt
             path = ConfigFileManager.getConfigPath();
 
-            // Load raw user config, migrated user config, and merged config
+            // Load raw user config to check if migration is needed
             Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
-            Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
-            Config config = ConfigLoader.loadMergedConfig(path);
-            
-            // Load defaults for diagnostics
             Config defaults = ConfigFileManager.loadDefaults();
+            int userVersion = ConfigMigration.detectVersion(rawUserConfig);
+            int latestVersion = ConfigMigration.getLatestVersion(defaults);
+            boolean migrationOccurred = userVersion < latestVersion;
+
+            // Load migrated user config
+            Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
+            
+            // Use the already-migrated config to avoid running migration twice
+            Config config = ConfigLoader.loadMergedConfig(migratedUserConfig);
 
             // Run diagnostics (use migrated config for deprecated key detection)
             ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUserConfig, config, defaults);
@@ -98,11 +103,19 @@ public class BotConfig {
                 } else if (diagnostics.hasWarnings()) {
                     LOGGER.warn("Config diagnostics - {}", diagnostics.generateMessage());
                 }
-                
-                // Generate updated config file if there are issues
+            }
+            
+            // Always update config file if migration occurred or if there are diagnostic issues
+            // This ensures backup is created when migration happens, even if no diagnostic issues
+            if (migrationOccurred || diagnostics.hasIssues()) {
+                // Update config file in place (backup original, write migrated config)
                 Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(path, config, diagnostics);
                 if (updatedConfigPath != null) {
-                    LOGGER.info("Updated config file generated: {}. Review and merge changes manually.", updatedConfigPath);
+                    if (migrationOccurred) {
+                        LOGGER.info("Config file migrated and updated: {}. Original backed up with .bak extension.", updatedConfigPath);
+                    } else {
+                        LOGGER.info("Config file updated: {}. Original backed up with .bak extension.", updatedConfigPath);
+                    }
                 }
             }
 

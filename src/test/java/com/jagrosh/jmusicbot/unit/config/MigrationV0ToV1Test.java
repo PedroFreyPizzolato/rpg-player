@@ -280,7 +280,7 @@ class MigrationV0ToV1Test {
     }
     
     @Test
-    @DisplayName("migrate handles lyrics.default key")
+    @DisplayName("migrate ignores lyrics keys (lyrics functionality removed)")
     void testMigrate_lyricsDefault() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("lyrics.default", "Genius");
@@ -288,7 +288,8 @@ class MigrationV0ToV1Test {
         
         Config migrated = migration.migrate(legacy);
         
-        assertTrue(migrated.hasPath("lyrics.default"));
-        assertEquals("Genius", migrated.getString("lyrics.default"));
+        // Lyrics keys should NOT be migrated since lyrics functionality is being removed
+        assertFalse(migrated.hasPath("lyrics.default"));
+        assertFalse(migrated.hasPath("lyrics"));
     }
 }

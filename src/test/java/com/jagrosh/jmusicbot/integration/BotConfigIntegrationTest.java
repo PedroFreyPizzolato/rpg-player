@@ -189,9 +189,15 @@ class BotConfigIntegrationTest extends BaseConfigTest {
             config.load();
             
             assertTrue(config.isValid());
-            // Since we didn't provide all optional fields, a config.updated.conf should have been generated
-            Path updatedConfig = configFile.getParent().resolve("config.updated.conf");
-            assertTrue(java.nio.file.Files.exists(updatedConfig), "Updated config file should have been generated");
+            // Since we didn't provide all optional fields, the original config should have been backed up and updated
+            Path backupConfig = configFile.resolveSibling(configFile.getFileName().toString() + ".bak");
+            assertTrue(java.nio.file.Files.exists(backupConfig), "Backup config file should have been generated");
+            // The original config file should have been updated with migrated content
+            assertTrue(java.nio.file.Files.exists(configFile), "Original config file should still exist");
+            String updatedContent = java.nio.file.Files.readString(configFile);
+            // Verify it contains migrated content (should have meta.configVersion = 1 or other migrated keys)
+            assertTrue(updatedContent.contains("meta") || updatedContent.contains("configVersion"), 
+                "Updated config should contain migrated content");
         }
     }
     

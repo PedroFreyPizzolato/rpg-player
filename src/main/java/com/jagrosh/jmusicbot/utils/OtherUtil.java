@@ -23,13 +23,12 @@ import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.ApplicationInfo;
 import net.dv8tion.jda.api.entities.User;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 import java.io.*;
 import java.net.URISyntaxException;
@@ -185,21 +184,24 @@ public class OtherUtil
             {
                 try(Reader reader = body.charStream())
                 {
-                    JSONObject obj = new JSONObject(new JSONTokener(reader));
-                    String tag = obj.getString("tag_name");
-                    if(tag.startsWith("v"))
-                        tag = tag.substring(1);
-                    return tag;
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode obj = objectMapper.readTree(reader);
+                    if(obj != null && obj.has("tag_name"))
+                    {
+                        String tag = obj.get("tag_name").asText();
+                        if(tag.startsWith("v"))
+                            tag = tag.substring(1);
+                        return tag;
+                    }
                 }
                 finally
                 {
                     response.close();
                 }
             }
-            else
-                return null;
+            return null;
         }
-        catch(IOException | JSONException | NullPointerException ex)
+        catch(IOException | NullPointerException ex)
         {
             return null;
         }
