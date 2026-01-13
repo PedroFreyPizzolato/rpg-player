@@ -17,6 +17,7 @@ package com.jagrosh.jmusicbot.utils;
 
 import com.jagrosh.jmusicbot.JMusicBot;
 import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
@@ -157,10 +158,10 @@ public class OtherUtil
         return st == null ? OnlineStatus.ONLINE : st;
     }
     
-    public static void checkJavaVersion(Prompt prompt)
+    public static void checkJavaVersion(UserInteraction userInteraction)
     {
         if(!System.getProperty("java.vm.name").contains("64"))
-            prompt.alert(Prompt.Level.WARNING, "Java Version", 
+            userInteraction.alert(Prompt.Level.WARNING, "Java Version", 
                     "It appears that you may not be using a supported Java version. Please use 64-bit java.");
     }
     
@@ -204,7 +205,7 @@ public class OtherUtil
         }
     }
 
-    public static void checkVersion(Prompt prompt)
+    public static void checkVersion(UserInteraction userInteraction)
     {
         // Get current version number
         String version = getCurrentVersion();
@@ -214,7 +215,7 @@ public class OtherUtil
 
         if(latestVersion != null && isNewerVersion(version, latestVersion))
         {
-            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
+            userInteraction.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
         }
     }
 

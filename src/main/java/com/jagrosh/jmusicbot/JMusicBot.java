@@ -27,6 +27,7 @@ import com.jagrosh.jdautilities.command.CommandClient;
 import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.commands.CommandFactory;
 import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.ConsoleUtil;
@@ -76,12 +77,12 @@ public class JMusicBot
     
     private static void startBot()
     {
-        // create prompt to handle startup
-        Prompt prompt = new Prompt("JMusicBot");
+        // create user interaction handler for startup
+        UserInteraction userInteraction = new Prompt("JMusicBot");
         
         // Redirect System.out/err to GUI console early (before config loading)
         // so that all logs, including those from config loading, appear in GUI
-        if(!prompt.isNoGUI())
+        if(!userInteraction.isNoGUI())
         {
             try 
             {
@@ -94,11 +95,11 @@ public class JMusicBot
         }
         
         // startup checks
-        OtherUtil.checkVersion(prompt);
-        OtherUtil.checkJavaVersion(prompt);
+        OtherUtil.checkVersion(userInteraction);
+        OtherUtil.checkJavaVersion(userInteraction);
         
         // load config
-        BotConfig config = new BotConfig(prompt);
+        BotConfig config = new BotConfig(userInteraction);
         config.load();
         if(!config.isValid())
             return;
@@ -114,7 +115,7 @@ public class JMusicBot
         Bot bot = new Bot(waiter, config, settings);
         
         // Initialize GUI (ConsolePanel will reuse the already-redirected streams)
-        if(!prompt.isNoGUI())
+        if(!userInteraction.isNoGUI())
         {
             try 
             {
@@ -136,18 +137,18 @@ public class JMusicBot
         // attempt to log in and start
         try
         {
-            JDA jda = DiscordService.createJDA(config, bot, waiter, client, prompt);
+            JDA jda = DiscordService.createJDA(config, bot, waiter, client, userInteraction);
             bot.setJDA(jda);
         }
         catch(IllegalArgumentException ex)
         {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot",
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot",
                     "Invalid configuration. Check your token.\nConfig Location: " + config.getConfigLocation());
             System.exit(1);
         }
         catch(ErrorResponseException ex)
         {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot", "Invalid response from Discord. Check your internet connection.");
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot", "Invalid response from Discord. Check your internet connection.");
             System.exit(1);
         }
         catch(Exception ex)

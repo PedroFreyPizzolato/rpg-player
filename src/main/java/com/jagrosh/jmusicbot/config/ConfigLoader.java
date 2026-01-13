@@ -1,0 +1,46 @@
+/*
+ * Copyright 2026 Arif Banai (arif-banai)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.jagrosh.jmusicbot.config;
+
+import java.nio.file.Path;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
+/**
+ * Handles loading and parsing configuration files.
+ * 
+ * @author Arif Banai (arif-banai)
+ */
+public class ConfigLoader {
+    
+    /**
+     * Loads the user's config file if it exists, otherwise returns an empty config.
+     */
+    public static Config loadUserConfig(Path configPath) {
+        return configPath.toFile().exists() 
+                ? ConfigFactory.parseFile(configPath.toFile()) 
+                : ConfigFactory.empty();
+    }
+    
+    /**
+     * Loads the merged config (user config with defaults as fallback).
+     */
+    public static Config loadMergedConfig(Path configPath) {
+        Config userConfig = loadUserConfig(configPath);
+        return userConfig.withFallback(ConfigFactory.load());
+    }
+}

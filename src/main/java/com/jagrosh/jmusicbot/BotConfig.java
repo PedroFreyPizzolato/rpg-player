@@ -15,8 +15,8 @@
  */
 package com.jagrosh.jmusicbot;
 
-import java.io.IOException;
-import java.nio.file.Files;
+import static com.jagrosh.jmusicbot.config.ConfigOption.*;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -25,12 +25,17 @@ import java.util.stream.Collectors;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
-import com.typesafe.config.ConfigFactory;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 
 import com.jagrosh.jmusicbot.audio.AudioSource;
+import com.jagrosh.jmusicbot.config.ConfigFileManager;
+import com.jagrosh.jmusicbot.config.ConfigLoader;
+import com.jagrosh.jmusicbot.config.ConfigUpdater;
+import com.jagrosh.jmusicbot.config.ConfigValidator;
+import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
 import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import org.slf4j.Logger;
@@ -43,11 +48,8 @@ import org.slf4j.LoggerFactory;
  */
 public class BotConfig {
     private final static Logger LOGGER = LoggerFactory.getLogger(BotConfig.class);
-    private final static String CONTEXT = "Config";
-    private final static String START_TOKEN = "/// START OF JMUSICBOT CONFIG ///";
-    private final static String END_TOKEN = "/// END OF JMUSICBOT CONFIG ///";
 
-    private final Prompt prompt;
+    private final UserInteraction userInteraction;
 
     private Path path = null;
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
@@ -64,8 +66,8 @@ public class BotConfig {
 
     private boolean valid = false;
 
-    public BotConfig(Prompt prompt) {
-        this.prompt = prompt;
+    public BotConfig(UserInteraction userInteraction) {
+        this.userInteraction = userInteraction;
     }
 
     public void load() {
@@ -74,157 +76,136 @@ public class BotConfig {
         // read config from file
         try {
             // get the path to the config, default config.txt
-            path = getConfigPath();
+            path = ConfigFileManager.getConfigPath();
 
-            // Parse user's config file separately (without fallback) to check for specific keys
-            Config userConfig = path.toFile().exists() 
-                    ? ConfigFactory.parseFile(path.toFile()) 
-                    : ConfigFactory.empty();
-            
-            // Load merged config (user config + defaults) for other values that need defaults
-            Config config = userConfig.withFallback(ConfigFactory.load());
+            // Load user config and merged config
+            Config userConfig = ConfigLoader.loadUserConfig(path);
+            Config config = ConfigLoader.loadMergedConfig(path);
 
-            // set values
-            token = config.getString("token");
-            prefix = config.getString("prefix");
-            altprefix = config.getString("altprefix");
-            helpWord = config.getString("help");
-            owner = config.getLong("owner");
-            successEmoji = config.getString("success");
-            warningEmoji = config.getString("warning");
-            errorEmoji = config.getString("error");
-            loadingEmoji = config.getString("loading");
-            searchingEmoji = config.getString("searching");
-            game = OtherUtil.parseGame(config.getString("game"));
-            status = OtherUtil.parseStatus(config.getString("status"));
-            stayInChannel = config.getBoolean("stayinchannel");
-            songInGame = config.getBoolean("songinstatus");
-            npImages = config.getBoolean("npimages");
-            updatealerts = config.getBoolean("updatealerts");
-            logLevel = config.getString("loglevel");
-            useEval = config.getBoolean("eval");
-            evalEngine = config.getString("evalengine");
-            maxSeconds = config.getLong("maxtime");
-            maxYTPlaylistPages = config.getInt("maxytplaylistpages");
-            useYouTubeOauth = config.getBoolean("useyoutubeoauth");
-            aloneTimeUntilStop = config.getLong("alonetimeuntilstop");
-            playlistsFolder = config.getString("playlistsfolder");
-            aliases = config.getConfig("aliases");
-            transforms = config.getConfig("transforms");
+            // Load all config values
+            loadConfigValues(config, userConfig);
+
+            // Validate required fields
+            ValidationResult tokenResult = ConfigValidator.validateToken(token, userInteraction, path);
+            if (!tokenResult.isValid()) {
+                return;
+            }
+            token = tokenResult.getValue();
+            boolean needsWrite = tokenResult.needsWrite();
+
+            ValidationResult ownerResult = ConfigValidator.validateOwner(owner, userInteraction, path);
+            if (!ownerResult.isValid()) {
+                return;
+            }
+            owner = ownerResult.getValue();
+            needsWrite = needsWrite || ownerResult.needsWrite();
+
+            // Write config file if needed
+            if (needsWrite) {
+                writeToFile();
+            }
             
-            // Handle audiosources: only use if explicitly set in user's config, otherwise default to null (all enabled)
-            if (userConfig.hasPath("audiosources")) {
-                // Key exists in user's config, read the values
-                List<String> sourceNames = userConfig.getStringList("audiosources");
+            // Check for missing config values and append them
+            ConfigUpdater.updateConfigWithMissingValues(path, userConfig);
+
+            // if we get through the whole config, it's good to go
+            valid = true;
+        } catch (ConfigException ex) {
+            userInteraction.alert(Prompt.Level.ERROR, "Config",
+                    ex + ": " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
+        }
+    }
+    
+    /**
+     * Loads all configuration values from the merged config.
+     */
+    private void loadConfigValues(Config config, Config userConfig) {
+        // set values using ConfigOption enum for type safety and standardization
+        token = TOKEN.getString(config);
+        prefix = PREFIX.getString(config);
+        altprefix = ALTPREFIX.getString(config);
+        helpWord = HELP_WORD.getString(config);
+        owner = OWNER.getLong(config);
+        successEmoji = SUCCESS_EMOJI.getString(config);
+        warningEmoji = WARNING_EMOJI.getString(config);
+        errorEmoji = ERROR_EMOJI.getString(config);
+        loadingEmoji = LOADING_EMOJI.getString(config);
+        searchingEmoji = SEARCHING_EMOJI.getString(config);
+        game = OtherUtil.parseGame(GAME.getString(config));
+        status = OtherUtil.parseStatus(STATUS.getString(config));
+        stayInChannel = STAY_IN_CHANNEL.getBoolean(config);
+        songInGame = SONG_IN_GAME.getBoolean(config);
+        npImages = NP_IMAGES.getBoolean(config);
+        updatealerts = UPDATE_ALERTS.getBoolean(config);
+        logLevel = LOG_LEVEL.getString(config);
+        useEval = USE_EVAL.getBoolean(config);
+        evalEngine = EVAL_ENGINE.getString(config);
+        maxSeconds = MAX_SECONDS.getLong(config);
+        maxYTPlaylistPages = MAX_YT_PLAYLIST_PAGES.getInt(config);
+        useYouTubeOauth = USE_YOUTUBE_OAUTH.getBoolean(config);
+        aloneTimeUntilStop = ALONE_TIME_UNTIL_STOP.getLong(config);
+        playlistsFolder = PLAYLISTS_FOLDER.getString(config);
+        aliases = ALIASES.getConfig(config);
+        transforms = TRANSFORMS.getConfig(config);
+        
+        // Handle audiosources: only use if explicitly set in user's config, otherwise default to null (all enabled)
+        loadAudioSources(userConfig);
+        
+        skipratio = SKIP_RATIO.getDouble(config);
+        dbots = owner == 113156185389092864L;
+    }
+    
+    /**
+     * Loads audio sources configuration.
+     */
+    private void loadAudioSources(Config userConfig) {
+        if (AUDIO_SOURCES.hasValue(userConfig)) {
+            // Key exists in user's config, read the values
+            List<String> sourceNames = AUDIO_SOURCES.getStringList(userConfig);
+            if (sourceNames != null) {
                 enabledAudioSources = sourceNames.stream()
                         .map(AudioSource::fromConfigName)
                         .filter(java.util.Optional::isPresent)
                         .map(java.util.Optional::get)
                         .collect(Collectors.toSet());
             } else {
-                // Key not found in user's config, use default behavior (all sources enabled)
                 enabledAudioSources = Set.of(AudioSource.values());
-                LOGGER.info("Audio sources config not found in config file, defaulting to all sources enabled");
             }
-            
-            LOGGER.info("Setup {} valid audio sources: {}", 
-                        enabledAudioSources.size(), 
-                        enabledAudioSources.stream()
-                                .map(AudioSource::getConfigName)
-                                .collect(Collectors.toList()));
-            
-            skipratio = config.getDouble("skipratio");
-            dbots = owner == 113156185389092864L;
-
-            // we may need to write a new config file
-            boolean write = false;
-
-            // validate bot token
-            if (token == null || token.isEmpty() || token.equalsIgnoreCase("BOT_TOKEN_HERE")) {
-                token = prompt.prompt("Please provide a bot token."
-                        + "\nInstructions for obtaining a token can be found here:"
-                        + "\nhttps://github.com/jagrosh/MusicBot/wiki/Getting-a-Bot-Token."
-                        + "\nBot Token: ");
-                if (token == null) {
-                    prompt.alert(Prompt.Level.WARNING, CONTEXT,
-                            "No token provided! Exiting.\n\nConfig Location: " + path.toAbsolutePath().toString());
-                    return;
-                } else {
-                    write = true;
-                }
-            }
-
-            // validate bot owner
-            if (owner <= 0) {
-                try {
-                    owner = Long.parseLong(prompt.prompt("Owner ID was missing, or the provided owner ID is not valid."
-                            + "\nPlease provide the User ID of the bot's owner."
-                            + "\nInstructions for obtaining your User ID can be found here:"
-                            + "\nhttps://github.com/jagrosh/MusicBot/wiki/Finding-Your-User-ID"
-                            + "\nOwner User ID: "));
-                } catch (NumberFormatException | NullPointerException ex) {
-                    owner = 0;
-                }
-                if (owner <= 0) {
-                    prompt.alert(Prompt.Level.ERROR, CONTEXT,
-                            "Invalid User ID! Exiting.\n\nConfig Location: " + path.toAbsolutePath().toString());
-                    return;
-                } else {
-                    write = true;
-                }
-            }
-
-            if (write)
-                writeToFile();
-
-            // if we get through the whole config, it's good to go
-            valid = true;
-        } catch (ConfigException ex) {
-            prompt.alert(Prompt.Level.ERROR, CONTEXT,
-                    ex + ": " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
+        } else {
+            // Key not found in user's config, use default behavior (all sources enabled)
+            enabledAudioSources = Set.of(AudioSource.values());
+            LOGGER.info("Audio sources config not found in config file, defaulting to all sources enabled");
         }
+        
+        LOGGER.info("Setup {} valid audio sources: {}", 
+                    enabledAudioSources.size(), 
+                    enabledAudioSources.stream()
+                            .map(AudioSource::getConfigName)
+                            .collect(Collectors.toList()));
     }
 
     private void writeToFile() {
-        byte[] bytes = loadDefaultConfig().replace("BOT_TOKEN_HERE", token)
-                .replace("0 // OWNER ID", Long.toString(owner))
-                .trim().getBytes();
         try {
-            Files.write(path, bytes);
-        } catch (IOException ex) {
-            prompt.alert(Prompt.Level.WARNING, CONTEXT, "Failed to write new config options to config.txt: " + ex
+            String content = ConfigFileManager.loadDefaultConfig()
+                    .replace("BOT_TOKEN_HERE", token)
+                    .replace("0 // OWNER ID", Long.toString(owner))
+                    .trim();
+            ConfigFileManager.writeConfigFile(path, content);
+        } catch (Exception ex) {
+            userInteraction.alert(Prompt.Level.WARNING, "Config", "Failed to write new config options to config.txt: " + ex
                     + "\nPlease make sure that the files are not on your desktop or some other restricted area.\n\nConfig Location: "
                     + path.toAbsolutePath().toString());
         }
     }
 
-    private static String loadDefaultConfig() {
-        String original = OtherUtil.loadResource(new JMusicBot(), "/reference.conf");
-        return original == null
-                ? "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID"
-                : original.substring(original.indexOf(START_TOKEN) + START_TOKEN.length(), original.indexOf(END_TOKEN))
-                        .trim();
-    }
-
-    private static Path getConfigPath() {
-        Path path = OtherUtil.getPath(System.getProperty("config.file", System.getProperty("config", "config.txt")));
-        if (path.toFile().exists()) {
-            if (System.getProperty("config.file") == null)
-                System.setProperty("config.file", System.getProperty("config", path.toAbsolutePath().toString()));
-            ConfigFactory.invalidateCaches();
-        }
-        return path;
-    }
-
     public static void writeDefaultConfig() {
         Prompt prompt = new Prompt(null, null, true, true);
         prompt.alert(Prompt.Level.INFO, "JMusicBot Config", "Generating default config file");
-        Path path = BotConfig.getConfigPath();
-        byte[] bytes = BotConfig.loadDefaultConfig().getBytes();
+        Path path = ConfigFileManager.getConfigPath();
         try {
             prompt.alert(Prompt.Level.INFO, "JMusicBot Config",
                     "Writing default config file to " + path.toAbsolutePath().toString());
-            Files.write(path, bytes);
+            ConfigFileManager.writeConfigFile(path, ConfigFileManager.loadDefaultConfig());
         } catch (Exception ex) {
             prompt.alert(Prompt.Level.ERROR, "JMusicBot Config",
                     "An error occurred writing the default config file: " + ex.getMessage());

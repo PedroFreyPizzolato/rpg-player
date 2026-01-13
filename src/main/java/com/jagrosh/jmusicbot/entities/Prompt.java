@@ -21,10 +21,12 @@ import javax.swing.*;
 import java.util.Scanner;
 
 /**
+ * Implementation of UserInteraction that provides GUI dialogs or CLI interaction
+ * based on the runtime environment.
  *
  * @author John Grosh (john.a.grosh@gmail.com)
  */
-public class Prompt
+public class Prompt implements UserInteraction
 {
     private final String title;
     private final String noguiMessage;
@@ -51,11 +53,29 @@ public class Prompt
         this.noprompt = noprompt;
     }
     
+    @Override
     public boolean isNoGUI()
     {
         return nogui;
     }
 
+    @Override
+    public String prompt(String content) {
+        if (noprompt)
+            return null;
+
+        if (nogui)
+            return promptCli(content);
+
+        try {
+            return JOptionPane.showInputDialog(null, content, title, JOptionPane.QUESTION_MESSAGE);
+        } catch (Exception e) {
+            alert(Level.WARNING, title, noguiMessage);
+            return promptCli(content); // preserves your original “retry via CLI” behavior
+        }
+    }
+
+    @Override
     public void alert(Level level, String context, String message) {
         if (nogui) {
             logAlert(level, context, message);
@@ -98,20 +118,7 @@ public class Prompt
         return "<html><body><p style='width:400px;'>" + message + "</p></body></html>";
     }
 
-    public String prompt(String content) {
-        if (noprompt)
-            return null;
-
-        if (nogui)
-            return promptCli(content);
-
-        try {
-            return JOptionPane.showInputDialog(null, content, title, JOptionPane.QUESTION_MESSAGE);
-        } catch (Exception e) {
-            alert(Level.WARNING, title, noguiMessage);
-            return promptCli(content); // preserves your original “retry via CLI” behavior
-        }
-    }
+    
 
     private String promptCli(String content) {
         if (scanner == null)
