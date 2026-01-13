@@ -71,18 +71,20 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getAltPrefix() returns null for NONE")
         void getAltPrefixReturnsNullForNone() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                altprefix = NONE
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.altPrefix = "NONE"
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
+            // getAltPrefix() returns null when internal value is "NONE" (for API compatibility)
             assertNull(config.getAltPrefix());
         }
         
@@ -90,16 +92,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getAltPrefix() returns value when not NONE")
         void getAltPrefixReturnsValueWhenNotNone() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                altprefix = "!!"
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.altPrefix = "!!"
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertEquals("!!", config.getAltPrefix());
@@ -109,16 +112,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isGameNone() returns true for NONE game")
         void isGameNoneReturnsTrueForNoneGame() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                game = NONE
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                presence.game = NONE
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertTrue(config.isGameNone());
@@ -128,16 +132,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isGameNone() returns false for other games")
         void isGameNoneReturnsFalseForOtherGames() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                game = Playing music
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                presence.game = Playing music
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertFalse(config.isGameNone());
@@ -147,15 +152,16 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getDBots() returns true for specific owner ID")
         void getDBotsReturnsTrueForSpecificOwnerId() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 113156185389092864
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 113156185389092864
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("113156185389092864");
             config.load();
             
             assertTrue(config.getDBots());
@@ -165,15 +171,16 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getDBots() returns false for other owner IDs")
         void getDBotsReturnsFalseForOtherOwnerIds() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertFalse(config.getDBots());
@@ -188,16 +195,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isTooLong() returns false when maxSeconds is 0")
         void isTooLongReturnsFalseWhenMaxSecondsIsZero() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                maxtime = 0
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.maxTrackSeconds = 0
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             when(mockAudioTrack.getDuration()).thenReturn(3600000L); // 1 hour
@@ -209,16 +217,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isTooLong() returns false when track is shorter than max")
         void isTooLongReturnsFalseWhenTrackIsShorter() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                maxtime = 300
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.maxTrackSeconds = 300
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             when(mockAudioTrack.getDuration()).thenReturn(120000L); // 2 minutes
@@ -230,16 +239,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isTooLong() returns true when track is longer than max")
         void isTooLongReturnsTrueWhenTrackIsLonger() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                maxtime = 300
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.maxTrackSeconds = 300
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             when(mockAudioTrack.getDuration()).thenReturn(600000L); // 10 minutes
@@ -256,9 +266,12 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getAliases() returns aliases for existing command")
         void getAliasesReturnsAliasesForExistingCommand() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                aliases {
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.aliases {
                   play = [ p, playmusic ]
                   skip = [ voteskip ]
                 }
@@ -267,8 +280,6 @@ class BotConfigUnitTest extends BaseConfigTest {
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             String[] playAliases = config.getAliases("play");
@@ -281,9 +292,12 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getAliases() returns empty array for non-existent command")
         void getAliasesReturnsEmptyArrayForNonExistentCommand() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                aliases {
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.aliases {
                   play = [ p ]
                 }
                 """;
@@ -291,8 +305,6 @@ class BotConfigUnitTest extends BaseConfigTest {
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             String[] aliases = config.getAliases("nonexistent");
@@ -303,15 +315,16 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getAliases() returns empty array when aliases config is missing")
         void getAliasesReturnsEmptyArrayWhenAliasesConfigMissing() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             String[] aliases = config.getAliases("play");
@@ -327,15 +340,16 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getEnabledAudioSources() returns all sources when not specified")
         void getEnabledAudioSourcesReturnsAllWhenNotSpecified() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             Set<AudioSource> sources = config.getEnabledAudioSources();
@@ -349,16 +363,21 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("getEnabledAudioSources() returns specified sources")
         void getEnabledAudioSourcesReturnsSpecifiedSources() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                audiosources = [ youtube, soundcloud ]
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = true
+                  bandcamp = false
+                }
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             Set<AudioSource> sources = config.getEnabledAudioSources();
@@ -371,16 +390,20 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isAudioSourceEnabled() returns true for enabled source")
         void isAudioSourceEnabledReturnsTrueForEnabledSource() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                audiosources = [ youtube ]
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = false
+                }
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertTrue(config.isAudioSourceEnabled(AudioSource.YOUTUBE));
@@ -391,19 +414,24 @@ class BotConfigUnitTest extends BaseConfigTest {
         @DisplayName("isAudioSourceEnabled() filters invalid source names")
         void isAudioSourceEnabledFiltersInvalidSourceNames() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                audiosources = [ youtube, invalid_source, soundcloud ]
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = true
+                  invalid_source = true
+                }
                 """;
             Path configFile = createTempConfigFile(configContent);
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
-            // Invalid source should be filtered out
+            // Only valid sources from AudioSource enum should be present
             Set<AudioSource> sources = config.getEnabledAudioSources();
             assertTrue(sources.contains(AudioSource.YOUTUBE));
             assertTrue(sources.contains(AudioSource.SOUNDCLOUD));
@@ -418,6 +446,7 @@ class BotConfigUnitTest extends BaseConfigTest {
         @Test
         @DisplayName("getStatus() returns correct OnlineStatus")
         void getStatusReturnsCorrectOnlineStatus() throws IOException {
+            // Use legacy format - will be migrated to nested
             String configContent = """
                 token = test_token
                 owner = 123456789
@@ -427,16 +456,16 @@ class BotConfigUnitTest extends BaseConfigTest {
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
+            assertTrue(config.isValid());
             assertEquals(OnlineStatus.IDLE, config.getStatus());
         }
         
         @Test
         @DisplayName("getGame() returns correct Activity")
         void getGameReturnsCorrectActivity() throws IOException {
+            // Use legacy format - will be migrated to nested
             String configContent = """
                 token = test_token
                 owner = 123456789
@@ -446,10 +475,9 @@ class BotConfigUnitTest extends BaseConfigTest {
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
+            assertTrue(config.isValid());
             assertNotNull(config.getGame());
             assertTrue(config.getGame().getName().contains("music"));
         }

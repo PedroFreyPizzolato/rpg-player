@@ -77,18 +77,24 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
             
             assertNotNull(userConfig);
             assertNotNull(merged);
-            assertEquals("integration_test_token", merged.getString("token"));
-            assertEquals(987654321L, merged.getLong("owner"));
-            assertEquals("!!", merged.getString("prefix"));
-            assertTrue(merged.getBoolean("songinstatus"));
-            assertEquals(20, merged.getInt("maxytplaylistpages"));
+            assertEquals("integration_test_token", merged.getString("discord.token"));
+            assertEquals(987654321L, merged.getLong("discord.owner"));
+            assertEquals("!!", merged.getString("commands.prefix"));
+            assertTrue(merged.getBoolean("presence.songInStatus"));
+            assertEquals(20, merged.getInt("playback.maxYouTubePlaylistPages"));
         }
         
         @Test
         @DisplayName("Merges user config with reference.conf defaults")
         void mergesUserConfigWithReferenceDefaults() throws IOException {
             // Minimal user config
-            String configContent = "token = test_token\nowner = 123456789";
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                """;
             Path configFile = createTempConfigFile(configContent);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
@@ -96,8 +102,8 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
             assertNotNull(merged);
             // Should have access to default values from reference.conf
             // User values should override defaults
-            assertEquals("test_token", merged.getString("token"));
-            assertEquals(123456789L, merged.getLong("owner"));
+            assertEquals("test_token", merged.getString("discord.token"));
+            assertEquals(123456789L, merged.getLong("discord.owner"));
         }
         
         @Test
@@ -105,9 +111,9 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
         void handlesMalformedConfigFileGracefully() throws IOException {
             // Config with syntax errors
             String configContent = """
-                token = test_token
-                owner = 123456789
-                prefix = "!!"
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.prefix = "!!"
                 invalid syntax here {
                 """;
             Path configFile = createTempConfigFile(configContent);
@@ -122,14 +128,17 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
         @DisplayName("Handles nested config structures")
         void handlesNestedConfigStructures() throws IOException {
             String configContent = """
-                token = test_token
-                owner = 123456789
-                aliases {
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                commands.aliases {
                   play = [ p, playmusic, pm ]
                   skip = [ voteskip, vs, s ]
                   queue = [ list, q ]
                 }
-                transforms {
+                playback.transforms {
                   youtube {
                     enabled = true
                   }
@@ -140,9 +149,9 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
             assertNotNull(merged);
-            assertTrue(merged.hasPath("aliases.play"));
-            assertEquals(3, merged.getStringList("aliases.play").size());
-            assertTrue(merged.hasPath("transforms.youtube"));
+            assertTrue(merged.hasPath("commands.aliases.play"));
+            assertEquals(3, merged.getStringList("commands.aliases.play").size());
+            assertTrue(merged.hasPath("playback.transforms.youtube"));
         }
     }
     
@@ -153,32 +162,37 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("User config values override defaults")
         void userConfigValuesOverrideDefaults() throws IOException {
+            // Use new format (already nested) - no migration needed
             String configContent = """
-                token = user_token
-                owner = 999999999
-                prefix = user_prefix
+                meta {
+                  configVersion = 1
+                }
+                discord.token = user_token
+                discord.owner = 999999999
+                commands.prefix = user_prefix
                 """;
             Path configFile = createTempConfigFile(configContent);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
-            assertEquals("user_token", merged.getString("token"));
-            assertEquals(999999999L, merged.getLong("owner"));
-            assertEquals("user_prefix", merged.getString("prefix"));
+            assertEquals("user_token", merged.getString("discord.token"));
+            assertEquals(999999999L, merged.getLong("discord.owner"));
+            assertEquals("user_prefix", merged.getString("commands.prefix"));
         }
         
         @Test
         @DisplayName("Defaults are used when user config is missing values")
         void defaultsAreUsedWhenUserConfigMissingValues() throws IOException {
             // User config with only required fields
-            String configContent = "token = test_token\nowner = 123456789";
+            String configContent = "discord.token = test_token\ndiscord.owner = 123456789";
             Path configFile = createTempConfigFile(configContent);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
             // Should still be able to access optional fields from defaults
             assertNotNull(merged);
-            // The exact fields depend on reference.conf
+            assertTrue(merged.hasPath("commands.help"));
+            assertEquals("help", merged.getString("commands.help"));
         }
     }
 }

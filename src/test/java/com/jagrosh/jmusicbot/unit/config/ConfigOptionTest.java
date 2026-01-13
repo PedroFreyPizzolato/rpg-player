@@ -76,35 +76,35 @@ class ConfigOptionTest {
         @Test
         @DisplayName("getString() returns correct value")
         void getStringReturnsCorrectValue() {
-            Config config = ConfigFactory.parseMap(Map.of("token", "test_token"));
+            Config config = ConfigFactory.parseMap(Map.of("discord", Map.of("token", "test_token")));
             assertEquals("test_token", ConfigOption.TOKEN.getString(config));
         }
         
         @Test
         @DisplayName("getLong() returns correct value")
         void getLongReturnsCorrectValue() {
-            Config config = ConfigFactory.parseMap(Map.of("owner", 123456789L));
+            Config config = ConfigFactory.parseMap(Map.of("discord", Map.of("owner", 123456789L)));
             assertEquals(123456789L, ConfigOption.OWNER.getLong(config));
         }
         
         @Test
         @DisplayName("getInt() returns correct value")
         void getIntReturnsCorrectValue() {
-            Config config = ConfigFactory.parseMap(Map.of("maxytplaylistpages", 15));
+            Config config = ConfigFactory.parseMap(Map.of("playback", Map.of("maxYouTubePlaylistPages", 15)));
             assertEquals(15, ConfigOption.MAX_YT_PLAYLIST_PAGES.getInt(config));
         }
         
         @Test
         @DisplayName("getDouble() returns correct value")
         void getDoubleReturnsCorrectValue() {
-            Config config = ConfigFactory.parseMap(Map.of("skipratio", 0.75));
+            Config config = ConfigFactory.parseMap(Map.of("playback", Map.of("skipRatio", 0.75)));
             assertEquals(0.75, ConfigOption.SKIP_RATIO.getDouble(config));
         }
         
         @Test
         @DisplayName("getBoolean() returns correct value")
         void getBooleanReturnsCorrectValue() {
-            Config config = ConfigFactory.parseMap(Map.of("stayinchannel", true));
+            Config config = ConfigFactory.parseMap(Map.of("voice", Map.of("stayInChannel", true)));
             assertTrue(ConfigOption.STAY_IN_CHANNEL.getBoolean(config));
         }
         
@@ -112,20 +112,19 @@ class ConfigOptionTest {
         @DisplayName("getConfig() returns nested config")
         void getConfigReturnsNestedConfig() {
             Map<String, Object> aliasesMap = Map.of("play", List.of("p"));
-            Config config = ConfigFactory.parseMap(Map.of("aliases", aliasesMap));
+            Config config = ConfigFactory.parseMap(Map.of("commands", Map.of("aliases", aliasesMap)));
             Config aliases = ConfigOption.ALIASES.getConfig(config);
             assertNotNull(aliases);
             assertTrue(aliases.hasPath("play"));
         }
         
         @Test
-        @DisplayName("getStringList() returns list")
-        void getStringListReturnsList() {
-            Config config = ConfigFactory.parseMap(Map.of("audiosources", List.of("youtube", "soundcloud")));
-            List<String> sources = ConfigOption.AUDIO_SOURCES.getStringList(config);
-            assertEquals(2, sources.size());
-            assertTrue(sources.contains("youtube"));
-            assertTrue(sources.contains("soundcloud"));
+        @DisplayName("getConfig() returns nested config for audioSources")
+        void getConfigReturnsNestedConfigForAudioSources() {
+            Config config = ConfigFactory.parseMap(Map.of("playback", Map.of("audioSources", Map.of("youtube", true))));
+            Config audioSources = ConfigOption.AUDIO_SOURCES.getConfig(config);
+            assertNotNull(audioSources);
+            assertTrue(audioSources.getBoolean("youtube"));
         }
         
         @Test
@@ -150,7 +149,7 @@ class ConfigOptionTest {
         @Test
         @DisplayName("hasValue() returns true when path exists")
         void hasValueReturnsTrueWhenPathExists() {
-            Config config = ConfigFactory.parseMap(Map.of("token", "test_token"));
+            Config config = ConfigFactory.parseMap(Map.of("discord", Map.of("token", "test_token")));
             assertTrue(ConfigOption.TOKEN.hasValue(config));
         }
         
@@ -169,7 +168,7 @@ class ConfigOptionTest {
         @Test
         @DisplayName("findByKey() finds existing key")
         void findByKeyFindsExistingKey() {
-            var result = ConfigOption.findByKey("token");
+            var result = ConfigOption.findByKey("discord.token");
             assertTrue(result.isPresent());
             assertEquals(ConfigOption.TOKEN, result.get());
         }
@@ -178,13 +177,6 @@ class ConfigOptionTest {
         @DisplayName("findByKey() returns empty for non-existent key")
         void findByKeyReturnsEmptyForNonExistentKey() {
             var result = ConfigOption.findByKey("nonexistent");
-            assertFalse(result.isPresent());
-        }
-        
-        @Test
-        @DisplayName("findByKey() is case-sensitive")
-        void findByKeyIsCaseSensitive() {
-            var result = ConfigOption.findByKey("TOKEN");
             assertFalse(result.isPresent());
         }
     }
@@ -197,9 +189,9 @@ class ConfigOptionTest {
         @DisplayName("getAllKeys() returns all keys")
         void getAllKeysReturnsAllKeys() {
             Set<String> keys = ConfigOption.getAllKeys();
-            assertTrue(keys.contains("token"));
-            assertTrue(keys.contains("owner"));
-            assertTrue(keys.contains("prefix"));
+            assertTrue(keys.contains("discord.token"));
+            assertTrue(keys.contains("discord.owner"));
+            assertTrue(keys.contains("commands.prefix"));
             assertEquals(ConfigOption.values().length, keys.size());
         }
         
@@ -207,9 +199,9 @@ class ConfigOptionTest {
         @DisplayName("getOptionalKeys() returns only optional keys")
         void getOptionalKeysReturnsOnlyOptionalKeys() {
             Set<String> optionalKeys = ConfigOption.getOptionalKeys();
-            assertTrue(optionalKeys.contains("prefix"));
-            assertFalse(optionalKeys.contains("token"));
-            assertFalse(optionalKeys.contains("owner"));
+            assertTrue(optionalKeys.contains("commands.prefix"));
+            assertFalse(optionalKeys.contains("discord.token"));
+            assertFalse(optionalKeys.contains("discord.owner"));
         }
         
         @Test
@@ -242,7 +234,7 @@ class ConfigOptionTest {
                     Arguments.of(ConfigOption.SKIP_RATIO, ConfigOption.ConfigType.DOUBLE),
                     Arguments.of(ConfigOption.STAY_IN_CHANNEL, ConfigOption.ConfigType.BOOLEAN),
                     Arguments.of(ConfigOption.ALIASES, ConfigOption.ConfigType.CONFIG),
-                    Arguments.of(ConfigOption.AUDIO_SOURCES, ConfigOption.ConfigType.STRING_LIST)
+                    Arguments.of(ConfigOption.AUDIO_SOURCES, ConfigOption.ConfigType.CONFIG)
             );
         }
     }

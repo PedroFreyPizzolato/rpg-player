@@ -39,11 +39,13 @@ class ConfigLoaderTest extends BaseConfigTest {
         @Test
         @DisplayName("loadUserConfig() loads existing config file")
         void loadUserConfigLoadsExistingFile() throws IOException {
+            // Test with legacy format - loadUserConfig returns raw config before migration
             Path configFile = createTempConfigFile("token = test_token\nowner = 123456789");
             
             Config config = ConfigLoader.loadUserConfig(configFile);
             
             assertNotNull(config);
+            // Raw config has flat keys
             assertEquals("test_token", config.getString("token"));
             assertEquals(123456789L, config.getLong("owner"));
         }
@@ -101,14 +103,15 @@ class ConfigLoaderTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig() merges user config with defaults")
         void loadMergedConfigMergesWithDefaults() throws IOException {
+            // Legacy config gets migrated, so check migrated paths
             Path configFile = createTempConfigFile("token = user_token\nowner = 123456789");
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
             assertNotNull(merged);
-            // User config should override defaults
-            assertEquals("user_token", merged.getString("token"));
-            assertEquals(123456789L, merged.getLong("owner"));
+            // After migration, legacy keys become nested
+            assertEquals("user_token", merged.getString("discord.token"));
+            assertEquals(123456789L, merged.getLong("discord.owner"));
         }
         
         @Test
@@ -140,6 +143,7 @@ class ConfigLoaderTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig() preserves user-specific values")
         void loadMergedConfigPreservesUserValues() throws IOException {
+            // Legacy config gets migrated to nested format
             String configContent = """
                 token = custom_token
                 owner = 987654321
@@ -151,10 +155,11 @@ class ConfigLoaderTest extends BaseConfigTest {
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
             assertNotNull(merged);
-            assertEquals("custom_token", merged.getString("token"));
-            assertEquals(987654321L, merged.getLong("owner"));
-            assertEquals("custom_prefix", merged.getString("prefix"));
-            assertTrue(merged.getBoolean("stayinchannel"));
+            // After migration, check nested paths
+            assertEquals("custom_token", merged.getString("discord.token"));
+            assertEquals(987654321L, merged.getLong("discord.owner"));
+            assertEquals("custom_prefix", merged.getString("commands.prefix"));
+            assertTrue(merged.getBoolean("voice.stayInChannel"));
         }
         
         @Test
@@ -178,14 +183,14 @@ class ConfigLoaderTest extends BaseConfigTest {
         @Test
         @DisplayName("Merged config respects user config priority")
         void mergedConfigRespectsUserConfigPriority() throws IOException {
-            // Create user config
+            // Create user config (legacy format)
             Path userConfigFile = createTempConfigFile("token = user_override");
             
             Config userConfig = ConfigLoader.loadUserConfig(userConfigFile);
             Config merged = ConfigLoader.loadMergedConfig(userConfigFile);
             
-            // User config should take priority
-            assertEquals("user_override", merged.getString("token"));
+            // After migration, user config should take priority in merged config
+            assertEquals("user_override", merged.getString("discord.token"));
         }
         
         @Test

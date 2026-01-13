@@ -63,7 +63,7 @@ public abstract class BaseConfigTest {
      */
     protected Path createTempConfigFile(String content) throws IOException {
         Path configFile = tempDir.resolve("config-" + System.currentTimeMillis() + ".conf");
-        Files.write(configFile, content.getBytes());
+        Files.writeString(configFile, content, java.nio.charset.StandardCharsets.UTF_8);
         tempFiles.add(configFile);
         return configFile;
     }

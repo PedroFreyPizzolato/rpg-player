@@ -199,4 +199,60 @@ public class TestConfigFactory {
         configMap.put("audiosources", java.util.List.of(sources));
         return ConfigFactory.parseMap(configMap);
     }
+    
+    /**
+     * Creates a legacy-format (flat) config for testing migrations.
+     */
+    public static Config createLegacyConfig() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("token", "test_token_12345");
+        configMap.put("owner", 123456789L);
+        configMap.put("prefix", "@mention");
+        configMap.put("altprefix", "NONE");
+        configMap.put("help", "help");
+        configMap.put("game", "DEFAULT");
+        configMap.put("status", "ONLINE");
+        return ConfigFactory.parseMap(configMap);
+    }
+    
+    /**
+     * Creates a new-format (nested) config for testing.
+     */
+    public static Config createNewFormatConfig() {
+        Map<String, Object> configMap = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("configVersion", 1);
+        configMap.put("meta", meta);
+        
+        Map<String, Object> discord = new HashMap<>();
+        discord.put("token", "test_token_12345");
+        discord.put("owner", 123456789L);
+        configMap.put("discord", discord);
+        
+        Map<String, Object> commands = new HashMap<>();
+        commands.put("prefix", "@mention");
+        commands.put("altPrefix", null);
+        commands.put("help", "help");
+        configMap.put("commands", commands);
+        
+        Map<String, Object> presence = new HashMap<>();
+        presence.put("game", "DEFAULT");
+        presence.put("status", "ONLINE");
+        configMap.put("presence", presence);
+        
+        return ConfigFactory.parseMap(configMap);
+    }
+    
+    /**
+     * Creates a config with a specific version number.
+     */
+    public static Config createConfigWithVersion(int version) {
+        Map<String, Object> configMap = new HashMap<>();
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("configVersion", version);
+        configMap.put("meta", meta);
+        configMap.put("token", "test_token_12345");
+        configMap.put("owner", 123456789L);
+        return ConfigFactory.parseMap(configMap);
+    }
 }

@@ -31,9 +31,11 @@ import net.dv8tion.jda.api.entities.Activity;
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.jagrosh.jmusicbot.config.ConfigFileManager;
 import com.jagrosh.jmusicbot.config.ConfigLoader;
-//import com.jagrosh.jmusicbot.config.ConfigUpdater;
+import com.jagrosh.jmusicbot.config.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.ConfigValidator;
+import com.jagrosh.jmusicbot.config.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
+import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
@@ -78,12 +80,34 @@ public class BotConfig {
             // get the path to the config, default config.txt
             path = ConfigFileManager.getConfigPath();
 
-            // Load user config and merged config
-            Config userConfig = ConfigLoader.loadUserConfig(path);
+            // Load raw user config, migrated user config, and merged config
+            Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
+            Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
             Config config = ConfigLoader.loadMergedConfig(path);
+            
+            // Load defaults for diagnostics
+            Config defaults = ConfigFileManager.loadDefaults();
+
+            // Run diagnostics (use migrated config for deprecated key detection)
+            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUserConfig, config, defaults);
+            
+            // Log diagnostics
+            if (diagnostics.hasIssues()) {
+                if (diagnostics.hasErrors()) {
+                    LOGGER.error("Config diagnostics - {}", diagnostics.generateMessage());
+                } else if (diagnostics.hasWarnings()) {
+                    LOGGER.warn("Config diagnostics - {}", diagnostics.generateMessage());
+                }
+                
+                // Generate updated config file if there are issues
+                Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(path, config, diagnostics);
+                if (updatedConfigPath != null) {
+                    LOGGER.info("Updated config file generated: {}. Review and merge changes manually.", updatedConfigPath);
+                }
+            }
 
             // Load all config values
-            loadConfigValues(config, userConfig);
+            loadConfigValues(config, migratedUserConfig);
 
             // Validate required fields
             ValidationResult tokenResult = ConfigValidator.validateToken(token, userInteraction, path);
@@ -100,29 +124,32 @@ public class BotConfig {
             owner = ownerResult.getValue();
             needsWrite = needsWrite || ownerResult.needsWrite();
 
-            // Write config file if needed
+            // Write config file if needed (for token/owner prompts)
             if (needsWrite) {
                 writeToFile();
             }
-            
-            //TODO Config updater (but only for yaml config)
 
             // if we get through the whole config, it's good to go
             valid = true;
         } catch (ConfigException ex) {
             userInteraction.alert(Prompt.Level.ERROR, "Config",
                     ex + ": " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
+        } catch (ConfigMigrationException ex) {
+            LOGGER.error("Config migration failed: {}", ex.getMessage());
+            userInteraction.alert(Prompt.Level.ERROR, "Config Migration",
+                    "Failed to migrate configuration: " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
         }
     }
     
     /**
      * Loads all configuration values from the merged config.
      */
-    private void loadConfigValues(Config config, Config userConfig) {
+    private void loadConfigValues(Config config, Config migratedUserConfig) {
         // set values using ConfigOption enum for type safety and standardization
         token = TOKEN.getString(config);
         prefix = PREFIX.getString(config);
-        altprefix = ALTPREFIX.getString(config);
+        // Handle altPrefix null value by defaulting to "NONE"
+        altprefix = ALTPREFIX.hasValue(config) ? ALTPREFIX.getString(config) : "NONE";
         helpWord = HELP_WORD.getString(config);
         owner = OWNER.getLong(config);
         successEmoji = SUCCESS_EMOJI.getString(config);
@@ -147,8 +174,8 @@ public class BotConfig {
         aliases = ALIASES.getConfig(config);
         transforms = TRANSFORMS.getConfig(config);
         
-        // Handle audiosources: only use if explicitly set in user's config, otherwise default to null (all enabled)
-        loadAudioSources(userConfig);
+        // Handle audiosources - pass migrated user config to check which sources were explicitly set
+        loadAudioSources(config, migratedUserConfig);
         
         skipratio = SKIP_RATIO.getDouble(config);
         dbots = owner == 113156185389092864L;
@@ -156,24 +183,56 @@ public class BotConfig {
     
     /**
      * Loads audio sources configuration.
+     * New format uses nested booleans (playback.audioSources.youtube = true).
      */
-    private void loadAudioSources(Config userConfig) {
-        if (AUDIO_SOURCES.hasValue(userConfig)) {
-            // Key exists in user's config, read the values
-            List<String> sourceNames = AUDIO_SOURCES.getStringList(userConfig);
-            if (sourceNames != null) {
-                enabledAudioSources = sourceNames.stream()
-                        .map(AudioSource::fromConfigName)
-                        .filter(java.util.Optional::isPresent)
-                        .map(java.util.Optional::get)
-                        .collect(Collectors.toSet());
-            } else {
+    private void loadAudioSources(Config config, Config migratedUserConfig) {
+        // AUDIO_SOURCES points to playback.audioSources
+        if (AUDIO_SOURCES.hasValue(config)) {
+            try {
+                Config audioSourcesConfig = AUDIO_SOURCES.getConfig(config);
+                // Check which sources were explicitly set in the user config (without defaults)
+                Config userAudioSourcesConfig = null;
+                if (AUDIO_SOURCES.hasValue(migratedUserConfig)) {
+                    try {
+                        userAudioSourcesConfig = AUDIO_SOURCES.getConfig(migratedUserConfig);
+                    } catch (ConfigException e) {
+                        // If user config doesn't have audioSources, userAudioSourcesConfig remains null
+                    }
+                }
+                
+                Set<AudioSource> enabled = new java.util.HashSet<>();
+                
+                // Iterate through all audio sources and check if they're enabled
+                for (AudioSource source : AudioSource.values()) {
+                    String sourceKey = source.getConfigName();
+                    // Only include sources that were explicitly set in the user config
+                    boolean explicitlySet = userAudioSourcesConfig != null && userAudioSourcesConfig.hasPath(sourceKey);
+                    
+                    if (explicitlySet) {
+                        // Get the value from the merged config (which has the actual boolean value)
+                        boolean enabledValue = audioSourcesConfig.getBoolean(sourceKey);
+                        if (enabledValue) {
+                            enabled.add(source);
+                        }
+                    }
+                    // If key is missing from user config, don't add it (only explicitly enabled sources are included)
+                }
+                
+                // If no sources were explicitly enabled, default to all enabled (backward compatibility)
+                if (enabled.isEmpty()) {
+                    enabledAudioSources = Set.of(AudioSource.values());
+                    LOGGER.info("No audio sources explicitly enabled, defaulting to all sources enabled");
+                } else {
+                    enabledAudioSources = enabled;
+                }
+            } catch (ConfigException e) {
+                LOGGER.warn("Failed to parse audioSources config, defaulting to all enabled: {}", e.getMessage());
                 enabledAudioSources = Set.of(AudioSource.values());
             }
         } else {
-            // Key not found in user's config, use default behavior (all sources enabled)
+            // Key not found, use default behavior (all sources enabled)
             enabledAudioSources = Set.of(AudioSource.values());
-            LOGGER.info("Audio sources config not found in config file, defaulting to all sources enabled");
+            LOGGER.info("Audio sources config not found, defaulting to all sources enabled");
         }
         
         LOGGER.info("Setup {} valid audio sources: {}", 

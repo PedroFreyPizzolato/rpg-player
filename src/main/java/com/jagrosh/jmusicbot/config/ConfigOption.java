@@ -29,42 +29,42 @@ import com.typesafe.config.ConfigException;
  */
 public enum ConfigOption {
     // Required options
-    TOKEN("token", ConfigType.STRING, true, "Bot token for authentication"),
-    OWNER("owner", ConfigType.LONG, true, "Owner's Discord user ID"),
+    TOKEN("discord.token", ConfigType.STRING, true, "Bot token for authentication"),
+    OWNER("discord.owner", ConfigType.LONG, true, "Owner's Discord user ID"),
     
     // String options
-    PREFIX("prefix", ConfigType.STRING, false, "Command prefix (use @mention for mention prefix)"),
-    ALTPREFIX("altprefix", ConfigType.STRING, false, "Alternative command prefix (use NONE to disable)"),
-    HELP_WORD("help", ConfigType.STRING, false, "Word used to view help"),
-    SUCCESS_EMOJI("success", ConfigType.STRING, false, "Success emoji"),
-    WARNING_EMOJI("warning", ConfigType.STRING, false, "Warning emoji"),
-    ERROR_EMOJI("error", ConfigType.STRING, false, "Error emoji"),
-    LOADING_EMOJI("loading", ConfigType.STRING, false, "Loading emoji"),
-    SEARCHING_EMOJI("searching", ConfigType.STRING, false, "Searching emoji"),
-    GAME("game", ConfigType.STRING, false, "Bot's game status (use DEFAULT for default, NONE for no game)"),
-    STATUS("status", ConfigType.STRING, false, "Bot's online status (ONLINE, IDLE, DND, INVISIBLE)"),
-    LOG_LEVEL("loglevel", ConfigType.STRING, false, "Logging verbosity (off, error, warn, info, debug, trace, all)"),
-    EVAL_ENGINE("evalengine", ConfigType.STRING, false, "Eval engine name"),
-    PLAYLISTS_FOLDER("playlistsfolder", ConfigType.STRING, false, "Alternative folder for playlists"),
+    PREFIX("commands.prefix", ConfigType.STRING, false, "Command prefix (use @mention for mention prefix)"),
+    ALTPREFIX("commands.altPrefix", ConfigType.STRING, false, "Alternative command prefix (use NONE to disable)"),
+    HELP_WORD("commands.help", ConfigType.STRING, false, "Word used to view help"),
+    SUCCESS_EMOJI("ui.emojis.success", ConfigType.STRING, false, "Success emoji"),
+    WARNING_EMOJI("ui.emojis.warning", ConfigType.STRING, false, "Warning emoji"),
+    ERROR_EMOJI("ui.emojis.error", ConfigType.STRING, false, "Error emoji"),
+    LOADING_EMOJI("ui.emojis.loading", ConfigType.STRING, false, "Loading emoji"),
+    SEARCHING_EMOJI("ui.emojis.searching", ConfigType.STRING, false, "Searching emoji"),
+    GAME("presence.game", ConfigType.STRING, false, "Bot's game status (use DEFAULT for default, NONE for no game)"),
+    STATUS("presence.status", ConfigType.STRING, false, "Bot's online status (ONLINE, IDLE, DND, INVISIBLE)"),
+    LOG_LEVEL("logging.level", ConfigType.STRING, false, "Logging verbosity (off, error, warn, info, debug, trace, all)"),
+    EVAL_ENGINE("dangerous.evalEngine", ConfigType.STRING, false, "Eval engine name"),
+    PLAYLISTS_FOLDER("paths.playlistsFolder", ConfigType.STRING, false, "Alternative folder for playlists"),
     
     // Boolean options
-    STAY_IN_CHANNEL("stayinchannel", ConfigType.BOOLEAN, false, "Whether to stay in voice channel after queue ends"),
-    SONG_IN_GAME("songinstatus", ConfigType.BOOLEAN, false, "Whether to show current song in bot status"),
-    NP_IMAGES("npimages", ConfigType.BOOLEAN, false, "Whether to show YouTube thumbnails in nowplaying"),
-    UPDATE_ALERTS("updatealerts", ConfigType.BOOLEAN, false, "Whether to alert owner about updates"),
-    USE_EVAL("eval", ConfigType.BOOLEAN, false, "Whether to enable eval command (DANGEROUS)"),
-    USE_YOUTUBE_OAUTH("useyoutubeoauth", ConfigType.BOOLEAN, false, "Whether to use YouTube OAuth2 for playback"),
+    STAY_IN_CHANNEL("voice.stayInChannel", ConfigType.BOOLEAN, false, "Whether to stay in voice channel after queue ends"),
+    SONG_IN_GAME("presence.songInStatus", ConfigType.BOOLEAN, false, "Whether to show current song in bot status"),
+    NP_IMAGES("nowPlaying.images", ConfigType.BOOLEAN, false, "Whether to show YouTube thumbnails in nowplaying"),
+    UPDATE_ALERTS("updates.alerts", ConfigType.BOOLEAN, false, "Whether to alert owner about updates"),
+    USE_EVAL("dangerous.eval", ConfigType.BOOLEAN, false, "Whether to enable eval command (DANGEROUS)"),
+    USE_YOUTUBE_OAUTH("playback.youtube.useOAuth", ConfigType.BOOLEAN, false, "Whether to use YouTube OAuth2 for playback"),
     
     // Numeric options
-    MAX_SECONDS("maxtime", ConfigType.LONG, false, "Maximum track length in seconds (0 = no limit)"),
-    MAX_YT_PLAYLIST_PAGES("maxytplaylistpages", ConfigType.INT, false, "Maximum YouTube playlist pages to load"),
-    ALONE_TIME_UNTIL_STOP("alonetimeuntilstop", ConfigType.LONG, false, "Seconds to wait alone before leaving (0 = never)"),
-    SKIP_RATIO("skipratio", ConfigType.DOUBLE, false, "Ratio of users needed to vote skip"),
+    MAX_SECONDS("playback.maxTrackSeconds", ConfigType.LONG, false, "Maximum track length in seconds (0 = no limit)"),
+    MAX_YT_PLAYLIST_PAGES("playback.maxYouTubePlaylistPages", ConfigType.INT, false, "Maximum YouTube playlist pages to load"),
+    ALONE_TIME_UNTIL_STOP("voice.aloneTimeUntilStopSeconds", ConfigType.LONG, false, "Seconds to wait alone before leaving (0 = never)"),
+    SKIP_RATIO("playback.skipRatio", ConfigType.DOUBLE, false, "Ratio of users needed to vote skip"),
     
-    // Complex options - Nested configurations & string lists
-    ALIASES("aliases", ConfigType.CONFIG, false, "Command aliases configuration"),
-    TRANSFORMS("transforms", ConfigType.CONFIG, false, "Audio source transforms configuration"),
-    AUDIO_SOURCES("audiosources", ConfigType.STRING_LIST, false, "List of enabled audio sources");
+    // Complex options - Nested configurations
+    ALIASES("commands.aliases", ConfigType.CONFIG, false, "Command aliases configuration"),
+    TRANSFORMS("playback.transforms", ConfigType.CONFIG, false, "Audio source transforms configuration"),
+    AUDIO_SOURCES("playback.audioSources", ConfigType.CONFIG, false, "Audio sources configuration (nested booleans)");
     
     private final String key;
     private final ConfigType type;
@@ -148,7 +148,7 @@ public enum ConfigOption {
     
     /**
      * Type-safe getter for Double values.
-     * @throws ConfigException.Missing if the path doesn't exist
+    * @throws ConfigException.Missing if the path doesn't exist
      */
     public Double getDouble(Config config) {
         return config.getDouble(key);

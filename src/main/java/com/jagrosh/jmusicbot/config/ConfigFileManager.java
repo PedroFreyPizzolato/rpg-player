@@ -22,6 +22,7 @@ import java.nio.file.StandardOpenOption;
 
 import com.jagrosh.jmusicbot.JMusicBot;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 /**
@@ -30,8 +31,10 @@ import com.typesafe.config.ConfigFactory;
  * @author Arif Banai (arif-banai)
  */
 public class ConfigFileManager {
-    private static final String START_TOKEN = "/// START OF JMUSICBOT CONFIG ///";
-    private static final String END_TOKEN = "/// END OF JMUSICBOT CONFIG ///";
+    private static final String START_TOKEN_OLD = "/// START OF JMUSICBOT CONFIG ///";
+    private static final String START_TOKEN_NEW = "// START OF JMUSICBOT CONFIG //";
+    private static final String END_TOKEN_OLD = "/// END OF JMUSICBOT CONFIG ///";
+    private static final String END_TOKEN_NEW = "// END OF JMUSICBOT CONFIG //";
     
     /**
      * Gets the path to the config file, defaulting to config.txt.
@@ -51,10 +54,26 @@ public class ConfigFileManager {
      */
     public static String loadDefaultConfig() {
         String original = OtherUtil.loadResource(new JMusicBot(), "/reference.conf");
-        return original == null
+        if (original == null) {
+            // Fallback to legacy format if resource not found
+            return "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID";
+        }
+        
+        // Try new format first (2 slashes), then fall back to old format (3 slashes)
+        String startToken = original.contains(START_TOKEN_NEW) ? START_TOKEN_NEW : START_TOKEN_OLD;
+        String endToken = original.contains(END_TOKEN_NEW) ? END_TOKEN_NEW : END_TOKEN_OLD;
+        
+        int startIndex = original.indexOf(startToken);
+        int endIndex = original.indexOf(endToken);
+        
+        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
+            // Tokens not found or malformed, return entire file or fallback
+            return original.trim().isEmpty() 
                 ? "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID"
-                : original.substring(original.indexOf(START_TOKEN) + START_TOKEN.length(), original.indexOf(END_TOKEN))
-                        .trim();
+                : original.trim();
+        }
+        
+        return original.substring(startIndex + startToken.length(), endIndex).trim();
     }
     
     /**
@@ -76,5 +95,21 @@ public class ConfigFileManager {
      */
     public static boolean configFileExists(Path path) {
         return path.toFile().exists();
+    }
+    
+    /**
+     * Loads the default configuration from reference.conf in the classpath.
+     * This explicitly loads the reference.conf resource file.
+     * 
+     * @return the default configuration
+     */
+    public static Config loadDefaults() {
+        try {
+            return ConfigFactory.parseResources("reference.conf");
+        } catch (Exception e) {
+            // Fallback to ConfigFactory.load() which also loads reference.conf
+            // but may include other sources
+            return ConfigFactory.load();
+        }
     }
 }
