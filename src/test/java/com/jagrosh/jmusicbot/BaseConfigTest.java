@@ -1,0 +1,115 @@
+/*
+ * Copyright 2026 Arif Banai (arif-banai)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.jagrosh.jmusicbot;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Base class for config-related tests.
+ * Provides common setup/teardown and utility methods.
+ */
+public abstract class BaseConfigTest {
+    
+    @TempDir
+    protected Path tempDir;
+    
+    protected List<Path> tempFiles;
+    protected MockUserInteraction mockUserInteraction;
+    
+    @BeforeEach
+    protected void setUpBase() {
+        tempFiles = new ArrayList<>();
+        mockUserInteraction = new MockUserInteraction();
+    }
+    
+    @AfterEach
+    protected void tearDownBase() throws IOException {
+        // Clean up temporary files
+        for (Path tempFile : tempFiles) {
+            try {
+                if (Files.exists(tempFile)) {
+                    Files.delete(tempFile);
+                }
+            } catch (IOException e) {
+                // Ignore cleanup errors
+            }
+        }
+        tempFiles.clear();
+    }
+    
+    /**
+     * Creates a temporary config file in the test's temp directory.
+     */
+    protected Path createTempConfigFile(String content) throws IOException {
+        Path configFile = tempDir.resolve("config-" + System.currentTimeMillis() + ".conf");
+        Files.write(configFile, content.getBytes());
+        tempFiles.add(configFile);
+        return configFile;
+    }
+    
+    /**
+     * Creates a temporary config file with minimal valid config.
+     */
+    protected Path createMinimalTempConfigFile() throws IOException {
+        return createTempConfigFile("token = test_token_12345\nowner = 123456789");
+    }
+    
+    /**
+     * Reads the content of a file.
+     */
+    protected String readFileContent(Path file) throws IOException {
+        return Files.readString(file);
+    }
+    
+    /**
+     * Asserts that a file exists.
+     */
+    protected void assertFileExists(Path file) {
+        org.junit.jupiter.api.Assertions.assertTrue(
+            Files.exists(file),
+            "Expected file to exist: " + file
+        );
+    }
+    
+    /**
+     * Asserts that a file does not exist.
+     */
+    protected void assertFileNotExists(Path file) {
+        org.junit.jupiter.api.Assertions.assertFalse(
+            Files.exists(file),
+            "Expected file to not exist: " + file
+        );
+    }
+    
+    /**
+     * Asserts that file content contains the given string.
+     */
+    protected void assertFileContains(Path file, String expectedContent) throws IOException {
+        String content = readFileContent(file);
+        org.junit.jupiter.api.Assertions.assertTrue(
+            content.contains(expectedContent),
+            String.format("Expected file to contain '%s', but content was: %s", expectedContent, content)
+        );
+    }
+}
