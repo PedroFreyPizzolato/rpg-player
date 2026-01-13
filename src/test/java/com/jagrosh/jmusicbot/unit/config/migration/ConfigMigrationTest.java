@@ -13,18 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.unit.config;
+package com.jagrosh.jmusicbot.unit.config.migration;
 
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
+import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
+import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,10 +36,10 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("detectVersion returns 0 for legacy config without meta.configVersion")
         void testDetectVersion_legacyConfig_returns0() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("token", "test_token");
-            configMap.put("owner", 123456789L);
-            Config config = ConfigFactory.parseMap(configMap);
+            Config config = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .build();
             
             int version = ConfigMigration.detectVersion(config);
             
@@ -51,11 +49,9 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("detectVersion returns 1 for config with meta.configVersion = 1")
         void testDetectVersion_newConfig_returns1() {
-            Map<String, Object> configMap = new HashMap<>();
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("configVersion", 1);
-            configMap.put("meta", meta);
-            Config config = ConfigFactory.parseMap(configMap);
+            Config config = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
             
             int version = ConfigMigration.detectVersion(config);
             
@@ -65,7 +61,7 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("detectVersion returns 0 for empty config")
         void testDetectVersion_emptyConfig_returns0() {
-            Config config = ConfigFactory.empty();
+            Config config = LegacyConfigBuilder.create().build();
             
             int version = ConfigMigration.detectVersion(config);
             
@@ -80,11 +76,9 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("getLatestVersion returns 1 from defaults with meta.configVersion = 1")
         void testGetLatestVersion_returns1() {
-            Map<String, Object> configMap = new HashMap<>();
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("configVersion", 1);
-            configMap.put("meta", meta);
-            Config defaults = ConfigFactory.parseMap(configMap);
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
             
             int version = ConfigMigration.getLatestVersion(defaults);
             
@@ -94,7 +88,7 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("getLatestVersion returns 1 for defaults without meta.configVersion")
         void testGetLatestVersion_noVersion_returns1() {
-            Config defaults = ConfigFactory.empty();
+            Config defaults = LegacyConfigBuilder.create().build();
             
             int version = ConfigMigration.getLatestVersion(defaults);
             
@@ -109,9 +103,10 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("migrate returns same config when fromVersion >= toVersion")
         void testMigrate_noMigrationNeeded() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("token", "test_token");
-            Config config = ConfigFactory.parseMap(configMap);
+            Config config = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .build();
             
             Config result = ConfigMigration.migrate(config, 1, 1);
             
@@ -121,11 +116,11 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("migrate applies 0->1 migration successfully")
         void testMigrate_v0ToV1_success() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("token", "test_token");
-            configMap.put("owner", 123456789L);
-            configMap.put("prefix", "!!");
-            Config legacyConfig = ConfigFactory.parseMap(configMap);
+            Config legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .withPrefix("!!")
+                .build();
             
             Config migrated = ConfigMigration.migrate(legacyConfig, 0, 1);
             
@@ -143,7 +138,7 @@ class ConfigMigrationTest {
         @Test
         @DisplayName("migrate throws exception for invalid version range")
         void testMigrate_invalidVersionRange_throwsException() {
-            Config config = ConfigFactory.empty();
+            Config config = LegacyConfigBuilder.create().build();
             
             assertThrows(ConfigMigrationException.class, () -> {
                 ConfigMigration.migrate(config, 0, 2); // No migration for 1->2

@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.integration.config;
+package com.jagrosh.jmusicbot.integration.config.migration;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
 import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
+import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
+import com.jagrosh.jmusicbot.testutil.config.LegacyConfigTestData;
+import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,15 +66,15 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig migrates legacy config successfully")
         void testStartupWithLegacyConfig() throws IOException {
-            String legacyConfig = """
-                token = integration_test_token
-                owner = 987654321
-                prefix = "!!"
-                altprefix = "NONE"
-                help = commands
-                game = DEFAULT
-                status = ONLINE
-                """;
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("integration_test_token")
+                .withOwner(987654321L)
+                .withPrefix("!!")
+                .withAltPrefix("NONE")
+                .withHelp("commands")
+                .withGame("DEFAULT")
+                .withStatus("ONLINE")
+                .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
             System.setProperty("config.file", configFile.toString());
@@ -92,33 +98,33 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig preserves all user values after migration")
         void testMigrationPreservesAllValues() throws IOException {
-            String legacyConfig = """
-                token = test_token
-                owner = 123456789
-                prefix = "!!"
-                altprefix = "??"
-                help = help
-                success = ✅
-                warning = ⚠️
-                error = ❌
-                loading = ⏳
-                searching = 🔍
-                game = Playing music
-                status = IDLE
-                songinstatus = true
-                npimages = true
-                stayinchannel = true
-                maxtime = 3600
-                maxytplaylistpages = 20
-                useyoutubeoauth = true
-                alonetimeuntilstop = 300
-                playlistsfolder = CustomPlaylists
-                updatealerts = false
-                loglevel = debug
-                eval = false
-                evalengine = Nashorn
-                skipratio = 0.75
-                """;
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .withPrefix("!!")
+                .withAltPrefix("??")
+                .withHelp("help")
+                .withSuccess("✅")
+                .withWarning("⚠️")
+                .withError("❌")
+                .withLoading("⏳")
+                .withSearching("🔍")
+                .withGame("Playing music")
+                .withStatus("IDLE")
+                .withSongInStatus(true)
+                .withNPImages(true)
+                .withStayInChannel(true)
+                .withMaxTime(3600L)
+                .withMaxYTPlaylistPages(20)
+                .withUseYouTubeOAuth(true)
+                .withAloneTimeUntilStop(300L)
+                .withPlaylistsFolder("CustomPlaylists")
+                .withUpdateAlerts(false)
+                .withLogLevel("debug")
+                .withEval(false)
+                .withEvalEngine("Nashorn")
+                .withSkipRatio(0.75)
+                .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
             System.setProperty("config.file", configFile.toString());
@@ -161,20 +167,14 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig handles new-format config without migration")
         void testStartupWithNewFormatConfig() throws IOException {
-            String newConfig = """
-                meta {
-                  configVersion = 1
-                }
-                discord {
-                  token = integration_test_token
-                  owner = 987654321
-                }
-                commands {
-                  prefix = "!!"
-                  altPrefix = "NONE"
-                  help = "help"
-                }
-                """;
+            String newConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("integration_test_token")
+                .withDiscordOwner(987654321L)
+                .withCommandsPrefix("!!")
+                .withCommandsAltPrefix("NONE")
+                .withCommandsHelp("help")
+                .buildAsString();
             
             Path configFile = createTempConfigFile(newConfig);
             System.setProperty("config.file", configFile.toString());
@@ -198,7 +198,10 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("loadMergedConfig works with -Dconfig.file custom path")
         void testCustomConfigPath() throws IOException {
-            String config = "token = test_token\nowner = 123456789";
+            String config = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .buildAsString();
             Path configFile = createTempConfigFile(config);
             System.setProperty("config.file", configFile.toString());
             
@@ -216,11 +219,11 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("generateUpdatedConfig creates parseable config.updated.conf")
         void testGeneratedConfigIsParseable() throws IOException {
-            String legacyConfig = """
-                token = test_token
-                owner = 123456789
-                prefix = "!!"
-                """;
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .withPrefix("!!")
+                .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
             System.setProperty("config.file", configFile.toString());
@@ -232,12 +235,17 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, merged, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
             
             assertNotNull(updatedPath);
             assertFileExists(updatedPath);
             
-            // Verify the generated file is parseable
+            // Verify the generated file is parseable as ConfigDocument (primary method)
+            String content = readFileContent(updatedPath);
+            ConfigDocument doc = ConfigDocumentFactory.parseString(content);
+            assertNotNull(doc);
+            
+            // Also verify it's parseable as Config (fallback)
             Config generated = ConfigFactory.parseFile(updatedPath.toFile());
             assertNotNull(generated);
             assertTrue(generated.hasPath("meta.configVersion"));
@@ -251,11 +259,11 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("migrates audiosources list to nested booleans")
         void testAudioSourcesMigration() throws IOException {
-            String legacyConfig = """
-                token = test_token
-                owner = 123456789
-                audiosources = [ youtube, soundcloud, local ]
-                """;
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .withAudioSources("youtube", "soundcloud", "local")
+                .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
             System.setProperty("config.file", configFile.toString());
@@ -273,10 +281,10 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
         @Test
         @DisplayName("defaults to all enabled when audiosources missing")
         void testAudioSourcesDefault() throws IOException {
-            String legacyConfig = """
-                token = test_token
-                owner = 123456789
-                """;
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
             System.setProperty("config.file", configFile.toString());

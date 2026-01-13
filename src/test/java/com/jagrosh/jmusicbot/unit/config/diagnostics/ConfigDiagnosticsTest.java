@@ -13,23 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.unit.config;
+package com.jagrosh.jmusicbot.unit.config.diagnostics;
 
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
-import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 

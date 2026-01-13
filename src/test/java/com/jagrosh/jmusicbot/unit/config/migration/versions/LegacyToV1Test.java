@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.unit.config;
+package com.jagrosh.jmusicbot.unit.config.migration.versions;
 
 import com.jagrosh.jmusicbot.config.migration.versions.LegacyToV1;
+import com.jagrosh.jmusicbot.testutil.config.ConfigMigrationAssertions;
+import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,48 +52,45 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate maps token to discord.token")
         void testMigrate_token() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("token", "test_token_123");
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withToken("test_token_123")
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
-            assertTrue(migrated.hasPath("discord.token"));
-            assertEquals("test_token_123", migrated.getString("discord.token"));
+            ConfigMigrationAssertions.assertKeyMigrated(legacy, migrated, "token", "discord.token");
         }
         
         @Test
         @DisplayName("migrate maps owner to discord.owner")
         void testMigrate_owner() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("owner", 987654321L);
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withOwner(987654321L)
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
-            assertTrue(migrated.hasPath("discord.owner"));
-            assertEquals(987654321L, migrated.getLong("discord.owner"));
+            ConfigMigrationAssertions.assertKeyMigratedLong(legacy, migrated, "owner", "discord.owner");
         }
         
         @Test
         @DisplayName("migrate maps prefix to commands.prefix")
         void testMigrate_prefix() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("prefix", "!!");
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withPrefix("!!")
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
-            assertTrue(migrated.hasPath("commands.prefix"));
-            assertEquals("!!", migrated.getString("commands.prefix"));
+            ConfigMigrationAssertions.assertKeyMigrated(legacy, migrated, "prefix", "commands.prefix");
         }
         
         @Test
         @DisplayName("migrate maps altprefix NONE to commands.altPrefix NONE")
         void testMigrate_altprefix_noneToNone() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("altprefix", "NONE");
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withAltPrefix("NONE")
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -105,21 +102,19 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate maps altprefix value to commands.altPrefix")
         void testMigrate_altprefix_value() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("altprefix", "??");
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withAltPrefix("??")
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
-            assertTrue(migrated.hasPath("commands.altPrefix"));
-            assertEquals("??", migrated.getString("commands.altPrefix"));
+            ConfigMigrationAssertions.assertKeyMigrated(legacy, migrated, "altprefix", "commands.altPrefix");
         }
         
         @Test
         @DisplayName("migrate adds meta.configVersion = 1")
         void testMigrate_addsMetaVersion() {
-            Map<String, Object> configMap = new HashMap<>();
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create().build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -135,9 +130,9 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate converts audiosources list to playback.audioSources booleans")
         void testMigrate_audiosources_listToBooleans() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("audiosources", List.of("youtube", "soundcloud", "local"));
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withAudioSources("youtube", "soundcloud", "local")
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -152,8 +147,7 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate sets all audioSources to true when audiosources key is missing")
         void testMigrate_audiosources_missing_defaultsToAll() {
-            Map<String, Object> configMap = new HashMap<>();
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create().build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -170,9 +164,9 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate handles empty audiosources list")
         void testMigrate_audiosources_emptyList() {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("audiosources", List.of());
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withAudioSources(List.of())
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -191,12 +185,12 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate preserves aliases nested config")
         void testMigrate_aliases_preserved() {
-            Map<String, Object> configMap = new HashMap<>();
-            Map<String, Object> aliases = new HashMap<>();
-            aliases.put("play", List.of("p", "playmusic"));
-            aliases.put("skip", List.of("voteskip"));
-            configMap.put("aliases", aliases);
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withAliases(Map.of(
+                    "play", List.of("p", "playmusic"),
+                    "skip", List.of("voteskip")
+                ))
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -209,11 +203,9 @@ class LegacyToV1Test {
         @Test
         @DisplayName("migrate preserves transforms nested config")
         void testMigrate_transforms_preserved() {
-            Map<String, Object> configMap = new HashMap<>();
-            Map<String, Object> transforms = new HashMap<>();
-            transforms.put("test", "value");
-            configMap.put("transforms", transforms);
-            Config legacy = ConfigFactory.parseMap(configMap);
+            Config legacy = LegacyConfigBuilder.create()
+                .withTransforms(Map.of("test", "value"))
+                .build();
             
             Config migrated = migration.migrate(legacy);
             
@@ -226,21 +218,21 @@ class LegacyToV1Test {
     @Test
     @DisplayName("migrate handles complete legacy config")
     void testMigrate_allLegacyKeys() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("token", "test_token");
-        configMap.put("owner", 123456789L);
-        configMap.put("prefix", "!!");
-        configMap.put("altprefix", "NONE");
-        configMap.put("help", "help");
-        configMap.put("game", "DEFAULT");
-        configMap.put("status", "ONLINE");
-        configMap.put("songinstatus", true);
-        configMap.put("success", "✅");
-        configMap.put("stayinchannel", false);
-        configMap.put("maxtime", 3600L);
-        configMap.put("skipratio", 0.75);
-        configMap.put("loglevel", "info");
-        Config legacy = ConfigFactory.parseMap(configMap);
+        Config legacy = LegacyConfigBuilder.create()
+            .withToken("test_token")
+            .withOwner(123456789L)
+            .withPrefix("!!")
+            .withAltPrefix("NONE")
+            .withHelp("help")
+            .withGame("DEFAULT")
+            .withStatus("ONLINE")
+            .withSongInStatus(true)
+            .withSuccess("✅")
+            .withStayInChannel(false)
+            .withMaxTime(3600L)
+            .withSkipRatio(0.75)
+            .withLogLevel("info")
+            .build();
         
         Config migrated = migration.migrate(legacy);
         
@@ -261,18 +253,16 @@ class LegacyToV1Test {
         assertEquals("info", migrated.getString("logging.level"));
         
         // Verify legacy flat keys are NOT present in migrated config
-        assertFalse(migrated.hasPath("token"));
-        assertFalse(migrated.hasPath("owner"));
-        assertFalse(migrated.hasPath("prefix"));
-        assertFalse(migrated.hasPath("altprefix"));
+        ConfigMigrationAssertions.assertLegacyKeysRemoved(migrated, 
+            "token", "owner", "prefix", "altprefix");
     }
     
     @Test
     @DisplayName("migrate converts status to uppercase")
     void testMigrate_statusUppercase() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("status", "idle");
-        Config legacy = ConfigFactory.parseMap(configMap);
+        Config legacy = LegacyConfigBuilder.create()
+            .withStatus("idle")
+            .build();
         
         Config migrated = migration.migrate(legacy);
         
@@ -282,9 +272,9 @@ class LegacyToV1Test {
     @Test
     @DisplayName("migrate ignores lyrics keys (lyrics functionality removed)")
     void testMigrate_lyricsDefault() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("lyrics.default", "Genius");
-        Config legacy = ConfigFactory.parseMap(configMap);
+        Config legacy = LegacyConfigBuilder.create()
+            .withCustom("lyrics.default", "Genius")
+            .build();
         
         Config migrated = migration.migrate(legacy);
         

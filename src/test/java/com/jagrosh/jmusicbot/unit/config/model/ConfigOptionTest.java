@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.unit.config;
+package com.jagrosh.jmusicbot.unit.config.model;
 
 import com.jagrosh.jmusicbot.config.model.ConfigOption;
 import com.typesafe.config.Config;

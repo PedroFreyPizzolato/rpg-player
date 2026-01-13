@@ -18,6 +18,10 @@ package com.jagrosh.jmusicbot.integration;
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.BotConfig;
 import com.jagrosh.jmusicbot.MockUserInteraction;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -195,9 +199,18 @@ class BotConfigIntegrationTest extends BaseConfigTest {
             // The original config file should have been updated with migrated content
             assertTrue(java.nio.file.Files.exists(configFile), "Original config file should still exist");
             String updatedContent = java.nio.file.Files.readString(configFile);
+            
+            // Verify it can be parsed as ConfigDocument (primary method used by application)
+            ConfigDocument doc = ConfigDocumentFactory.parseString(updatedContent);
+            assertNotNull(doc, "Updated config should be parseable as ConfigDocument");
+            
             // Verify it contains migrated content (should have meta.configVersion = 1 or other migrated keys)
             assertTrue(updatedContent.contains("meta") || updatedContent.contains("configVersion"), 
                 "Updated config should contain migrated content");
+            
+            // Also verify it's parseable as Config (fallback)
+            Config parsed = ConfigFactory.parseString(updatedContent);
+            assertTrue(parsed.hasPath("meta.configVersion"));
         }
     }
     
