@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.config;
+package com.jagrosh.jmusicbot.config.render;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigRenderOptions;

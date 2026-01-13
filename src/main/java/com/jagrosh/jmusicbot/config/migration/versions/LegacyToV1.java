@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.config.migrations;
+package com.jagrosh.jmusicbot.config.migration.versions;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,8 +33,8 @@ import com.typesafe.config.ConfigFactory;
  * 
  * @author Arif Banai (arif-banai)
  */
-public class MigrationV0ToV1 implements Migration {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MigrationV0ToV1.class);
+public class LegacyToV1 implements Migration {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LegacyToV1.class);
     
     @Override
     public int getFromVersion() {

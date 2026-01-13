@@ -17,7 +17,6 @@ package com.jagrosh.jmusicbot.unit;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.BotConfig;
-import com.jagrosh.jmusicbot.MockUserInteraction;
 import com.jagrosh.jmusicbot.TestConfigFactory;
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;

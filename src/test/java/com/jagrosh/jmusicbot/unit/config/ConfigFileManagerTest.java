@@ -16,7 +16,7 @@
 package com.jagrosh.jmusicbot.unit.config;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
-import com.jagrosh.jmusicbot.config.ConfigFileManager;
+import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

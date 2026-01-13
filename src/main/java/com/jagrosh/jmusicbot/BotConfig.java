@@ -15,7 +15,7 @@
  */
 package com.jagrosh.jmusicbot;
 
-import static com.jagrosh.jmusicbot.config.ConfigOption.*;
+import static com.jagrosh.jmusicbot.config.model.ConfigOption.*;
 
 import java.nio.file.Path;
 import java.util.Set;
@@ -28,12 +28,13 @@ import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 
 import com.jagrosh.jmusicbot.audio.AudioSource;
-import com.jagrosh.jmusicbot.config.ConfigFileManager;
-import com.jagrosh.jmusicbot.config.ConfigLoader;
-import com.jagrosh.jmusicbot.config.ConfigUpdater;
-import com.jagrosh.jmusicbot.config.ConfigValidator;
-import com.jagrosh.jmusicbot.config.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
+import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
+import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
+import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
+import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
+import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
+import com.jagrosh.jmusicbot.config.validation.ConfigValidator;
+import com.jagrosh.jmusicbot.config.validation.ConfigValidator.ValidationResult;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.jagrosh.jmusicbot.entities.Prompt;
@@ -82,7 +83,7 @@ public class BotConfig {
 
             // Load raw user config to check if migration is needed
             Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
-            Config defaults = ConfigFileManager.loadDefaults();
+            Config defaults = ConfigResourceLoader.loadDefaults();
             int userVersion = ConfigMigration.detectVersion(rawUserConfig);
             int latestVersion = ConfigMigration.getLatestVersion(defaults);
             boolean migrationOccurred = userVersion < latestVersion;
@@ -258,7 +259,7 @@ public class BotConfig {
 
     private void writeToFile() {
         try {
-            String content = ConfigFileManager.loadDefaultConfig()
+            String content = ConfigResourceLoader.loadDefaultConfig()
                     .replace("BOT_TOKEN_HERE", token)
                     .replace("0 // OWNER ID", Long.toString(owner))
                     .trim();
@@ -277,7 +278,7 @@ public class BotConfig {
         try {
             prompt.alert(Prompt.Level.INFO, "JMusicBot Config",
                     "Writing default config file to " + path.toAbsolutePath().toString());
-            ConfigFileManager.writeConfigFile(path, ConfigFileManager.loadDefaultConfig());
+            ConfigFileManager.writeConfigFile(path, ConfigResourceLoader.loadDefaultConfig());
         } catch (Exception ex) {
             prompt.alert(Prompt.Level.ERROR, "JMusicBot Config",
                     "An error occurred writing the default config file: " + ex.getMessage());

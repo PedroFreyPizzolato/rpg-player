@@ -16,8 +16,9 @@
 package com.jagrosh.jmusicbot.integration.config;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
-import com.jagrosh.jmusicbot.config.ConfigLoader;
-import com.jagrosh.jmusicbot.config.ConfigUpdater;
+import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
+import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
+import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -28,7 +29,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -229,8 +229,8 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
             Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
             Config defaults = ConfigFactory.load();
             
-            com.jagrosh.jmusicbot.config.ConfigDiagnostics.Report diagnostics = 
-                com.jagrosh.jmusicbot.config.ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            ConfigDiagnostics.Report diagnostics = 
+                ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
             Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, merged, diagnostics);
             

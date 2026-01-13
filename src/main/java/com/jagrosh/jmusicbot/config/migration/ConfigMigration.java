@@ -21,10 +21,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jagrosh.jmusicbot.config.migration.versions.LegacyToV1;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
-
-import com.jagrosh.jmusicbot.config.migrations.MigrationV0ToV1;
 
 /**
  * Core migration engine that applies versioned migrations sequentially.
@@ -39,7 +38,7 @@ public class ConfigMigration {
     
     static {
         // Register all available migrations
-        MIGRATIONS.put(0, new MigrationV0ToV1());
+        MIGRATIONS.put(0, new LegacyToV1());
         // Future migrations can be added here:
         // MIGRATIONS.put(1, new MigrationV1ToV2());
     }

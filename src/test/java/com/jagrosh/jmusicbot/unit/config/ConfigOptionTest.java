@@ -15,7 +15,7 @@
  */
 package com.jagrosh.jmusicbot.unit.config;
 
-import com.jagrosh.jmusicbot.config.ConfigOption;
+import com.jagrosh.jmusicbot.config.model.ConfigOption;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;

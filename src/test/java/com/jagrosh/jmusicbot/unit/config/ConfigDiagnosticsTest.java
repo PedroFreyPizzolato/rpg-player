@@ -15,8 +15,8 @@
  */
 package com.jagrosh.jmusicbot.unit.config;
 
-import com.jagrosh.jmusicbot.config.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.ConfigLoader;
+import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
+import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;

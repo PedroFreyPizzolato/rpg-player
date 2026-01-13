@@ -16,7 +16,7 @@
 package com.jagrosh.jmusicbot.integration.config;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
-import com.jagrosh.jmusicbot.config.ConfigLoader;
+import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
 import com.typesafe.config.Config;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

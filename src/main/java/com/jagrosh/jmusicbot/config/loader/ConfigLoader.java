@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.config;
+package com.jagrosh.jmusicbot.config.loader;
 
 import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.typesafe.config.Config;
@@ -76,7 +77,7 @@ public class ConfigLoader {
         Config rawUserConfig = loadRawUserConfig(configPath);
         
         // Load defaults to get latest version
-        Config defaults = ConfigFileManager.loadDefaults();
+        Config defaults = ConfigResourceLoader.loadDefaults();
         
         // Detect versions
         int userVersion = ConfigMigration.detectVersion(rawUserConfig);
@@ -108,7 +109,7 @@ public class ConfigLoader {
         Config rawUserConfig = loadRawUserConfig(configPath);
         
         // Load defaults
-        Config defaults = ConfigFileManager.loadDefaults();
+        Config defaults = ConfigResourceLoader.loadDefaults();
         
         // Detect versions
         int userVersion = ConfigMigration.detectVersion(rawUserConfig);
@@ -144,7 +145,7 @@ public class ConfigLoader {
      */
     public static Config loadMergedConfig(Config migratedUserConfig) {
         // Load defaults
-        Config defaults = ConfigFileManager.loadDefaults();
+        Config defaults = ConfigResourceLoader.loadDefaults();
         
         // Merge with defaults (migrated user config takes precedence)
         return migratedUserConfig.withFallback(defaults).resolve();

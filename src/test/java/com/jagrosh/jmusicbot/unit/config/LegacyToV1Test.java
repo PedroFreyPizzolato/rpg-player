@@ -15,7 +15,7 @@
  */
 package com.jagrosh.jmusicbot.unit.config;
 
-import com.jagrosh.jmusicbot.config.migrations.MigrationV0ToV1;
+import com.jagrosh.jmusicbot.config.migration.versions.LegacyToV1;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.DisplayName;
@@ -29,9 +29,9 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("MigrationV0ToV1 Unit Tests")
-class MigrationV0ToV1Test {
+class LegacyToV1Test {
     
-    private final MigrationV0ToV1 migration = new MigrationV0ToV1();
+    private final LegacyToV1 migration = new LegacyToV1();
     
     @Test
     @DisplayName("getFromVersion returns 0")

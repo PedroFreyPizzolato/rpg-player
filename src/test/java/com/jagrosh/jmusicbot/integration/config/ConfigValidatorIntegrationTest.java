@@ -16,10 +16,8 @@
 package com.jagrosh.jmusicbot.integration.config;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
-import com.jagrosh.jmusicbot.MockUserInteraction;
-import com.jagrosh.jmusicbot.config.ConfigFileManager;
-import com.jagrosh.jmusicbot.config.ConfigValidator;
-import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
+import com.jagrosh.jmusicbot.config.validation.ConfigValidator;
+import com.jagrosh.jmusicbot.config.validation.ConfigValidator.ValidationResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
