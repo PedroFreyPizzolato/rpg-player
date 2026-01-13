@@ -130,30 +130,27 @@ public class ConfigUpdater {
         StringBuilder sb = new StringBuilder();
         
         // Header comment
-        sb.append("// START OF JMUSICBOT CONFIG //\n");
-        sb.append("//\n");
-        sb.append("// This file was automatically migrated and updated.\n");
-        sb.append("// Your original config file has been backed up with a .bak extension.\n");
-        sb.append("//\n");
+        sb.append("# This file was automatically migrated and updated.\n");
+        sb.append("# Your original config file has been backed up with a .bak extension.\n");
+        sb.append("#\n");
         
         if (diagnostics.hasIssues()) {
-            sb.append("// Changes detected:\n");
+            sb.append("# Changes detected:\n");
             if (!diagnostics.getMissingRequired().isEmpty()) {
-                sb.append("// - Missing required keys: ").append(diagnostics.getMissingRequired()).append("\n");
+                sb.append("# - Missing required keys: ").append(diagnostics.getMissingRequired()).append("\n");
             }
             if (!diagnostics.getMissingOptional().isEmpty()) {
-                sb.append("// - Missing optional keys (new options): ").append(diagnostics.getMissingOptional()).append("\n");
+                sb.append("# - Missing optional keys (new options): ").append(diagnostics.getMissingOptional()).append("\n");
             }
             if (!diagnostics.getDeprecated().isEmpty()) {
-                sb.append("// - Deprecated keys removed: ").append(diagnostics.getDeprecated()).append("\n");
+                sb.append("# - Deprecated keys removed: ").append(diagnostics.getDeprecated()).append("\n");
             }
-            sb.append("//\n");
+            sb.append("#\n");
         }
         
         // Render the document (preserves comments and formatting)
         String configContent = outputDoc.render();
         sb.append(configContent);
-        sb.append("\n// END OF JMUSICBOT CONFIG //\n");
         
         return sb.toString();
     }
@@ -173,24 +170,22 @@ public class ConfigUpdater {
         StringBuilder sb = new StringBuilder();
         
         // Header comment
-        sb.append("// START OF JMUSICBOT CONFIG //\n");
-        sb.append("//\n");
-        sb.append("// This file was automatically migrated and updated.\n");
-        sb.append("// Your original config file has been backed up with a .bak extension.\n");
-        sb.append("//\n");
+        sb.append("# This file was automatically migrated and updated.\n");
+        sb.append("# Your original config file has been backed up with a .bak extension.\n");
+        sb.append("#\n");
         
         if (diagnostics.hasIssues()) {
-            sb.append("// Changes detected:\n");
+            sb.append("# Changes detected:\n");
             if (!diagnostics.getMissingRequired().isEmpty()) {
-                sb.append("// - Missing required keys: ").append(diagnostics.getMissingRequired()).append("\n");
+                sb.append("# - Missing required keys: ").append(diagnostics.getMissingRequired()).append("\n");
             }
             if (!diagnostics.getMissingOptional().isEmpty()) {
-                sb.append("// - Missing optional keys (new options): ").append(diagnostics.getMissingOptional()).append("\n");
+                sb.append("# - Missing optional keys (new options): ").append(diagnostics.getMissingOptional()).append("\n");
             }
             if (!diagnostics.getDeprecated().isEmpty()) {
-                sb.append("// - Deprecated keys removed: ").append(diagnostics.getDeprecated()).append("\n");
+                sb.append("# - Deprecated keys removed: ").append(diagnostics.getDeprecated()).append("\n");
             }
-            sb.append("//\n");
+            sb.append("#\n");
         }
         
         // Render the config using old method
@@ -202,7 +197,6 @@ public class ConfigUpdater {
         
         String configContent = config.root().render(options);
         sb.append(configContent);
-        sb.append("\n// END OF JMUSICBOT CONFIG //\n");
         
         return sb.toString();
     }

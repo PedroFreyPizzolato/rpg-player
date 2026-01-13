@@ -35,11 +35,6 @@ import com.typesafe.config.parser.ConfigDocumentFactory;
  * @author Arif Banai (arif-banai)
  */
 public class ConfigFileManager {
-    private static final String START_TOKEN_OLD = "/// START OF JMUSICBOT CONFIG ///";
-    private static final String START_TOKEN_NEW = "// START OF JMUSICBOT CONFIG //";
-    private static final String END_TOKEN_OLD = "/// END OF JMUSICBOT CONFIG ///";
-    private static final String END_TOKEN_NEW = "// END OF JMUSICBOT CONFIG //";
-    
     /**
      * Gets the path to the config file, defaulting to config.txt.
      */
@@ -63,21 +58,7 @@ public class ConfigFileManager {
             return "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID";
         }
         
-        // Try new format first (2 slashes), then fall back to old format (3 slashes)
-        String startToken = original.contains(START_TOKEN_NEW) ? START_TOKEN_NEW : START_TOKEN_OLD;
-        String endToken = original.contains(END_TOKEN_NEW) ? END_TOKEN_NEW : END_TOKEN_OLD;
-        
-        int startIndex = original.indexOf(startToken);
-        int endIndex = original.indexOf(endToken);
-        
-        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
-            // Tokens not found or malformed, return entire file or fallback
-            return original.trim().isEmpty() 
-                ? "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID"
-                : original.trim();
-        }
-        
-        return original.substring(startIndex + startToken.length(), endIndex).trim();
+        return original.trim();
     }
     
     /**
@@ -119,7 +100,6 @@ public class ConfigFileManager {
     
     /**
      * Loads the reference.conf content as a String (template).
-     * This extracts just the config section between START and END tokens.
      * 
      * @return the reference.conf content as a string, or null if not found
      */
@@ -129,19 +109,7 @@ public class ConfigFileManager {
             return null;
         }
         
-        // Try new format first (2 slashes), then fall back to old format (3 slashes)
-        String startToken = original.contains(START_TOKEN_NEW) ? START_TOKEN_NEW : START_TOKEN_OLD;
-        String endToken = original.contains(END_TOKEN_NEW) ? END_TOKEN_NEW : END_TOKEN_OLD;
-        
-        int startIndex = original.indexOf(startToken);
-        int endIndex = original.indexOf(endToken);
-        
-        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
-            // Tokens not found or malformed, return entire file
-            return original.trim();
-        }
-        
-        return original.substring(startIndex + startToken.length(), endIndex).trim();
+        return original.trim();
     }
     
     /**
