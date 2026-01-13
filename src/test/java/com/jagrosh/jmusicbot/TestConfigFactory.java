@@ -127,7 +127,7 @@ public class TestConfigFactory {
         String content = """
             token = test_token_12345
             owner = 123456789
-            prefix = @mention
+            prefix = "@mention"
             altprefix = NONE
             help = help
             success = 🎶

@@ -59,12 +59,10 @@ class BotConfigUnitTest extends BaseConfigTest {
             System.setProperty("config.file", configFile.toString());
             
             BotConfig config = new BotConfig(mockUserInteraction);
-            mockUserInteraction.addPromptResponse("test_token");
-            mockUserInteraction.addPromptResponse("123456789");
             config.load();
             
             assertTrue(config.isValid());
-            assertEquals("test_token", config.getToken());
+            assertEquals("test_token_12345", config.getToken());
             assertEquals(123456789L, config.getOwnerId());
             assertNotNull(config.getPrefix());
         }
