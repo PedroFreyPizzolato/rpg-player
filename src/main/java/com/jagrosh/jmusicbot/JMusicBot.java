@@ -16,17 +16,6 @@
 package com.jagrosh.jmusicbot;
 
 import ch.qos.logback.classic.Level;
-import com.jagrosh.jdautilities.command.CommandClient;
-import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
-import com.jagrosh.jmusicbot.commands.CommandFactory;
-import com.jagrosh.jmusicbot.commands.admin.*;
-import com.jagrosh.jmusicbot.commands.dj.*;
-import com.jagrosh.jmusicbot.commands.music.*;
-import com.jagrosh.jmusicbot.commands.owner.*;
-import com.jagrosh.jmusicbot.entities.Prompt;
-import com.jagrosh.jmusicbot.gui.GUI;
-import com.jagrosh.jmusicbot.settings.SettingsManager;
-import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
@@ -34,7 +23,14 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.*;
+import com.jagrosh.jdautilities.command.CommandClient;
+import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
+import com.jagrosh.jmusicbot.commands.CommandFactory;
+import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.gui.GUI;
+import com.jagrosh.jmusicbot.settings.SettingsManager;
+import com.jagrosh.jmusicbot.utils.ConsoleUtil;
+import com.jagrosh.jmusicbot.utils.OtherUtil;
 
 /**
  *
@@ -83,6 +79,20 @@ public class JMusicBot
         // create prompt to handle startup
         Prompt prompt = new Prompt("JMusicBot");
         
+        // Redirect System.out/err to GUI console early (before config loading)
+        // so that all logs, including those from config loading, appear in GUI
+        if(!prompt.isNoGUI())
+        {
+            try 
+            {
+                ConsoleUtil.redirectSystemStreams();
+            }
+            catch(Exception e)
+            {
+                LOG.warn("Could not redirect console streams to GUI. Logs may not appear in GUI console.");
+            }
+        }
+        
         // startup checks
         OtherUtil.checkVersion(prompt);
         OtherUtil.checkJavaVersion(prompt);
@@ -102,8 +112,8 @@ public class JMusicBot
         EventWaiter waiter = new EventWaiter();
         SettingsManager settings = new SettingsManager();
         Bot bot = new Bot(waiter, config, settings);
-        CommandClient client = CommandFactory.createCommandClient(config, settings, bot);
         
+        // Initialize GUI (ConsolePanel will reuse the already-redirected streams)
         if(!prompt.isNoGUI())
         {
             try 
@@ -117,6 +127,8 @@ public class JMusicBot
                 LOG.error("Could not start GUI. Use -Dnogui=true for server environments.");
             }
         }
+        
+        CommandClient client = CommandFactory.createCommandClient(config, settings, bot);
 
         // Now that GUI/Logging is ready, initialize the player manager
         bot.getPlayerManager().init();
