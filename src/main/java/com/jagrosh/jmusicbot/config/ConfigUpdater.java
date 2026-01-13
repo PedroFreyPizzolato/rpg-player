@@ -94,9 +94,6 @@ public class ConfigUpdater {
         // Start with the template document
         ConfigDocument outputDoc = templateDoc;
         
-        // Load defaults for value lookup
-        Config defaults = ConfigFileManager.loadDefaults();
-        
         // For each ConfigOption, if migratedUserConfig has a value, update the document
         for (ConfigOption option : ConfigOption.values()) {
             String key = option.getKey();

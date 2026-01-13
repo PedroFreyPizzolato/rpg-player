@@ -283,25 +283,4 @@ public class MigrationV0ToV1 implements Migration {
         return audioSourcesMap;
     }
     
-    /**
-     * Checks if a key is a legacy flat key that should be migrated to nested structure.
-     * Based on reference-legacy.conf, these are all the flat keys in the legacy format.
-     * 
-     * @param key the key to check
-     * @return true if it's a legacy flat key that needs migration
-     */
-    private boolean isLegacyFlatKey(String key) {
-        // List of known legacy flat keys from reference-legacy.conf
-        return key.equals("token") || key.equals("owner") ||
-               key.equals("prefix") || key.equals("altprefix") || key.equals("help") ||
-               key.equals("game") || key.equals("status") || key.equals("songinstatus") ||
-               key.equals("success") || key.equals("warning") || key.equals("error") ||
-               key.equals("loading") || key.equals("searching") ||
-               key.equals("npimages") || key.equals("stayinchannel") || key.equals("alonetimeuntilstop") ||
-               key.equals("maxtime") || key.equals("maxytplaylistpages") || key.equals("skipratio") ||
-               key.equals("useyoutubeoauth") || key.equals("playlistsfolder") || key.equals("updatealerts") ||
-               key.equals("loglevel") || key.equals("eval") || key.equals("evalengine") ||
-               key.equals("audiosources") || key.equals("transforms") || key.equals("aliases") ||
-               key.startsWith("lyrics.");
-    }
 }
