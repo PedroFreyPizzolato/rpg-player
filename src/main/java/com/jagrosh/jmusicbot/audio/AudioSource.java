@@ -1,0 +1,240 @@
+/*
+ * Copyright 2026 Arif Banai (arif-banai)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.jagrosh.jmusicbot.audio;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+
+import com.sedmelluq.discord.lavaplayer.container.MediaContainerRegistry;
+import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
+import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
+import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.beam.BeamAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.getyarn.GetyarnAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
+import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.YoutubeSourceOptions;
+import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.MWeb;
+import dev.lavalink.youtube.clients.Tv;
+import dev.lavalink.youtube.clients.TvHtml5Embedded;
+import dev.lavalink.youtube.clients.Web;
+import dev.lavalink.youtube.clients.skeleton.Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jagrosh.jmusicbot.BotConfig;
+import com.jagrosh.jmusicbot.utils.OtherUtil;
+
+/**
+ * Enum representing available audio sources that can be listed in the config file.
+ * 
+ * @author Arif Banai (arif-banai)
+ */
+public enum AudioSource
+{
+    YOUTUBE(
+        "youtube",
+        "YouTube videos and playlists",
+        (manager, config) -> {
+            YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(
+                config.useYouTubeOauth(),
+                config.getMaxYTPlaylistPages()
+            );
+            manager.registerSourceManager(yt);
+        }
+    ),
+    SOUNDCLOUD(
+        "soundcloud",
+        "SoundCloud tracks",
+        (manager, config) -> manager.registerSourceManager(SoundCloudAudioSourceManager.createDefault())
+    ),
+    BANDCAMP(
+        "bandcamp",
+        "Bandcamp albums and tracks",
+        (manager, config) -> manager.registerSourceManager(new BandcampAudioSourceManager())
+    ),
+    VIMEO(
+        "vimeo",
+        "Vimeo videos",
+        (manager, config) -> manager.registerSourceManager(new VimeoAudioSourceManager())
+    ),
+    TWITCH(
+        "twitch",
+        "Twitch streams",
+        (manager, config) -> manager.registerSourceManager(new TwitchStreamAudioSourceManager())
+    ),
+    BEAM(
+        "beam",
+        "Beam.pro streams",
+        (manager, config) -> manager.registerSourceManager(new BeamAudioSourceManager())
+    ),
+    GETYARN(
+        "getyarn",
+        "Getyarn.io clips",
+        (manager, config) -> manager.registerSourceManager(new GetyarnAudioSourceManager())
+    ),
+    NICO(
+        "nico",
+        "NicoNico videos",
+        (manager, config) -> manager.registerSourceManager(new NicoAudioSourceManager())
+    ),
+    HTTP(
+        "http",
+        "Direct HTTP audio links",
+        (manager, config) -> manager.registerSourceManager(new HttpAudioSourceManager(MediaContainerRegistry.DEFAULT_REGISTRY))
+    ),
+    LOCAL(
+        "local",
+        "Local file playback",
+        (manager, config) -> AudioSourceManagers.registerLocalSource(manager)
+    );
+
+    private final String configName;
+    private final String description;
+    private final BiConsumer<DefaultAudioPlayerManager, BotConfig> registrationAction;
+
+    AudioSource(String configName, String description, BiConsumer<DefaultAudioPlayerManager, BotConfig> registrationAction)
+    {
+        this.configName = configName;
+        this.description = description;
+        this.registrationAction = registrationAction;
+    }
+
+    /**
+     * Gets the configuration name for this audio source (used in config files).
+     * 
+     * @return the lowercase configuration name
+     */
+    public String getConfigName()
+    {
+        return configName;
+    }
+
+    /**
+     * Gets a human-readable description of this audio source.
+     * 
+     * @return the description
+     */
+    public String getDescription()
+    {
+        return description;
+    }
+
+    /**
+     * Parses an audio source from its configuration name.
+     * 
+     * @param configName the configuration name (case-insensitive)
+     * @return an Optional containing the AudioSource if found, empty otherwise
+     */
+    public static Optional<AudioSource> fromConfigName(String configName)
+    {
+        if(configName == null)
+            return Optional.empty();
+        
+        return Arrays.stream(values())
+                .filter(source -> source.configName.equalsIgnoreCase(configName.trim()))
+                .findFirst();
+    }
+    
+    /**
+     * Registers this audio source with the given player manager.
+     * 
+     * @param manager the player manager to register with
+     * @param config the bot configuration
+     */
+    public void register(DefaultAudioPlayerManager manager, BotConfig config)
+    {
+        registrationAction.accept(manager, config);
+    }
+    
+    /**
+     * Sets up and configures a YouTube audio source manager.
+     * 
+     * @param useOauth whether to use OAuth2 authentication
+     * @param maxYTPlaylistPages maximum number of playlist pages to load
+     * @return the configured YouTube audio source manager
+     */
+    private static YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth, int maxYTPlaylistPages)
+    {
+        final Logger logger = LoggerFactory.getLogger(AudioSource.class);
+        
+        YoutubeSourceOptions options = new YoutubeSourceOptions()
+                .setAllowSearch(true)
+                .setAllowDirectVideoIds(true)
+                .setAllowDirectPlaylistIds(true);
+        Client[] clients;
+        if(useOauth)
+        {
+            // url, password, userAgent (userAgent is optional, but nice for metrics)
+            options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
+            // These are the only youtube clients that support OAuth2
+            clients = new Client[] {
+                    new TvHtml5Embedded(),
+                    new Tv()
+            };
+        }
+        else
+        {
+            // These clients don't support OAuth2
+            clients = new Client[] {
+                    new AndroidVr(),
+                    new Web(),
+                    new MWeb(),
+            };
+        }
+
+        YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(options, clients);
+        yt.setPlaylistPageCount(maxYTPlaylistPages);
+
+        // OAuth2 setup
+        if (useOauth)
+        {
+            String token = null;
+            try
+            {
+                token = Files.readString(OtherUtil.getPath("youtubetoken.txt"));
+            }
+            catch (NoSuchFileException e)
+            {
+                /* ignored */
+            }
+            catch (IOException e)
+            {
+                logger.warn("Failed to read YouTube OAuth2 token file: {}", e.getMessage());
+                return yt;
+            }
+            logger.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
+            try
+            {
+                yt.useOauth2(token, false);
+            }
+            catch (Exception e)
+            {
+                logger.warn("Failed to authorise with YouTube. If this issue persists, delete the youtubetoken.txt file to reauthorise.", e);
+            }
+        }
+        return yt;
+    }
+}

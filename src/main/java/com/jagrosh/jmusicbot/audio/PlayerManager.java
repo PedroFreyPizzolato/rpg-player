@@ -15,33 +15,15 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
-import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.utils.OtherUtil;
-import com.sedmelluq.discord.lavaplayer.container.MediaContainerRegistry;
+import java.util.Set;
+
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
-import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.beam.BeamAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.getyarn.GetyarnAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
-import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import dev.lavalink.youtube.YoutubeSourceOptions;
-import dev.lavalink.youtube.clients.AndroidVr;
-import dev.lavalink.youtube.clients.Tv;
-import dev.lavalink.youtube.clients.TvHtml5Embedded;
-import dev.lavalink.youtube.clients.skeleton.Client;
 import net.dv8tion.jda.api.entities.Guild;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
+import com.jagrosh.jmusicbot.Bot;
 
 /**
  *
@@ -59,24 +41,28 @@ public class PlayerManager extends DefaultAudioPlayerManager
     
     public void init()
     {
-        TransformativeAudioSourceManager.createTransforms(bot.getConfig().getTransforms()).forEach(t -> registerSourceManager(t));
+        // Register transformative audio sources
+        TransformativeAudioSourceManager.createTransforms(bot.getConfig().getTransforms())
+                .forEach(this::registerSourceManager);
 
-        YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(bot.getConfig().useYouTubeOauth());
-        registerSourceManager(yt);
-
-        registerSourceManager(SoundCloudAudioSourceManager.createDefault());
-        registerSourceManager(new BandcampAudioSourceManager());
-        registerSourceManager(new VimeoAudioSourceManager());
-        registerSourceManager(new TwitchStreamAudioSourceManager());
-        registerSourceManager(new BeamAudioSourceManager());
-        registerSourceManager(new GetyarnAudioSourceManager());
-        registerSourceManager(new NicoAudioSourceManager());
-        registerSourceManager(new HttpAudioSourceManager(MediaContainerRegistry.DEFAULT_REGISTRY));
-
-        AudioSourceManagers.registerLocalSource(this);
-
-        // Removing this since it is deprecated/gone
-        //DuncteBotSources.registerAll(this, "en-US");
+        // Register enabled audio sources
+        Set<AudioSource> enabledSources = bot.getConfig().getEnabledAudioSources();
+        if(enabledSources == null)
+        {
+            // If not specified, enable all sources (backward compatibility)
+            for(AudioSource source : AudioSource.values())
+            {
+                source.register(this, bot.getConfig());
+            }
+        }
+        else
+        {
+            // Register only the enabled sources
+            for(AudioSource source : enabledSources)
+            {
+                source.register(this, bot.getConfig());
+            }
+        }
     }
     
     public Bot getBot()
@@ -105,60 +91,4 @@ public class PlayerManager extends DefaultAudioPlayerManager
         return handler;
     }
 
-    private YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth)
-    {
-        YoutubeSourceOptions options = new YoutubeSourceOptions()
-                .setAllowSearch(true)
-                .setAllowDirectVideoIds(true)
-                .setAllowDirectPlaylistIds(true);
-        Client[] clients;
-        if(useOauth)
-        {
-            // url, password, userAgent (userAgent is optional, but nice for metrics)
-            options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
-            clients = new Client[] {
-                    new TvHtml5Embedded(),
-                    new Tv()
-            };
-        }
-        else
-        {
-            // Clients are required even without OAuth to properly handle YouTube URLs
-            clients = new Client[] {
-                    new AndroidVr()
-            };
-        }
-
-        YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(options, clients);
-        yt.setPlaylistPageCount(bot.getConfig().getMaxYTPlaylistPages());
-
-        // OAuth2 setup
-        if (bot.getConfig().useYouTubeOauth())
-        {
-            String token = null;
-            try
-            {
-                token = Files.readString(OtherUtil.getPath("youtubetoken.txt"));
-            }
-            catch (NoSuchFileException e)
-            {
-                /* ignored */
-            }
-            catch (IOException e)
-            {
-                LOGGER.warn("Failed to read YouTube OAuth2 token file: {}", e.getMessage());
-                return yt;
-            }
-            LOGGER.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
-            try
-            {
-                yt.useOauth2(token, false);
-            }
-            catch (Exception e)
-            {
-                LOGGER.warn("Failed to authorise with YouTube. If this issue persists, delete the youtubetoken.txt file to reauthorise.", e);
-            }
-        }
-        return yt;
-    }
 }
