@@ -20,10 +20,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+import java.io.InputStream;
+
 import com.jagrosh.jmusicbot.JMusicBot;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
 
 /**
  * Handles file operations for configuration files.
@@ -110,6 +114,60 @@ public class ConfigFileManager {
             // Fallback to ConfigFactory.load() which also loads reference.conf
             // but may include other sources
             return ConfigFactory.load();
+        }
+    }
+    
+    /**
+     * Loads the reference.conf content as a String (template).
+     * This extracts just the config section between START and END tokens.
+     * 
+     * @return the reference.conf content as a string, or null if not found
+     */
+    public static String loadReferenceConfigAsString() {
+        String original = OtherUtil.loadResource(new JMusicBot(), "/reference.conf");
+        if (original == null) {
+            return null;
+        }
+        
+        // Try new format first (2 slashes), then fall back to old format (3 slashes)
+        String startToken = original.contains(START_TOKEN_NEW) ? START_TOKEN_NEW : START_TOKEN_OLD;
+        String endToken = original.contains(END_TOKEN_NEW) ? END_TOKEN_NEW : END_TOKEN_OLD;
+        
+        int startIndex = original.indexOf(startToken);
+        int endIndex = original.indexOf(endToken);
+        
+        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) {
+            // Tokens not found or malformed, return entire file
+            return original.trim();
+        }
+        
+        return original.substring(startIndex + startToken.length(), endIndex).trim();
+    }
+    
+    /**
+     * Loads the reference.conf as a ConfigDocument (template).
+     * This preserves the original formatting, comments, and structure.
+     * 
+     * @return the ConfigDocument for reference.conf, or null if not found
+     */
+    public static ConfigDocument loadReferenceConfigAsDocument() {
+        try {
+            String content = loadReferenceConfigAsString();
+            if (content == null) {
+                // Fallback: try to load directly from resource
+                try (InputStream is = JMusicBot.class.getResourceAsStream("/reference.conf")) {
+                    if (is == null) {
+                        return null;
+                    }
+                    return ConfigDocumentFactory.parseReader(
+                        new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8)
+                    );
+                }
+            }
+            return ConfigDocumentFactory.parseString(content);
+        } catch (Exception e) {
+            // If parsing fails, return null
+            return null;
         }
     }
 }

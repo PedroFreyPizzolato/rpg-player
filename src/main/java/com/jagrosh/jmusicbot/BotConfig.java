@@ -109,7 +109,8 @@ public class BotConfig {
             // This ensures backup is created when migration happens, even if no diagnostic issues
             if (migrationOccurred || diagnostics.hasIssues()) {
                 // Update config file in place (backup original, write migrated config)
-                Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(path, config, diagnostics);
+                // Pass migratedUserConfig (not merged config) so we can preserve user values
+                Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(path, migratedUserConfig, diagnostics);
                 if (updatedConfigPath != null) {
                     if (migrationOccurred) {
                         LOGGER.info("Config file migrated and updated: {}. Original backed up with .bak extension.", updatedConfigPath);
