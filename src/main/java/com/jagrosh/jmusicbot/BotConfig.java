@@ -43,10 +43,11 @@ import org.slf4j.LoggerFactory;
  */
 public class BotConfig {
     private final static Logger LOGGER = LoggerFactory.getLogger(BotConfig.class);
-    private final Prompt prompt;
     private final static String CONTEXT = "Config";
     private final static String START_TOKEN = "/// START OF JMUSICBOT CONFIG ///";
     private final static String END_TOKEN = "/// END OF JMUSICBOT CONFIG ///";
+
+    private final Prompt prompt;
 
     private Path path = null;
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
@@ -75,8 +76,13 @@ public class BotConfig {
             // get the path to the config, default config.txt
             path = getConfigPath();
 
-            // load in the config file, plus the default values
-            Config config = ConfigFactory.parseFile(path.toFile()).withFallback(ConfigFactory.load());
+            // Parse user's config file separately (without fallback) to check for specific keys
+            Config userConfig = path.toFile().exists() 
+                    ? ConfigFactory.parseFile(path.toFile()) 
+                    : ConfigFactory.empty();
+            
+            // Load merged config (user config + defaults) for other values that need defaults
+            Config config = userConfig.withFallback(ConfigFactory.load());
 
             // set values
             token = config.getString("token");
@@ -105,23 +111,28 @@ public class BotConfig {
             playlistsFolder = config.getString("playlistsfolder");
             aliases = config.getConfig("aliases");
             transforms = config.getConfig("transforms");
-            try {
-                List<String> sourceNames = config.getStringList("audiosources");
+            
+            // Handle audiosources: only use if explicitly set in user's config, otherwise default to null (all enabled)
+            if (userConfig.hasPath("audiosources")) {
+                // Key exists in user's config, read the values
+                List<String> sourceNames = userConfig.getStringList("audiosources");
                 enabledAudioSources = sourceNames.stream()
                         .map(AudioSource::fromConfigName)
                         .filter(java.util.Optional::isPresent)
                         .map(java.util.Optional::get)
                         .collect(Collectors.toSet());
-                LOGGER.debug("Parsed {} valid audio sources from config: {}", 
+            } else {
+                // Key not found in user's config, use default behavior (all sources enabled)
+                enabledAudioSources = Set.of(AudioSource.values());
+                LOGGER.info("Audio sources config not found in config file, defaulting to all sources enabled");
+            }
+            
+            LOGGER.info("Setup {} valid audio sources: {}", 
                         enabledAudioSources.size(), 
                         enabledAudioSources.stream()
                                 .map(AudioSource::getConfigName)
                                 .collect(Collectors.toList()));
-            } catch (ConfigException.Missing e) {
-                // Default to null, which means all sources enabled (backward compatibility)
-                LOGGER.debug("Audio sources config not found, defaulting to all sources enabled");
-                enabledAudioSources = null;
-            }
+            
             skipratio = config.getDouble("skipratio");
             dbots = owner == 113156185389092864L;
 
@@ -363,9 +374,6 @@ public class BotConfig {
     }
 
     public boolean isAudioSourceEnabled(AudioSource source) {
-        // If not specified, default to all enabled (backward compatibility)
-        if (enabledAudioSources == null)
-            return true;
         // If the set is empty, no sources are enabled
         if (enabledAudioSources.isEmpty())
             return false;

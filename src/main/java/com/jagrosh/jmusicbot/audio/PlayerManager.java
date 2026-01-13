@@ -47,21 +47,9 @@ public class PlayerManager extends DefaultAudioPlayerManager
 
         // Register enabled audio sources
         Set<AudioSource> enabledSources = bot.getConfig().getEnabledAudioSources();
-        if(enabledSources == null)
+        for(AudioSource source : enabledSources)
         {
-            // If not specified, enable all sources (backward compatibility)
-            for(AudioSource source : AudioSource.values())
-            {
-                source.register(this, bot.getConfig());
-            }
-        }
-        else
-        {
-            // Register only the enabled sources
-            for(AudioSource source : enabledSources)
-            {
-                source.register(this, bot.getConfig());
-            }
+            source.register(this, bot.getConfig());
         }
     }
     
