@@ -31,7 +31,7 @@ import net.dv8tion.jda.api.entities.Activity;
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.jagrosh.jmusicbot.config.ConfigFileManager;
 import com.jagrosh.jmusicbot.config.ConfigLoader;
-import com.jagrosh.jmusicbot.config.ConfigUpdater;
+//import com.jagrosh.jmusicbot.config.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.ConfigValidator;
 import com.jagrosh.jmusicbot.config.ConfigValidator.ValidationResult;
 import com.jagrosh.jmusicbot.entities.Prompt;
@@ -105,8 +105,7 @@ public class BotConfig {
                 writeToFile();
             }
             
-            // Check for missing config values and append them
-            ConfigUpdater.updateConfigWithMissingValues(path, userConfig);
+            //TODO Config updater (but only for yaml config)
 
             // if we get through the whole config, it's good to go
             valid = true;
