@@ -17,7 +17,7 @@ package com.jagrosh.jmusicbot.integration;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.BotConfig;
-import com.jagrosh.jmusicbot.MockUserInteraction;
+import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.parser.ConfigDocument;
@@ -211,6 +211,76 @@ class BotConfigIntegrationTest extends BaseConfigTest {
             // Also verify it's parseable as Config (fallback)
             Config parsed = ConfigFactory.parseString(updatedContent);
             assertTrue(parsed.hasPath("meta.configVersion"));
+        }
+        
+        @Test
+        @DisplayName("Correctly detects explicitly set audio sources after config update")
+        void correctlyDetectsExplicitlySetAudioSourcesAfterConfigUpdate() throws IOException {
+            // Create a v1 config with partial audioSources (some true, some false, missing local)
+            // This simulates a scenario where user has explicitly set some sources
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = true
+                  bandcamp = false
+                  vimeo = false
+                  # local key is intentionally missing
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            System.setProperty("config.file", configFile.toString());
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            assertTrue(config.isValid());
+            
+            // Verify that the config file was updated (local key should be added)
+            String updatedContent = readFileContent(configFile);
+            Config parsed = ConfigFactory.parseString(updatedContent);
+            assertTrue(parsed.hasPath("playback.audioSources.local"), 
+                "Missing local key should be added to config file");
+            
+            // After the fix, the bot should reload the config after update
+            // and correctly detect that youtube and soundcloud were explicitly set to true
+            var enabledSources = config.getEnabledAudioSources();
+            assertNotNull(enabledSources);
+            
+            // The key fix: after reloading migratedUserConfig, it should see the explicitly set keys
+            // After the config update, all missing keys are added with template defaults (true)
+            // So all keys that exist in the updated config file are considered "explicitly set"
+            assertTrue(enabledSources.contains(AudioSource.YOUTUBE), 
+                "Youtube should be enabled (was explicitly set to true)");
+            assertTrue(enabledSources.contains(AudioSource.SOUNDCLOUD), 
+                "Soundcloud should be enabled (was explicitly set to true)");
+            assertFalse(enabledSources.contains(AudioSource.BANDCAMP), 
+                "Bandcamp should not be enabled (was explicitly set to false)");
+            assertFalse(enabledSources.contains(AudioSource.VIMEO), 
+                "Vimeo should not be enabled (was explicitly set to false)");
+            
+            // The newly added local key IS enabled because after config update and reload,
+            // it exists in the config file with template default (true), so it's considered "explicitly set"
+            assertTrue(enabledSources.contains(AudioSource.LOCAL), 
+                "Local should be enabled (was added to config file with template default true)");
+            
+            // After config update, all missing audio source keys are added with template defaults (true)
+            // So sources that were missing (like twitch, beam, getyarn, nico, http, bandcamp, vimeo) 
+            // are added with true, making them enabled
+            // Original config had: youtube=true, soundcloud=true, bandcamp=false, vimeo=false, local missing
+            // After update: all missing sources are added with true, so enabled = youtube, soundcloud, local, 
+            // and all other missing sources (twitch, beam, getyarn, nico, http) = 8 total
+            assertTrue(enabledSources.size() >= 3, 
+                "Should have at least 3 enabled sources (youtube, soundcloud, and local)");
+            // Verify that sources explicitly set to false remain disabled
+            assertFalse(enabledSources.contains(AudioSource.BANDCAMP), 
+                "Bandcamp should remain disabled (was explicitly set to false)");
+            assertFalse(enabledSources.contains(AudioSource.VIMEO), 
+                "Vimeo should remain disabled (was explicitly set to false)");
         }
     }
     

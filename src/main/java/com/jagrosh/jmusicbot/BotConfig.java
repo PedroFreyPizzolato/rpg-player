@@ -118,6 +118,11 @@ public class BotConfig {
                     } else {
                         LOGGER.info("Config file updated: {}. Original backed up with .bak extension.", updatedConfigPath);
                     }
+                    
+                    // Reload configs from the updated file so newly added keys are included
+                    // This is important for loadAudioSources which checks migratedUserConfig for explicitly set keys
+                    migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
+                    config = ConfigLoader.loadMergedConfig(migratedUserConfig);
                 }
             }
 
