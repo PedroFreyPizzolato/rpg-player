@@ -37,6 +37,7 @@ import com.jagrosh.jmusicbot.config.validation.ConfigValidator;
 import com.jagrosh.jmusicbot.config.validation.ConfigValidator.ValidationResult;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
@@ -116,13 +117,12 @@ public class BotConfig {
         // Detect versions for migration check
         int userVersion = ConfigMigration.detectVersion(rawUserConfig);
         int latestVersion = ConfigMigration.getLatestVersion(defaults);
-        boolean migrationOccurred = userVersion < latestVersion;
 
         // Use overloads that accept already-parsed configs to avoid re-parsing
         Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
         Config mergedConfig = ConfigLoader.mergeWithDefaults(migratedUserConfig, defaults);
 
-        return new ConfigLoadResult(migratedUserConfig, mergedConfig, defaults, migrationOccurred);
+        return new ConfigLoadResult(migratedUserConfig, mergedConfig, defaults, userVersion, latestVersion);
     }
     
     /**
@@ -135,18 +135,24 @@ public class BotConfig {
         
         logDiagnostics(diagnostics);
         
-        if (loadResult.migrationOccurred || diagnostics.hasIssues()) {
+        if (loadResult.migrationOccurred() || diagnostics.hasIssues()) {
+            // Determine update type based on original version and diagnostics
+            boolean hasMissingKeys = !diagnostics.getMissingRequired().isEmpty() 
+                    || !diagnostics.getMissingOptional().isEmpty();
+            ConfigUpdateType updateType = ConfigUpdateType.determine(
+                    loadResult.originalVersion, loadResult.latestVersion, hasMissingKeys);
+            
             Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(
-                    path, loadResult.migratedUserConfig, diagnostics);
+                    path, loadResult.migratedUserConfig, diagnostics, updateType);
             if (updatedConfigPath != null) {
-                logConfigUpdate(loadResult.migrationOccurred, updatedConfigPath);
+                logConfigUpdate(updateType, updatedConfigPath);
                 
                 // Reload configs from the updated file - reuse defaults since they haven't changed
                 Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
                 Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(rawUserConfig, loadResult.defaults);
                 Config mergedConfig = ConfigLoader.mergeWithDefaults(migratedUserConfig, loadResult.defaults);
                 return new ConfigLoadResult(migratedUserConfig, mergedConfig, 
-                        loadResult.defaults, loadResult.migrationOccurred);
+                        loadResult.defaults, loadResult.originalVersion, loadResult.latestVersion);
             }
         }
         return loadResult;
@@ -166,16 +172,11 @@ public class BotConfig {
     }
     
     /**
-     * Logs config update/migration message.
+     * Logs config update message with appropriate wording based on update type.
      */
-    private void logConfigUpdate(boolean migrationOccurred, Path updatedConfigPath) {
-        if (migrationOccurred) {
-            LOGGER.info("Config file migrated and updated: {}. Original backed up with .bak extension.", 
-                    updatedConfigPath);
-        } else {
-            LOGGER.info("Config file updated: {}. Original backed up with .bak extension.", 
-                    updatedConfigPath);
-        }
+    private void logConfigUpdate(ConfigUpdateType updateType, Path updatedConfigPath) {
+        LOGGER.info("Config file {} and updated: {}. Original backed up with .bak extension.", 
+                updateType.getPastTenseVerb(), updatedConfigPath);
     }
     
     /**
@@ -209,14 +210,20 @@ public class BotConfig {
         final Config migratedUserConfig;
         final Config mergedConfig;
         final Config defaults;
-        final boolean migrationOccurred;
+        final int originalVersion;
+        final int latestVersion;
         
         ConfigLoadResult(Config migratedUserConfig, Config mergedConfig, 
-                        Config defaults, boolean migrationOccurred) {
+                        Config defaults, int originalVersion, int latestVersion) {
             this.migratedUserConfig = migratedUserConfig;
             this.mergedConfig = mergedConfig;
             this.defaults = defaults;
-            this.migrationOccurred = migrationOccurred;
+            this.originalVersion = originalVersion;
+            this.latestVersion = latestVersion;
+        }
+        
+        boolean migrationOccurred() {
+            return originalVersion < latestVersion;
         }
     }
     

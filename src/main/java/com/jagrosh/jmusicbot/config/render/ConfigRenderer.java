@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
 import com.jagrosh.jmusicbot.config.model.ConfigOption;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigValue;
@@ -40,16 +41,18 @@ public class ConfigRenderer {
      * 
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
      * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
      * @return the HOCON content as a string
      */
-    public static String generateConfigContent(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics) {
+    public static String generateConfigContent(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
+                                               ConfigUpdateType updateType) {
         // Load reference.conf as ConfigDocument (template)
         ConfigDocument templateDoc = ConfigResourceLoader.loadReferenceConfigAsDocument();
         
         if (templateDoc == null) {
             // Fallback to old behavior if template cannot be loaded
             LOGGER.warn("Could not load reference.conf as ConfigDocument, falling back to rendered config");
-            return generateConfigContentFallback(migratedUserConfig, diagnostics);
+            return generateConfigContentFallback(migratedUserConfig, diagnostics, updateType);
         }
         
         // Start with the template document
@@ -95,7 +98,7 @@ public class ConfigRenderer {
         }
         
         // Build the output with header comments
-        StringBuilder sb = buildHeaderComment(diagnostics);
+        StringBuilder sb = buildHeaderComment(diagnostics, updateType);
         
         // Render the document (preserves comments and formatting)
         sb.append(outputDoc.render());
@@ -109,15 +112,17 @@ public class ConfigRenderer {
      * 
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
      * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
      * @return the HOCON content as a string
      */
-    public static String generateConfigContentFallback(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics) {
+    public static String generateConfigContentFallback(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
+                                                       ConfigUpdateType updateType) {
         // Merge with defaults to match old behavior
         Config defaults = ConfigResourceLoader.loadDefaults();
         Config config = migratedUserConfig.withFallback(defaults).resolve();
         
         // Build the output with header comments
-        StringBuilder sb = buildHeaderComment(diagnostics);
+        StringBuilder sb = buildHeaderComment(diagnostics, updateType);
         
         // Render the config using old method
         com.typesafe.config.ConfigRenderOptions options = com.typesafe.config.ConfigRenderOptions.defaults()
@@ -135,12 +140,13 @@ public class ConfigRenderer {
      * Builds the header comment section for the config file.
      * 
      * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
      * @return a StringBuilder containing the header comment
      */
-    private static StringBuilder buildHeaderComment(ConfigDiagnostics.Report diagnostics) {
+    private static StringBuilder buildHeaderComment(ConfigDiagnostics.Report diagnostics, ConfigUpdateType updateType) {
         StringBuilder sb = new StringBuilder();
         
-        sb.append("# This file was automatically migrated and updated.\n");
+        sb.append("# This file was automatically ").append(updateType.getPastTenseVerb()).append(" and updated.\n");
         sb.append("# Your original config file has been backed up with a .bak extension.\n");
         sb.append("#\n");
         

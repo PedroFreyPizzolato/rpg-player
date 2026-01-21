@@ -74,7 +74,7 @@ public class CommandFactory {
                     new SetnameCmd(bot),
                     new SetstatusCmd(bot),
                     new ShutdownCmd(bot)
-            );
+            ).setManualUpsert(true);
 
         if (config.useEval())
             cb.addCommand(new EvalCmd(bot));

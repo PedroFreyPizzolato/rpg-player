@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.config.render.ConfigRenderer;
 import com.typesafe.config.Config;
 
@@ -44,10 +45,12 @@ public class ConfigUpdater {
      * @param userConfigPath the path to the user's config file
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
      * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
      * @return the path to the updated config file, or null if update failed
      */
     public static Path generateUpdatedConfig(Path userConfigPath, Config migratedUserConfig, 
-                                             ConfigDiagnostics.Report diagnostics) {
+                                             ConfigDiagnostics.Report diagnostics,
+                                             ConfigUpdateType updateType) {
         try {
             // Normalize to absolute path
             Path normalizedPath = userConfigPath.toAbsolutePath().normalize();
@@ -60,7 +63,7 @@ public class ConfigUpdater {
             }
             
             // Generate HOCON content using ConfigDocument to preserve template style
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, updateType);
             
             // Write the migrated config to the original location
             ConfigFileManager.writeConfigFile(normalizedPath, content);

@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot.integration.config.migration;
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
@@ -219,7 +220,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(updatedPath);
             assertFileExists(updatedPath);

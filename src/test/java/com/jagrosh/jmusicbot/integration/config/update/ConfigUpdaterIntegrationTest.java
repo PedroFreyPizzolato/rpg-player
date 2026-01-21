@@ -17,7 +17,10 @@ package com.jagrosh.jmusicbot.integration.config.update;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
+import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
+import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
 import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
 import com.typesafe.config.Config;
@@ -59,7 +62,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(updatedPath);
             assertFileExists(updatedPath);
@@ -92,7 +95,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             String content = readFileContent(updatedPath);
             
@@ -122,7 +125,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(updatedPath);
             
@@ -161,7 +164,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             String content = readFileContent(updatedPath);
             
@@ -201,7 +204,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
             // Generate updated config (should use ConfigDocument)
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(updatedPath);
             String content = readFileContent(updatedPath);
@@ -272,7 +275,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             assertTrue(diagnostics.getMissingOptional().contains("playback.audioSources.local"),
                 "local key should be detected as missing");
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.REPAIR);
             
             assertNotNull(updatedPath);
             String content = readFileContent(updatedPath);
@@ -326,7 +329,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
             
-            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, ConfigUpdateType.REPAIR);
             
             assertNotNull(updatedPath);
             String content = readFileContent(updatedPath);
@@ -348,6 +351,210 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
                 "Missing bandcamp should get template default (true)");
             assertTrue(audioSources.getBoolean("vimeo"), 
                 "Missing vimeo should get template default (true)");
+        }
+    }
+    
+    @Nested
+    @DisplayName("Migration vs Repair Wording")
+    class MigrationVsRepairWordingTests {
+        
+        /**
+         * Helper method that simulates the full update flow as done in BotConfig.
+         * Determines the correct ConfigUpdateType based on version and diagnostics.
+         */
+        private ConfigUpdateType determineUpdateType(Path configFile) {
+            Config rawUserConfig = ConfigLoader.loadRawUserConfig(configFile);
+            Config defaults = ConfigResourceLoader.loadDefaults();
+            
+            int originalVersion = ConfigMigration.detectVersion(rawUserConfig);
+            int latestVersion = ConfigMigration.getLatestVersion(defaults);
+            
+            Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
+            Config mergedConfig = ConfigLoader.mergeWithDefaults(migratedUserConfig, defaults);
+            
+            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(
+                migratedUserConfig, mergedConfig, defaults);
+            
+            boolean hasMissingKeys = !diagnostics.getMissingRequired().isEmpty() 
+                    || !diagnostics.getMissingOptional().isEmpty();
+            
+            return ConfigUpdateType.determine(originalVersion, latestVersion, hasMissingKeys);
+        }
+        
+        @Test
+        @DisplayName("Legacy config (version 0) produces 'migrated' wording in generated file")
+        void legacyConfigProducesMigratedWording() throws IOException {
+            // Start with a legacy (version 0) config - no meta.configVersion
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .withPrefix("!!")
+                .buildAsString();
+            
+            Path configFile = createTempConfigFile(legacyConfig);
+            
+            // Verify this is detected as version 0
+            Config rawConfig = ConfigLoader.loadRawUserConfig(configFile);
+            assertEquals(0, ConfigMigration.detectVersion(rawConfig),
+                "Legacy config should be detected as version 0");
+            
+            // Determine update type using the same logic as BotConfig
+            ConfigUpdateType updateType = determineUpdateType(configFile);
+            assertEquals(ConfigUpdateType.MIGRATION, updateType,
+                "Legacy config should result in MIGRATION update type");
+            
+            // Generate the updated config file
+            Config merged = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, updateType);
+            
+            // Read the generated file and verify the header comment
+            String content = readFileContent(updatedPath);
+            assertTrue(content.contains("# This file was automatically migrated and updated"),
+                "Generated file should contain 'migrated' wording for legacy config. Content starts with: " 
+                + content.substring(0, Math.min(200, content.length())));
+            assertFalse(content.contains("repaired"),
+                "Generated file should NOT contain 'repaired' for legacy config");
+        }
+        
+        @Test
+        @DisplayName("V1 config with missing keys produces 'repaired' wording in generated file")
+        void v1ConfigWithMissingKeysProducesRepairedWording() throws IOException {
+            // Start with a v1 config that has missing keys
+            String v1ConfigWithMissingKeys = """
+                meta {
+                  configVersion = 1
+                }
+                discord {
+                  token = test_token
+                  owner = 123456789
+                }
+                # Many keys are missing - commands.prefix, presence.game, etc.
+                """;
+            
+            Path configFile = createTempConfigFile(v1ConfigWithMissingKeys);
+            
+            // Verify this is detected as version 1
+            Config rawConfig = ConfigLoader.loadRawUserConfig(configFile);
+            assertEquals(1, ConfigMigration.detectVersion(rawConfig),
+                "V1 config should be detected as version 1");
+            
+            // Determine update type using the same logic as BotConfig
+            ConfigUpdateType updateType = determineUpdateType(configFile);
+            assertEquals(ConfigUpdateType.REPAIR, updateType,
+                "V1 config with missing keys should result in REPAIR update type");
+            
+            // Generate the updated config file
+            Config merged = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            
+            // Verify there are indeed missing keys
+            assertFalse(diagnostics.getMissingOptional().isEmpty(),
+                "V1 config should have missing optional keys detected");
+            
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, updateType);
+            
+            // Read the generated file and verify the header comment
+            String content = readFileContent(updatedPath);
+            assertTrue(content.contains("# This file was automatically repaired and updated"),
+                "Generated file should contain 'repaired' wording for V1 config with missing keys. Content starts with: "
+                + content.substring(0, Math.min(200, content.length())));
+            assertFalse(content.contains("migrated"),
+                "Generated file should NOT contain 'migrated' for V1 config repair");
+        }
+        
+        @Test
+        @DisplayName("V1 config with specific missing key produces 'repaired' wording")
+        void v1ConfigMissingSpecificKeyProducesRepairedWording() throws IOException {
+            // Start with a v1 config where only playback.audioSources.local is missing
+            String v1ConfigMissingOneKey = """
+                meta {
+                  configVersion = 1
+                }
+                discord {
+                  token = test_token
+                  owner = 123456789
+                }
+                playback {
+                  audioSources {
+                    youtube = false
+                    soundcloud = false
+                    bandcamp = false
+                    vimeo = false
+                    twitch = false
+                    beam = false
+                    getyarn = false
+                    nico = false
+                    http = false
+                    # local key is intentionally missing - this should trigger REPAIR
+                  }
+                }
+                """;
+            
+            Path configFile = createTempConfigFile(v1ConfigMissingOneKey);
+            
+            // Verify this is detected as version 1
+            Config rawConfig = ConfigLoader.loadRawUserConfig(configFile);
+            assertEquals(1, ConfigMigration.detectVersion(rawConfig),
+                "V1 config should be detected as version 1");
+            
+            // Determine update type
+            ConfigUpdateType updateType = determineUpdateType(configFile);
+            assertEquals(ConfigUpdateType.REPAIR, updateType,
+                "V1 config missing playback.audioSources.local should result in REPAIR");
+            
+            // Generate the updated config file
+            Config merged = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            
+            // Verify the specific key is detected as missing
+            assertTrue(diagnostics.getMissingOptional().contains("playback.audioSources.local"),
+                "Should detect playback.audioSources.local as missing");
+            
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics, updateType);
+            
+            // Read the generated file and verify the header comment
+            String content = readFileContent(updatedPath);
+            assertTrue(content.contains("# This file was automatically repaired and updated"),
+                "Generated file should contain 'repaired' wording when specific key is missing");
+            assertFalse(content.contains("migrated"),
+                "Generated file should NOT contain 'migrated' for V1 repair");
+        }
+        
+        @Test
+        @DisplayName("Version detection correctly identifies legacy vs v1 configs")
+        void versionDetectionWorksCorrectly() throws IOException {
+            // Legacy config (no configVersion)
+            String legacyConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .withOwner(123456789L)
+                .buildAsString();
+            Path legacyFile = createTempConfigFile(legacyConfig);
+            Config legacyRaw = ConfigLoader.loadRawUserConfig(legacyFile);
+            assertEquals(0, ConfigMigration.detectVersion(legacyRaw),
+                "Config without meta.configVersion should be version 0");
+            
+            // V1 config (has configVersion = 1)
+            String v1Config = """
+                meta {
+                  configVersion = 1
+                }
+                discord {
+                  token = test_token
+                  owner = 123456789
+                }
+                """;
+            Path v1File = createTempConfigFile(v1Config);
+            Config v1Raw = ConfigLoader.loadRawUserConfig(v1File);
+            assertEquals(1, ConfigMigration.detectVersion(v1Raw),
+                "Config with meta.configVersion = 1 should be version 1");
         }
     }
 }

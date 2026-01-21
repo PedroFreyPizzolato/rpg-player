@@ -16,6 +16,7 @@
 package com.jagrosh.jmusicbot.unit.config.render;
 
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
+import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.config.render.ConfigRenderer;
 import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
 import com.typesafe.config.Config;
@@ -54,7 +55,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(content);
             // Should contain header comments added by ConfigRenderer
@@ -77,7 +78,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // Should have nested structure matching reference.conf
             assertTrue(content.contains("meta {") || content.contains("meta"));
@@ -98,7 +99,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // Parse the generated content to verify values
             Config generated = ConfigFactory.parseString(content);
@@ -124,7 +125,7 @@ class ConfigRendererTest {
                 missingRequired, new HashSet<>(), deprecated
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertTrue(content.contains("# Changes detected"));
             assertTrue(content.contains("Missing required keys"));
@@ -149,7 +150,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // reference.conf should have comments, and ConfigDocument should preserve them
             // The exact comments depend on reference.conf, but we should have some
@@ -184,7 +185,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // Parse and verify nested structure is preserved
             Config parsed = ConfigFactory.parseString(content);
@@ -207,7 +208,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // Verify ConfigDocument was used (not fallback)
             // ConfigDocument preserves the structure from reference.conf template
@@ -234,7 +235,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             // Parse as ConfigDocument to verify it was used
             ConfigDocument doc = ConfigDocumentFactory.parseString(content);
@@ -278,7 +279,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
             
             // Parse the generated content
             Config parsed = ConfigFactory.parseString(content);
@@ -329,7 +330,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
             
             // Parse the generated content
             Config parsed = ConfigFactory.parseString(content);
@@ -369,7 +370,7 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
             
             // Parse the generated content
             Config parsed = ConfigFactory.parseString(content);
@@ -408,13 +409,113 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContentFallback(migratedUserConfig, diagnostics);
+            String content = ConfigRenderer.generateConfigContentFallback(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
             
             assertNotNull(content);
             // Should still be valid HOCON
             Config parsed = ConfigFactory.parseString(content);
             assertNotNull(parsed);
             assertEquals("test_token", parsed.getString("discord.token"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("ConfigUpdateType Wording")
+    class ConfigUpdateTypeWordingTests {
+        
+        @Test
+        @DisplayName("MIGRATION type produces 'migrated' wording in header comment")
+        void migrationTypeProducesMigratedWording() {
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .build();
+            
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), new HashSet<>()
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
+            
+            assertTrue(content.contains("# This file was automatically migrated and updated"),
+                "Header should contain 'migrated' for MIGRATION type");
+            assertFalse(content.contains("repaired"),
+                "Header should NOT contain 'repaired' for MIGRATION type");
+        }
+        
+        @Test
+        @DisplayName("REPAIR type produces 'repaired' wording in header comment")
+        void repairTypeProducesRepairedWording() {
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .build();
+            
+            Set<String> missingOptional = new HashSet<>();
+            missingOptional.add("some.missing.key");
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), missingOptional, new HashSet<>()
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
+            
+            assertTrue(content.contains("# This file was automatically repaired and updated"),
+                "Header should contain 'repaired' for REPAIR type");
+            assertFalse(content.contains("migrated"),
+                "Header should NOT contain 'migrated' for REPAIR type");
+        }
+        
+        @Test
+        @DisplayName("UPDATE type produces 'updated' wording in header comment")
+        void updateTypeProducesUpdatedWording() {
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .build();
+            
+            Set<String> deprecated = new HashSet<>();
+            deprecated.add("some.old.key");
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), deprecated
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.UPDATE);
+            
+            assertTrue(content.contains("# This file was automatically updated and updated"),
+                "Header should contain 'updated' for UPDATE type");
+            assertFalse(content.contains("migrated"),
+                "Header should NOT contain 'migrated' for UPDATE type");
+            assertFalse(content.contains("repaired"),
+                "Header should NOT contain 'repaired' for UPDATE type");
+        }
+        
+        @Test
+        @DisplayName("Fallback method also respects ConfigUpdateType wording")
+        void fallbackMethodRespectsUpdateType() {
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .build();
+            
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), new HashSet<>()
+            );
+            
+            // Test REPAIR type in fallback
+            String repairContent = ConfigRenderer.generateConfigContentFallback(
+                migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
+            assertTrue(repairContent.contains("# This file was automatically repaired and updated"),
+                "Fallback should also use 'repaired' for REPAIR type");
+            
+            // Test MIGRATION type in fallback
+            String migrationContent = ConfigRenderer.generateConfigContentFallback(
+                migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
+            assertTrue(migrationContent.contains("# This file was automatically migrated and updated"),
+                "Fallback should also use 'migrated' for MIGRATION type");
         }
     }
 }
