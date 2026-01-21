@@ -94,7 +94,7 @@ public class ConfigMigration {
             return rawUserConfig;
         }
         
-        LOGGER.info("Migrating config from version {} to version {}", fromVersion, toVersion);
+        LOGGER.info("Migrating config from version {} → {}", fromVersion, toVersion);
         
         Config current = rawUserConfig;
         
@@ -120,7 +120,7 @@ public class ConfigMigration {
             }
         }
         
-        LOGGER.info("Config migration completed successfully");
+        LOGGER.info("Config migration from version {} → {} completed successfully", fromVersion, toVersion);
         return current;
     }
 }
