@@ -21,10 +21,18 @@ public class DiscordService {
     public static JDA createJDA(BotConfig config, Bot bot, EventWaiter waiter, CommandClient client, UserInteraction userInteraction) throws Exception {
         JDA jda = JDABuilder.create(config.getToken(), Arrays.asList(JMusicBot.INTENTS))
                 .enableCache(CacheFlag.MEMBER_OVERRIDES, CacheFlag.VOICE_STATE)
-                .disableCache(CacheFlag.ACTIVITY, CacheFlag.CLIENT_STATUS, CacheFlag.EMOJI, CacheFlag.ONLINE_STATUS)
+                .disableCache(
+                        CacheFlag.ACTIVITY,
+                        CacheFlag.CLIENT_STATUS,
+                        CacheFlag.EMOJI,
+                        CacheFlag.ONLINE_STATUS,
+                        CacheFlag.STICKER,
+                        CacheFlag.SCHEDULED_EVENTS
+                )
                 .setActivity(config.isGameNone() ? null : Activity.playing("loading..."))
                 .setStatus(config.getStatus() == OnlineStatus.INVISIBLE || config.getStatus() == OnlineStatus.OFFLINE
-                        ? OnlineStatus.INVISIBLE : OnlineStatus.DO_NOT_DISTURB)
+                        ? OnlineStatus.INVISIBLE
+                        : OnlineStatus.DO_NOT_DISTURB)
                 .addEventListeners(client, waiter, new Listener(bot))
                 .setBulkDeleteSplittingEnabled(true)
                 .build();
