@@ -126,6 +126,13 @@ public abstract class BaseConfigTest {
     }
     
     /**
+     * Writes content to a file.
+     */
+    protected void writeFileContent(Path file, String content) throws IOException {
+        Files.writeString(file, content, java.nio.charset.StandardCharsets.UTF_8);
+    }
+    
+    /**
      * Asserts that a file exists.
      */
     protected void assertFileExists(Path file) {

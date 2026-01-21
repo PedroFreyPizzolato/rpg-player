@@ -15,6 +15,10 @@
  */
 package com.jagrosh.jmusicbot.config.render;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +42,7 @@ public class ConfigRenderer {
     /**
      * Generates the HOCON content for the updated config file.
      * Uses ConfigDocument to preserve the style, comments, and ordering from reference.conf.
+     * Uses the system clock for timestamp generation.
      * 
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
      * @param diagnostics the diagnostic report
@@ -46,13 +51,28 @@ public class ConfigRenderer {
      */
     public static String generateConfigContent(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
                                                ConfigUpdateType updateType) {
+        return generateConfigContent(migratedUserConfig, diagnostics, updateType, Clock.systemDefaultZone());
+    }
+    
+    /**
+     * Generates the HOCON content for the updated config file.
+     * Uses ConfigDocument to preserve the style, comments, and ordering from reference.conf.
+     * 
+     * @param migratedUserConfig the migrated user configuration (without defaults merged)
+     * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
+     * @param clock the clock to use for timestamp generation
+     * @return the HOCON content as a string
+     */
+    public static String generateConfigContent(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
+                                               ConfigUpdateType updateType, Clock clock) {
         // Load reference.conf as ConfigDocument (template)
         ConfigDocument templateDoc = ConfigResourceLoader.loadReferenceConfigAsDocument();
         
         if (templateDoc == null) {
             // Fallback to old behavior if template cannot be loaded
             LOGGER.warn("Could not load reference.conf as ConfigDocument, falling back to rendered config");
-            return generateConfigContentFallback(migratedUserConfig, diagnostics, updateType);
+            return generateConfigContentFallback(migratedUserConfig, diagnostics, updateType, clock);
         }
         
         // Start with the template document
@@ -98,7 +118,7 @@ public class ConfigRenderer {
         }
         
         // Build the output with header comments
-        StringBuilder sb = buildHeaderComment(diagnostics, updateType);
+        StringBuilder sb = buildHeaderComment(diagnostics, updateType, clock);
         
         // Render the document (preserves comments and formatting)
         sb.append(outputDoc.render());
@@ -109,6 +129,7 @@ public class ConfigRenderer {
     /**
      * Fallback method that uses the old rendering approach if ConfigDocument cannot be loaded.
      * Merges migratedUserConfig with defaults to match old behavior.
+     * Uses the system clock for timestamp generation.
      * 
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
      * @param diagnostics the diagnostic report
@@ -117,12 +138,27 @@ public class ConfigRenderer {
      */
     public static String generateConfigContentFallback(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
                                                        ConfigUpdateType updateType) {
+        return generateConfigContentFallback(migratedUserConfig, diagnostics, updateType, Clock.systemDefaultZone());
+    }
+    
+    /**
+     * Fallback method that uses the old rendering approach if ConfigDocument cannot be loaded.
+     * Merges migratedUserConfig with defaults to match old behavior.
+     * 
+     * @param migratedUserConfig the migrated user configuration (without defaults merged)
+     * @param diagnostics the diagnostic report
+     * @param updateType the type of update (migration, repair, or update)
+     * @param clock the clock to use for timestamp generation
+     * @return the HOCON content as a string
+     */
+    public static String generateConfigContentFallback(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
+                                                       ConfigUpdateType updateType, Clock clock) {
         // Merge with defaults to match old behavior
         Config defaults = ConfigResourceLoader.loadDefaults();
         Config config = migratedUserConfig.withFallback(defaults).resolve();
         
         // Build the output with header comments
-        StringBuilder sb = buildHeaderComment(diagnostics, updateType);
+        StringBuilder sb = buildHeaderComment(diagnostics, updateType, clock);
         
         // Render the config using old method
         com.typesafe.config.ConfigRenderOptions options = com.typesafe.config.ConfigRenderOptions.defaults()
@@ -141,13 +177,16 @@ public class ConfigRenderer {
      * 
      * @param diagnostics the diagnostic report
      * @param updateType the type of update (migration, repair, or update)
+     * @param clock the clock to use for timestamp generation
      * @return a StringBuilder containing the header comment
      */
-    private static StringBuilder buildHeaderComment(ConfigDiagnostics.Report diagnostics, ConfigUpdateType updateType) {
+    private static StringBuilder buildHeaderComment(ConfigDiagnostics.Report diagnostics, ConfigUpdateType updateType, Clock clock) {
         StringBuilder sb = new StringBuilder();
         
-        sb.append("# This file was automatically ").append(updateType.getPastTenseVerb()).append(" and updated.\n");
-        sb.append("# Your original config file has been backed up with a .bak extension.\n");
+        String timestamp = LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        
+        sb.append("# This file was automatically ").append(updateType.getPastTenseVerb()).append(" on ").append(timestamp).append("\n");
+        sb.append("# Your original config file has been backed up with a .bak extension (or .bak1, .bak2, etc. if previous backups exist).\n");
         sb.append("#\n");
         
         if (diagnostics.hasIssues()) {

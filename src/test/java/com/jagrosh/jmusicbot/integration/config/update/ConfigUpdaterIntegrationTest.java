@@ -148,6 +148,80 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
         }
         
         @Test
+        @DisplayName("generateUpdatedConfig does not overwrite existing backup files")
+        void generateUpdatedConfigDoesNotOverwriteExistingBackups() throws IOException {
+            String legacyConfig1 = LegacyConfigBuilder.create()
+                .withToken("first_token")
+                .withOwner(111111111L)
+                .buildAsString();
+            
+            String legacyConfig2 = LegacyConfigBuilder.create()
+                .withToken("second_token")
+                .withOwner(222222222L)
+                .buildAsString();
+            
+            String legacyConfig3 = LegacyConfigBuilder.create()
+                .withToken("third_token")
+                .withOwner(333333333L)
+                .buildAsString();
+            
+            Path configFile = createTempConfigFile(legacyConfig1);
+            Path normalizedPath = configFile.toAbsolutePath().normalize();
+            Path backupPath1 = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + ".bak");
+            Path backupPath2 = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + ".bak1");
+            
+            // First update - should create .bak
+            Config merged1 = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser1 = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            ConfigDiagnostics.Report diagnostics1 = ConfigDiagnostics.analyze(migratedUser1, merged1, defaults);
+            ConfigUpdater.generateUpdatedConfig(configFile, migratedUser1, diagnostics1, ConfigUpdateType.MIGRATION);
+            
+            assertTrue(Files.exists(backupPath1), "First backup (.bak) should exist");
+            String backup1Content = readFileContent(backupPath1);
+            assertTrue(backup1Content.contains("first_token"), "First backup should contain first_token");
+            
+            // Write second config to the config file
+            writeFileContent(configFile, legacyConfig2);
+            
+            // Second update - should create .bak.1 (not overwrite .bak)
+            Config merged2 = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser2 = ConfigLoader.loadMigratedUserConfig(configFile);
+            ConfigDiagnostics.Report diagnostics2 = ConfigDiagnostics.analyze(migratedUser2, merged2, defaults);
+            ConfigUpdater.generateUpdatedConfig(configFile, migratedUser2, diagnostics2, ConfigUpdateType.MIGRATION);
+            
+            assertTrue(Files.exists(backupPath1), "First backup (.bak) should still exist");
+            assertTrue(Files.exists(backupPath2), "Second backup (.bak1) should exist");
+            
+            // Verify first backup was NOT overwritten
+            String backup1ContentAfter = readFileContent(backupPath1);
+            assertTrue(backup1ContentAfter.contains("first_token"), 
+                "First backup should still contain first_token after second update");
+            
+            // Verify second backup contains second config
+            String backup2Content = readFileContent(backupPath2);
+            assertTrue(backup2Content.contains("second_token"), 
+                "Second backup should contain second_token");
+            
+            // Write third config to the config file
+            writeFileContent(configFile, legacyConfig3);
+            
+            // Third update - should create .bak.2
+            Config merged3 = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser3 = ConfigLoader.loadMigratedUserConfig(configFile);
+            ConfigDiagnostics.Report diagnostics3 = ConfigDiagnostics.analyze(migratedUser3, merged3, defaults);
+            ConfigUpdater.generateUpdatedConfig(configFile, migratedUser3, diagnostics3, ConfigUpdateType.MIGRATION);
+            
+            Path backupPath3 = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + ".bak2");
+            assertTrue(Files.exists(backupPath3), "Third backup (.bak2) should exist");
+            
+            // All backups should be preserved
+            assertTrue(readFileContent(backupPath1).contains("first_token"), "First backup preserved");
+            assertTrue(readFileContent(backupPath2).contains("second_token"), "Second backup preserved");
+            assertTrue(readFileContent(backupPath3).contains("third_token"), "Third backup preserved");
+        }
+        
+        @Test
         @DisplayName("generateUpdatedConfig preserves comments from reference.conf via ConfigDocument")
         void generateUpdatedConfigPreservesComments() throws IOException {
             String legacyConfig = LegacyConfigBuilder.create()
@@ -413,7 +487,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             
             // Read the generated file and verify the header comment
             String content = readFileContent(updatedPath);
-            assertTrue(content.contains("# This file was automatically migrated and updated"),
+            assertTrue(content.contains("# This file was automatically migrated on"),
                 "Generated file should contain 'migrated' wording for legacy config. Content starts with: " 
                 + content.substring(0, Math.min(200, content.length())));
             assertFalse(content.contains("repaired"),
@@ -461,7 +535,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             
             // Read the generated file and verify the header comment
             String content = readFileContent(updatedPath);
-            assertTrue(content.contains("# This file was automatically repaired and updated"),
+            assertTrue(content.contains("# This file was automatically repaired on"),
                 "Generated file should contain 'repaired' wording for V1 config with missing keys. Content starts with: "
                 + content.substring(0, Math.min(200, content.length())));
             assertFalse(content.contains("migrated"),
@@ -522,7 +596,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             
             // Read the generated file and verify the header comment
             String content = readFileContent(updatedPath);
-            assertTrue(content.contains("# This file was automatically repaired and updated"),
+            assertTrue(content.contains("# This file was automatically repaired on"),
                 "Generated file should contain 'repaired' wording when specific key is missing");
             assertFalse(content.contains("migrated"),
                 "Generated file should NOT contain 'migrated' for V1 repair");

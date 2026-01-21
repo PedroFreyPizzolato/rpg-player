@@ -18,7 +18,6 @@ package com.jagrosh.jmusicbot.config.update;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +39,8 @@ public class ConfigUpdater {
     
     /**
      * Updates the config file in place by backing up the original and writing the migrated config.
-     * The original config file is backed up with a .bak extension.
+     * The original config file is backed up with a .bak extension. If a backup already exists,
+     * a numbered suffix is added (e.g., .bak1, .bak2) to avoid overwriting existing backups.
      * 
      * @param userConfigPath the path to the user's config file
      * @param migratedUserConfig the migrated user configuration (without defaults merged)
@@ -54,11 +54,11 @@ public class ConfigUpdater {
         try {
             // Normalize to absolute path
             Path normalizedPath = userConfigPath.toAbsolutePath().normalize();
-            Path backupPath = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + BACKUP_SUFFIX);
             
             // Backup the original config file if it exists
             if (normalizedPath.toFile().exists()) {
-                Files.copy(normalizedPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
+                Path backupPath = findAvailableBackupPath(normalizedPath);
+                Files.copy(normalizedPath, backupPath);
                 LOGGER.info("Backed up original config to: {}", backupPath);
             }
             
@@ -68,7 +68,7 @@ public class ConfigUpdater {
             // Write the migrated config to the original location
             ConfigFileManager.writeConfigFile(normalizedPath, content);
             
-            LOGGER.info("Updated config file: {} (original backed up to: {})", normalizedPath, backupPath);
+            LOGGER.info("Updated config file: {}", normalizedPath);
             return normalizedPath;
         } catch (IOException e) {
             LOGGER.error("Failed to update config file: {}", e.getMessage());
@@ -77,14 +77,58 @@ public class ConfigUpdater {
     }
     
     /**
-     * Checks if a backup of the config file exists.
+     * Finds an available backup path that doesn't overwrite any existing file.
+     * Starts with .bak, then tries .bak1, .bak2, etc.
+     * 
+     * @param configPath the path to the config file being backed up
+     * @return a path that doesn't exist yet
+     */
+    private static Path findAvailableBackupPath(Path configPath) {
+        String fileName = configPath.getFileName().toString();
+        Path baseBackupPath = configPath.resolveSibling(fileName + BACKUP_SUFFIX);
+        
+        if (!Files.exists(baseBackupPath)) {
+            return baseBackupPath;
+        }
+        
+        // Find the next available numbered backup
+        int counter = 1;
+        Path numberedBackupPath;
+        do {
+            numberedBackupPath = configPath.resolveSibling(fileName + BACKUP_SUFFIX + counter);
+            counter++;
+        } while (Files.exists(numberedBackupPath));
+        
+        return numberedBackupPath;
+    }
+    
+    /**
+     * Checks if any backup of the config file exists (including numbered backups like .bak1, .bak2, etc.).
      * 
      * @param userConfigPath the path to the user's config file
-     * @return true if a backup file exists
+     * @return true if any backup file exists
      */
     public static boolean backupExists(Path userConfigPath) {
         Path normalizedPath = userConfigPath.toAbsolutePath().normalize();
-        Path backupPath = normalizedPath.resolveSibling(normalizedPath.getFileName().toString() + BACKUP_SUFFIX);
-        return backupPath.toFile().exists();
+        String fileName = normalizedPath.getFileName().toString();
+        Path baseBackupPath = normalizedPath.resolveSibling(fileName + BACKUP_SUFFIX);
+        
+        // Check for base backup (.bak)
+        if (Files.exists(baseBackupPath)) {
+            return true;
+        }
+        
+        // Check for numbered backups (.bak.1, .bak.2, etc.)
+        Path parent = normalizedPath.getParent();
+        if (parent != null) {
+            try {
+                return Files.list(parent)
+                    .anyMatch(path -> path.getFileName().toString().startsWith(fileName + BACKUP_SUFFIX));
+            } catch (IOException e) {
+                LOGGER.warn("Failed to check for numbered backups: {}", e.getMessage());
+            }
+        }
+        
+        return false;
     }
 }

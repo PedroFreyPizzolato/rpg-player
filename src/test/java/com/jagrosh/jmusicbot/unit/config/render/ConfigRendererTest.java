@@ -27,6 +27,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -59,7 +62,7 @@ class ConfigRendererTest {
             
             assertNotNull(content);
             // Should contain header comments added by ConfigRenderer
-            assertTrue(content.contains("# This file was automatically migrated and updated"));
+            assertTrue(content.contains("# This file was automatically migrated on"));
             // Should be parseable as ConfigDocument
             ConfigDocument doc = ConfigDocumentFactory.parseString(content);
             assertNotNull(doc);
@@ -423,8 +426,11 @@ class ConfigRendererTest {
     @DisplayName("ConfigUpdateType Wording")
     class ConfigUpdateTypeWordingTests {
         
+        private static final Clock EPOCH_CLOCK = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC);
+        private static final String EPOCH_TIMESTAMP = "1970-01-01 00:00:00";
+        
         @Test
-        @DisplayName("MIGRATION type produces 'migrated' wording in header comment")
+        @DisplayName("MIGRATION type produces 'migrated' wording in header comment with correct timestamp")
         void migrationTypeProducesMigratedWording() {
             Config migratedUserConfig = V1ConfigBuilder.create()
                 .withMetaVersion(1)
@@ -436,16 +442,16 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION, EPOCH_CLOCK);
             
-            assertTrue(content.contains("# This file was automatically migrated and updated"),
-                "Header should contain 'migrated' for MIGRATION type");
+            assertTrue(content.contains("# This file was automatically migrated on " + EPOCH_TIMESTAMP),
+                "Header should contain 'migrated on " + EPOCH_TIMESTAMP + "' for MIGRATION type");
             assertFalse(content.contains("repaired"),
                 "Header should NOT contain 'repaired' for MIGRATION type");
         }
         
         @Test
-        @DisplayName("REPAIR type produces 'repaired' wording in header comment")
+        @DisplayName("REPAIR type produces 'repaired' wording in header comment with correct timestamp")
         void repairTypeProducesRepairedWording() {
             Config migratedUserConfig = V1ConfigBuilder.create()
                 .withMetaVersion(1)
@@ -459,16 +465,16 @@ class ConfigRendererTest {
                 new HashSet<>(), missingOptional, new HashSet<>()
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR, EPOCH_CLOCK);
             
-            assertTrue(content.contains("# This file was automatically repaired and updated"),
-                "Header should contain 'repaired' for REPAIR type");
+            assertTrue(content.contains("# This file was automatically repaired on " + EPOCH_TIMESTAMP),
+                "Header should contain 'repaired on " + EPOCH_TIMESTAMP + "' for REPAIR type");
             assertFalse(content.contains("migrated"),
                 "Header should NOT contain 'migrated' for REPAIR type");
         }
         
         @Test
-        @DisplayName("UPDATE type produces 'updated' wording in header comment")
+        @DisplayName("UPDATE type produces 'updated' wording in header comment with correct timestamp")
         void updateTypeProducesUpdatedWording() {
             Config migratedUserConfig = V1ConfigBuilder.create()
                 .withMetaVersion(1)
@@ -482,10 +488,10 @@ class ConfigRendererTest {
                 new HashSet<>(), new HashSet<>(), deprecated
             );
             
-            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.UPDATE);
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, ConfigUpdateType.UPDATE, EPOCH_CLOCK);
             
-            assertTrue(content.contains("# This file was automatically updated and updated"),
-                "Header should contain 'updated' for UPDATE type");
+            assertTrue(content.contains("# This file was automatically updated on " + EPOCH_TIMESTAMP),
+                "Header should contain 'updated on " + EPOCH_TIMESTAMP + "' for UPDATE type");
             assertFalse(content.contains("migrated"),
                 "Header should NOT contain 'migrated' for UPDATE type");
             assertFalse(content.contains("repaired"),
@@ -493,7 +499,7 @@ class ConfigRendererTest {
         }
         
         @Test
-        @DisplayName("Fallback method also respects ConfigUpdateType wording")
+        @DisplayName("Fallback method also respects ConfigUpdateType wording with correct timestamp")
         void fallbackMethodRespectsUpdateType() {
             Config migratedUserConfig = V1ConfigBuilder.create()
                 .withMetaVersion(1)
@@ -507,15 +513,15 @@ class ConfigRendererTest {
             
             // Test REPAIR type in fallback
             String repairContent = ConfigRenderer.generateConfigContentFallback(
-                migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR);
-            assertTrue(repairContent.contains("# This file was automatically repaired and updated"),
-                "Fallback should also use 'repaired' for REPAIR type");
+                migratedUserConfig, diagnostics, ConfigUpdateType.REPAIR, EPOCH_CLOCK);
+            assertTrue(repairContent.contains("# This file was automatically repaired on " + EPOCH_TIMESTAMP),
+                "Fallback should use 'repaired on " + EPOCH_TIMESTAMP + "' for REPAIR type");
             
             // Test MIGRATION type in fallback
             String migrationContent = ConfigRenderer.generateConfigContentFallback(
-                migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION);
-            assertTrue(migrationContent.contains("# This file was automatically migrated and updated"),
-                "Fallback should also use 'migrated' for MIGRATION type");
+                migratedUserConfig, diagnostics, ConfigUpdateType.MIGRATION, EPOCH_CLOCK);
+            assertTrue(migrationContent.contains("# This file was automatically migrated on " + EPOCH_TIMESTAMP),
+                "Fallback should use 'migrated on " + EPOCH_TIMESTAMP + "' for MIGRATION type");
         }
     }
 }
