@@ -55,17 +55,6 @@ public class ConfigLoader {
     }
     
     /**
-     * Loads the user's config file if it exists, otherwise returns an empty config.
-     * This is a convenience method that calls loadRawUserConfig.
-     * 
-     * @deprecated Use loadRawUserConfig for migration-aware loading, or loadMergedConfig for merged config
-     */
-    @Deprecated
-    public static Config loadUserConfig(Path configPath) {
-        return loadRawUserConfig(configPath);
-    }
-    
-    /**
      * Loads the migrated user config (before merging with defaults).
      * This is useful for diagnostics to check what the user actually provided.
      * 
@@ -73,28 +62,21 @@ public class ConfigLoader {
      * @return the migrated user config (without defaults merged)
      */
     public static Config loadMigratedUserConfig(Path configPath) {
-        // Load raw user config (before merging)
         Config rawUserConfig = loadRawUserConfig(configPath);
-        
-        // Load defaults to get latest version
         Config defaults = ConfigResourceLoader.loadDefaults();
-        
-        // Detect versions
-        int userVersion = ConfigMigration.detectVersion(rawUserConfig);
-        int latestVersion = ConfigMigration.getLatestVersion(defaults);
-        
-        // Apply migrations if needed
-        if (userVersion < latestVersion) {
-            try {
-                return ConfigMigration.migrate(rawUserConfig, userVersion, latestVersion);
-            } catch (ConfigMigrationException e) {
-                LOGGER.error("Config migration failed: {}", e.getMessage());
-                // Fall back to using raw config (may cause validation failures)
-                return rawUserConfig;
-            }
-        } else {
-            return rawUserConfig;
-        }
+        return migrateIfNeeded(rawUserConfig, defaults, false);
+    }
+    
+    /**
+     * Loads the migrated user config using already-parsed raw config and defaults.
+     * This avoids redundant parsing when these are already available.
+     * 
+     * @param rawUserConfig the already-parsed raw user config
+     * @param defaults the already-parsed defaults
+     * @return the migrated user config (without defaults merged)
+     */
+    public static Config loadMigratedUserConfig(Config rawUserConfig, Config defaults) {
+        return migrateIfNeeded(rawUserConfig, defaults, false);
     }
     
     /**
@@ -105,35 +87,43 @@ public class ConfigLoader {
      * @return the merged config with migrations applied
      */
     public static Config loadMergedConfig(Path configPath) {
-        // Load raw user config (before merging)
         Config rawUserConfig = loadRawUserConfig(configPath);
-        
-        // Load defaults
         Config defaults = ConfigResourceLoader.loadDefaults();
-        
-        // Detect versions
-        int userVersion = ConfigMigration.detectVersion(rawUserConfig);
-        int latestVersion = ConfigMigration.getLatestVersion(defaults);
-        
-        LOGGER.info("Config version detected: {}, latest version: {}", userVersion, latestVersion);
-        
-        // Apply migrations if needed
-        Config migratedUserConfig;
-        if (userVersion < latestVersion) {
-            try {
-                migratedUserConfig = ConfigMigration.migrate(rawUserConfig, userVersion, latestVersion);
-                LOGGER.info("Config migrated from version {} to version {}", userVersion, latestVersion);
-            } catch (ConfigMigrationException e) {
-                LOGGER.error("Config migration failed: {}", e.getMessage());
-                // Fall back to using raw config (may cause validation failures)
-                migratedUserConfig = rawUserConfig;
-            }
-        } else {
-            migratedUserConfig = rawUserConfig;
-        }
+        Config migratedUserConfig = migrateIfNeeded(rawUserConfig, defaults, true);
         
         // Merge with defaults (migrated user config takes precedence)
         return migratedUserConfig.withFallback(defaults).resolve();
+    }
+    
+    /**
+     * Applies migrations to the raw config if needed.
+     * 
+     * @param rawUserConfig the raw user config before migration
+     * @param defaults the default configuration containing the latest version
+     * @param logVersionInfo whether to log version detection info
+     * @return the migrated config, or the original if no migration needed or migration failed
+     */
+    static Config migrateIfNeeded(Config rawUserConfig, Config defaults, boolean logVersionInfo) {
+        int userVersion = ConfigMigration.detectVersion(rawUserConfig);
+        int latestVersion = ConfigMigration.getLatestVersion(defaults);
+        
+        if (logVersionInfo) {
+            LOGGER.info("Config version detected: {}, latest version: {}", userVersion, latestVersion);
+        }
+        
+        if (userVersion < latestVersion) {
+            try {
+                Config migrated = ConfigMigration.migrate(rawUserConfig, userVersion, latestVersion);
+                if (logVersionInfo) {
+                    LOGGER.info("Config migrated from version {} to version {}", userVersion, latestVersion);
+                }
+                return migrated;
+            } catch (ConfigMigrationException e) {
+                LOGGER.error("Config migration failed: {}", e.getMessage());
+                return rawUserConfig;
+            }
+        }
+        return rawUserConfig;
     }
     
     /**
@@ -144,10 +134,19 @@ public class ConfigLoader {
      * @return the merged config with defaults
      */
     public static Config loadMergedConfig(Config migratedUserConfig) {
-        // Load defaults
         Config defaults = ConfigResourceLoader.loadDefaults();
-        
-        // Merge with defaults (migrated user config takes precedence)
+        return mergeWithDefaults(migratedUserConfig, defaults);
+    }
+    
+    /**
+     * Merges a migrated user config with already-parsed defaults.
+     * This is the most efficient method when both configs are already available.
+     * 
+     * @param migratedUserConfig the already-migrated user config
+     * @param defaults the already-parsed defaults
+     * @return the merged config
+     */
+    public static Config mergeWithDefaults(Config migratedUserConfig, Config defaults) {
         return migratedUserConfig.withFallback(defaults).resolve();
     }
 }

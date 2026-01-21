@@ -36,22 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("BotConfig Integration Tests")
 class BotConfigIntegrationTest extends BaseConfigTest {
-    
-    private String originalConfigFile;
-    
-    @BeforeEach
-    void setUpIntegration() {
-        originalConfigFile = System.getProperty("config.file");
-    }
-    
-    @AfterEach
-    void tearDownIntegration() {
-        if (originalConfigFile != null) {
-            System.setProperty("config.file", originalConfigFile);
-        } else {
-            System.clearProperty("config.file");
-        }
-    }
+    // Uses BaseConfigTest's system property management
     
     @Nested
     @DisplayName("Full Load Flow")
@@ -101,7 +86,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -120,7 +105,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
         void loadsConfigWithMissingRequiredFieldsAndPrompts() throws IOException {
             // Note: We use legacy keys here to test migration + prompting
             Path configFile = createTempConfigFile("token = BOT_TOKEN_HERE\nowner = 0");
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             mockUserInteraction.addPromptResponse("prompted_token");
             mockUserInteraction.addPromptResponse("123456789");
@@ -138,7 +123,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
         @DisplayName("Fails to load when user cancels validation")
         void failsToLoadWhenUserCancelsValidation() throws IOException {
             Path configFile = createTempConfigFile("token = BOT_TOKEN_HERE\nowner = 123456789");
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             mockUserInteraction.setPromptCancelled();
             
@@ -153,7 +138,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
         @DisplayName("Writes config file when validation prompts for input")
         void writesConfigFileWhenValidationPromptsForInput() throws IOException {
             Path configFile = createTempConfigFile("token = BOT_TOKEN_HERE\nowner = 0");
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             mockUserInteraction.addPromptResponse("new_token");
             mockUserInteraction.addPromptResponse("987654321");
@@ -187,7 +172,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
                 discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -233,7 +218,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -298,7 +283,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
                 invalid syntax {
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -315,7 +300,7 @@ class BotConfigIntegrationTest extends BaseConfigTest {
         @DisplayName("Shows config location in error messages")
         void showsConfigLocationInErrorMessages() throws IOException {
             Path configFile = createTempConfigFile("invalid syntax");
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();

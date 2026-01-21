@@ -41,23 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Config Migration Integration Tests")
 class ConfigMigrationIntegrationTest extends BaseConfigTest {
-    
-    private String originalConfigFile;
-    
-    @BeforeEach
-    void setUpIntegration() {
-        originalConfigFile = System.getProperty("config.file");
-    }
-    
-    @AfterEach
-    void tearDownIntegration() {
-        if (originalConfigFile != null) {
-            System.setProperty("config.file", originalConfigFile);
-        } else {
-            System.clearProperty("config.file");
-        }
-        System.clearProperty("config");
-    }
+    // Uses BaseConfigTest's system property management
     
     @Nested
     @DisplayName("Startup with Legacy Config")
@@ -77,7 +61,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
@@ -127,7 +111,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
@@ -177,7 +161,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(newConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
@@ -203,7 +187,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .withOwner(123456789L)
                 .buildAsString();
             Path configFile = createTempConfigFile(config);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
@@ -226,7 +210,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
@@ -266,7 +250,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
@@ -287,7 +271,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
                 .buildAsString();
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             

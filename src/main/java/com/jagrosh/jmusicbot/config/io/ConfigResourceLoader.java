@@ -51,13 +51,12 @@ public class ConfigResourceLoader {
      * Loads the default config content from reference.conf.
      */
     public static String loadDefaultConfig() {
-        String original = OtherUtil.loadResource(JMusicBot.class, "/reference.conf");
-        if (original == null) {
+        String content = loadReferenceConfigResource();
+        if (content == null) {
             // Fallback to legacy format if resource not found
             return "token = BOT_TOKEN_HERE\r\nowner = 0 // OWNER ID";
         }
-        
-        return original.trim();
+        return content;
     }
     
     /**
@@ -66,12 +65,17 @@ public class ConfigResourceLoader {
      * @return the reference.conf content as a string, or null if not found
      */
     public static String loadReferenceConfigAsString() {
+        return loadReferenceConfigResource();
+    }
+    
+    /**
+     * Loads and trims the reference.conf resource.
+     * 
+     * @return the trimmed content, or null if not found
+     */
+    private static String loadReferenceConfigResource() {
         String original = OtherUtil.loadResource(JMusicBot.class, "/reference.conf");
-        if (original == null) {
-            return null;
-        }
-        
-        return original.trim();
+        return original != null ? original.trim() : null;
     }
     
     /**

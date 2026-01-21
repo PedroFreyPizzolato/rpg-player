@@ -50,15 +50,42 @@ public class LegacyToV1 implements Migration {
     public Config migrate(Config source) {
         LOGGER.debug("Starting migration from version 0 to version 1");
         
-        // Build new config structure from scratch, mapping all legacy keys to new format
         Map<String, Object> migrated = new HashMap<>();
         
-        // Add meta version
+        // Build each section
+        addSection(migrated, "meta", buildMetaSection());
+        addSection(migrated, "discord", buildDiscordSection(source));
+        addSection(migrated, "commands", buildCommandsSection(source));
+        addSection(migrated, "presence", buildPresenceSection(source));
+        addSection(migrated, "ui", buildUiSection(source));
+        addSection(migrated, "nowPlaying", buildNowPlayingSection(source));
+        addSection(migrated, "voice", buildVoiceSection(source));
+        addSection(migrated, "playback", buildPlaybackSection(source));
+        addSection(migrated, "paths", buildPathsSection(source));
+        addSection(migrated, "updates", buildUpdatesSection(source));
+        addSection(migrated, "logging", buildLoggingSection(source));
+        addSection(migrated, "dangerous", buildDangerousSection(source));
+        
+        Config migratedConfig = ConfigFactory.parseMap(migrated);
+        LOGGER.debug("Migration from version 0 to version 1 completed");
+        
+        return migratedConfig;
+    }
+    
+    /** Adds a section to the migrated config if not empty. */
+    private void addSection(Map<String, Object> migrated, String key, Map<String, Object> section) {
+        if (!section.isEmpty()) {
+            migrated.put(key, section);
+        }
+    }
+    
+    private Map<String, Object> buildMetaSection() {
         Map<String, Object> meta = new HashMap<>();
         meta.put("configVersion", 1);
-        migrated.put("meta", meta);
-        
-        // Discord section: token, owner
+        return meta;
+    }
+    
+    private Map<String, Object> buildDiscordSection(Config source) {
         Map<String, Object> discord = new HashMap<>();
         if (source.hasPath("token")) {
             discord.put("token", source.getString("token"));
@@ -66,11 +93,10 @@ public class LegacyToV1 implements Migration {
         if (source.hasPath("owner")) {
             discord.put("owner", source.getLong("owner"));
         }
-        if (!discord.isEmpty()) {
-            migrated.put("discord", discord);
-        }
-        
-        // Commands section: prefix, altprefix, help, aliases
+        return discord;
+    }
+    
+    private Map<String, Object> buildCommandsSection(Config source) {
         Map<String, Object> commands = new HashMap<>();
         if (source.hasPath("prefix")) {
             commands.put("prefix", source.getString("prefix"));
@@ -82,36 +108,30 @@ public class LegacyToV1 implements Migration {
             commands.put("help", source.getString("help"));
         }
         if (source.hasPath("aliases")) {
-            // aliases is already a nested structure, just move it to commands.aliases
             commands.put("aliases", source.getConfig("aliases").root().unwrapped());
         }
-        if (!commands.isEmpty()) {
-            migrated.put("commands", commands);
-        }
-        
-        // Presence section: game, status, songinstatus
+        return commands;
+    }
+    
+    private Map<String, Object> buildPresenceSection(Config source) {
         Map<String, Object> presence = new HashMap<>();
         if (source.hasPath("game")) {
             presence.put("game", source.getString("game"));
         }
         if (source.hasPath("status")) {
-            // Normalize status case to uppercase
             String status = source.getString("status");
-            if (status != null) {
-                status = status.toUpperCase();
-            }
-            presence.put("status", status);
+            presence.put("status", status != null ? status.toUpperCase() : null);
         }
         if (source.hasPath("songinstatus")) {
             presence.put("songInStatus", source.getBoolean("songinstatus"));
         }
-        if (!presence.isEmpty()) {
-            migrated.put("presence", presence);
-        }
-        
-        // UI section: success, warning, error, loading, searching
+        return presence;
+    }
+    
+    private Map<String, Object> buildUiSection(Config source) {
         Map<String, Object> ui = new HashMap<>();
         Map<String, Object> emojis = new HashMap<>();
+        
         if (source.hasPath("success")) {
             emojis.put("success", source.getString("success"));
         }
@@ -127,23 +147,22 @@ public class LegacyToV1 implements Migration {
         if (source.hasPath("searching")) {
             emojis.put("searching", source.getString("searching"));
         }
+        
         if (!emojis.isEmpty()) {
             ui.put("emojis", emojis);
         }
-        if (!ui.isEmpty()) {
-            migrated.put("ui", ui);
-        }
-        
-        // NowPlaying section: npimages
+        return ui;
+    }
+    
+    private Map<String, Object> buildNowPlayingSection(Config source) {
         Map<String, Object> nowPlaying = new HashMap<>();
         if (source.hasPath("npimages")) {
             nowPlaying.put("images", source.getBoolean("npimages"));
         }
-        if (!nowPlaying.isEmpty()) {
-            migrated.put("nowPlaying", nowPlaying);
-        }
-        
-        // Voice section: stayinchannel, alonetimeuntilstop
+        return nowPlaying;
+    }
+    
+    private Map<String, Object> buildVoiceSection(Config source) {
         Map<String, Object> voice = new HashMap<>();
         if (source.hasPath("stayinchannel")) {
             voice.put("stayInChannel", source.getBoolean("stayinchannel"));
@@ -151,12 +170,12 @@ public class LegacyToV1 implements Migration {
         if (source.hasPath("alonetimeuntilstop")) {
             voice.put("aloneTimeUntilStopSeconds", source.getLong("alonetimeuntilstop"));
         }
-        if (!voice.isEmpty()) {
-            migrated.put("voice", voice);
-        }
-        
-        // Playback section: maxtime, maxytplaylistpages, skipratio, useyoutubeoauth, audiosources, transforms
+        return voice;
+    }
+    
+    private Map<String, Object> buildPlaybackSection(Config source) {
         Map<String, Object> playback = new HashMap<>();
+        
         if (source.hasPath("maxtime")) {
             playback.put("maxTrackSeconds", source.getLong("maxtime"));
         }
@@ -166,61 +185,49 @@ public class LegacyToV1 implements Migration {
         if (source.hasPath("skipratio")) {
             playback.put("skipRatio", source.getDouble("skipratio"));
         }
-        
-        // YouTube OAuth nested under playback.youtube
         if (source.hasPath("useyoutubeoauth")) {
             Map<String, Object> youtube = new HashMap<>();
             youtube.put("useOAuth", source.getBoolean("useyoutubeoauth"));
             playback.put("youtube", youtube);
         }
         
-        // Audio sources migration (special handling: list to boolean map)
-        // Always migrate audioSources - if missing, defaults to all enabled
         Map<String, Boolean> audioSourcesMap = migrateAudioSources(source);
         if (!audioSourcesMap.isEmpty()) {
             playback.put("audioSources", audioSourcesMap);
         }
         
-        // Transforms is already a nested structure, just move it to playback.transforms
         if (source.hasPath("transforms")) {
             playback.put("transforms", source.getConfig("transforms").root().unwrapped());
         }
         
-        if (!playback.isEmpty()) {
-            migrated.put("playback", playback);
-        }
-        
-        // Paths section: playlistsfolder
+        return playback;
+    }
+    
+    private Map<String, Object> buildPathsSection(Config source) {
         Map<String, Object> paths = new HashMap<>();
         if (source.hasPath("playlistsfolder")) {
             paths.put("playlistsFolder", source.getString("playlistsfolder"));
         }
-        if (!paths.isEmpty()) {
-            migrated.put("paths", paths);
-        }
-        
-        // Updates section: updatealerts
+        return paths;
+    }
+    
+    private Map<String, Object> buildUpdatesSection(Config source) {
         Map<String, Object> updates = new HashMap<>();
         if (source.hasPath("updatealerts")) {
             updates.put("alerts", source.getBoolean("updatealerts"));
         }
-        if (!updates.isEmpty()) {
-            migrated.put("updates", updates);
-        }
-        
-        // Lyrics section: Skip lyrics keys as lyrics functionality is being removed
-        // (lyrics keys will be ignored and not migrated)
-        
-        // Logging section: loglevel
+        return updates;
+    }
+    
+    private Map<String, Object> buildLoggingSection(Config source) {
         Map<String, Object> logging = new HashMap<>();
         if (source.hasPath("loglevel")) {
             logging.put("level", source.getString("loglevel"));
         }
-        if (!logging.isEmpty()) {
-            migrated.put("logging", logging);
-        }
-        
-        // Dangerous section: eval, evalengine
+        return logging;
+    }
+    
+    private Map<String, Object> buildDangerousSection(Config source) {
         Map<String, Object> dangerous = new HashMap<>();
         if (source.hasPath("eval")) {
             dangerous.put("eval", source.getBoolean("eval"));
@@ -228,15 +235,7 @@ public class LegacyToV1 implements Migration {
         if (source.hasPath("evalengine")) {
             dangerous.put("evalEngine", source.getString("evalengine"));
         }
-        if (!dangerous.isEmpty()) {
-            migrated.put("dangerous", dangerous);
-        }
-        
-        // Build the migrated config
-        Config migratedConfig = ConfigFactory.parseMap(migrated);
-        LOGGER.debug("Migration from version 0 to version 1 completed");
-        
-        return migratedConfig;
+        return dangerous;
     }
     
     /**

@@ -94,31 +94,11 @@ public class ConfigRenderer {
             // If user config doesn't have this key, the template default remains
         }
         
-        // Build the output with header/footer comments
-        StringBuilder sb = new StringBuilder();
-        
-        // Header comment
-        sb.append("# This file was automatically migrated and updated.\n");
-        sb.append("# Your original config file has been backed up with a .bak extension.\n");
-        sb.append("#\n");
-        
-        if (diagnostics.hasIssues()) {
-            sb.append("# Changes detected:\n");
-            if (!diagnostics.getMissingRequired().isEmpty()) {
-                sb.append("# - Missing required keys: ").append(diagnostics.getMissingRequired()).append("\n");
-            }
-            if (!diagnostics.getMissingOptional().isEmpty()) {
-                sb.append("# - Missing optional keys (new options): ").append(diagnostics.getMissingOptional()).append("\n");
-            }
-            if (!diagnostics.getDeprecated().isEmpty()) {
-                sb.append("# - Deprecated keys removed: ").append(diagnostics.getDeprecated()).append("\n");
-            }
-            sb.append("#\n");
-        }
+        // Build the output with header comments
+        StringBuilder sb = buildHeaderComment(diagnostics);
         
         // Render the document (preserves comments and formatting)
-        String configContent = outputDoc.render();
-        sb.append(configContent);
+        sb.append(outputDoc.render());
         
         return sb.toString();
     }
@@ -135,9 +115,31 @@ public class ConfigRenderer {
         // Merge with defaults to match old behavior
         Config defaults = ConfigResourceLoader.loadDefaults();
         Config config = migratedUserConfig.withFallback(defaults).resolve();
+        
+        // Build the output with header comments
+        StringBuilder sb = buildHeaderComment(diagnostics);
+        
+        // Render the config using old method
+        com.typesafe.config.ConfigRenderOptions options = com.typesafe.config.ConfigRenderOptions.defaults()
+                .setOriginComments(false)
+                .setComments(true)
+                .setFormatted(true)
+                .setJson(false);
+        
+        sb.append(config.root().render(options));
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Builds the header comment section for the config file.
+     * 
+     * @param diagnostics the diagnostic report
+     * @return a StringBuilder containing the header comment
+     */
+    private static StringBuilder buildHeaderComment(ConfigDiagnostics.Report diagnostics) {
         StringBuilder sb = new StringBuilder();
         
-        // Header comment
         sb.append("# This file was automatically migrated and updated.\n");
         sb.append("# Your original config file has been backed up with a .bak extension.\n");
         sb.append("#\n");
@@ -156,16 +158,6 @@ public class ConfigRenderer {
             sb.append("#\n");
         }
         
-        // Render the config using old method
-        com.typesafe.config.ConfigRenderOptions options = com.typesafe.config.ConfigRenderOptions.defaults()
-                .setOriginComments(false)
-                .setComments(true)
-                .setFormatted(true)
-                .setJson(false);
-        
-        String configContent = config.root().render(options);
-        sb.append(configContent);
-        
-        return sb.toString();
+        return sb;
     }
 }

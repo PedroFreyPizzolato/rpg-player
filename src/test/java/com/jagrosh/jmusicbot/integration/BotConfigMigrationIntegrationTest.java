@@ -32,23 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("BotConfig Migration Integration Tests")
 class BotConfigMigrationIntegrationTest extends BaseConfigTest {
-    
-    private String originalConfigFile;
-    
-    @BeforeEach
-    void setUpIntegration() {
-        originalConfigFile = System.getProperty("config.file");
-    }
-    
-    @AfterEach
-    void tearDownIntegration() {
-        if (originalConfigFile != null) {
-            System.setProperty("config.file", originalConfigFile);
-        } else {
-            System.clearProperty("config.file");
-        }
-        System.clearProperty("config");
-    }
+    // Uses BaseConfigTest's system property management
     
     @Nested
     @DisplayName("BotConfig Loads Migrated Config")
@@ -68,7 +52,7 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
                 """;
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -113,7 +97,7 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
                 """;
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -154,7 +138,7 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
                 """;
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -182,7 +166,7 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
                 """;
             
             Path configFile = createTempConfigFile(legacyConfig);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();

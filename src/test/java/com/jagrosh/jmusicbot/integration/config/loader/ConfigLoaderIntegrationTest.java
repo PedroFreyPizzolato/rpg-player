@@ -72,7 +72,7 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
                 """;
             Path configFile = createTempConfigFile(configContent);
             
-            Config userConfig = ConfigLoader.loadUserConfig(configFile);
+            Config userConfig = ConfigLoader.loadRawUserConfig(configFile);
             Config merged = ConfigLoader.loadMergedConfig(configFile);
             
             assertNotNull(userConfig);
@@ -120,7 +120,7 @@ class ConfigLoaderIntegrationTest extends BaseConfigTest {
             
             // Should throw ConfigException
             assertThrows(Exception.class, () -> {
-                ConfigLoader.loadUserConfig(configFile);
+                ConfigLoader.loadRawUserConfig(configFile);
             });
         }
         

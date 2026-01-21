@@ -76,80 +76,23 @@ public class BotConfig {
     public void load() {
         valid = false;
 
-        // read config from file
         try {
-            // get the path to the config, default config.txt
             path = ConfigFileManager.getConfigPath();
-
-            // Load raw user config to check if migration is needed
-            Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
-            Config defaults = ConfigResourceLoader.loadDefaults();
-            int userVersion = ConfigMigration.detectVersion(rawUserConfig);
-            int latestVersion = ConfigMigration.getLatestVersion(defaults);
-            boolean migrationOccurred = userVersion < latestVersion;
-
-            // Load migrated user config
-            Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
             
-            // Use the already-migrated config to avoid running migration twice
-            Config config = ConfigLoader.loadMergedConfig(migratedUserConfig);
-
-            // Run diagnostics (use migrated config for deprecated key detection)
-            ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(migratedUserConfig, config, defaults);
+            // Load and migrate config
+            ConfigLoadResult loadResult = loadAndMigrateConfig();
             
-            // Log diagnostics
-            if (diagnostics.hasIssues()) {
-                if (diagnostics.hasErrors()) {
-                    LOGGER.error("Config diagnostics - {}", diagnostics.generateMessage());
-                } else if (diagnostics.hasWarnings()) {
-                    LOGGER.warn("Config diagnostics - {}", diagnostics.generateMessage());
-                }
-            }
+            // Run diagnostics and update config file if needed
+            ConfigLoadResult updatedResult = runDiagnosticsAndUpdate(loadResult);
             
-            // Always update config file if migration occurred or if there are diagnostic issues
-            // This ensures backup is created when migration happens, even if no diagnostic issues
-            if (migrationOccurred || diagnostics.hasIssues()) {
-                // Update config file in place (backup original, write migrated config)
-                // Pass migratedUserConfig (not merged config) so we can preserve user values
-                Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(path, migratedUserConfig, diagnostics);
-                if (updatedConfigPath != null) {
-                    if (migrationOccurred) {
-                        LOGGER.info("Config file migrated and updated: {}. Original backed up with .bak extension.", updatedConfigPath);
-                    } else {
-                        LOGGER.info("Config file updated: {}. Original backed up with .bak extension.", updatedConfigPath);
-                    }
-                    
-                    // Reload configs from the updated file so newly added keys are included
-                    // This is important for loadAudioSources which checks migratedUserConfig for explicitly set keys
-                    migratedUserConfig = ConfigLoader.loadMigratedUserConfig(path);
-                    config = ConfigLoader.loadMergedConfig(migratedUserConfig);
-                }
-            }
-
             // Load all config values
-            loadConfigValues(config, migratedUserConfig);
+            loadConfigValues(updatedResult.mergedConfig, updatedResult.migratedUserConfig);
 
-            // Validate required fields
-            ValidationResult tokenResult = ConfigValidator.validateToken(token, userInteraction, path);
-            if (!tokenResult.isValid()) {
+            // Validate required fields and write if needed
+            if (!validateRequiredFields()) {
                 return;
             }
-            token = tokenResult.getValue();
-            boolean needsWrite = tokenResult.needsWrite();
 
-            ValidationResult ownerResult = ConfigValidator.validateOwner(owner, userInteraction, path);
-            if (!ownerResult.isValid()) {
-                return;
-            }
-            owner = ownerResult.getValue();
-            needsWrite = needsWrite || ownerResult.needsWrite();
-
-            // Write config file if needed (for token/owner prompts)
-            if (needsWrite) {
-                writeToFile();
-            }
-
-            // if we get through the whole config, it's good to go
             valid = true;
         } catch (ConfigException ex) {
             userInteraction.alert(Prompt.Level.ERROR, "Config",
@@ -158,6 +101,122 @@ public class BotConfig {
             LOGGER.error("Config migration failed: {}", ex.getMessage());
             userInteraction.alert(Prompt.Level.ERROR, "Config Migration",
                     "Failed to migrate configuration: " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
+        }
+    }
+    
+    /**
+     * Loads raw config, detects migration need, and returns migrated + merged configs.
+     * Parses each resource only once to avoid redundant I/O.
+     */
+    private ConfigLoadResult loadAndMigrateConfig() {
+        // Parse each resource exactly once
+        Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
+        Config defaults = ConfigResourceLoader.loadDefaults();
+        
+        // Detect versions for migration check
+        int userVersion = ConfigMigration.detectVersion(rawUserConfig);
+        int latestVersion = ConfigMigration.getLatestVersion(defaults);
+        boolean migrationOccurred = userVersion < latestVersion;
+
+        // Use overloads that accept already-parsed configs to avoid re-parsing
+        Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
+        Config mergedConfig = ConfigLoader.mergeWithDefaults(migratedUserConfig, defaults);
+
+        return new ConfigLoadResult(migratedUserConfig, mergedConfig, defaults, migrationOccurred);
+    }
+    
+    /**
+     * Runs diagnostics and updates config file if migration occurred or issues detected.
+     * Returns updated configs if file was modified.
+     */
+    private ConfigLoadResult runDiagnosticsAndUpdate(ConfigLoadResult loadResult) {
+        ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(
+                loadResult.migratedUserConfig, loadResult.mergedConfig, loadResult.defaults);
+        
+        logDiagnostics(diagnostics);
+        
+        if (loadResult.migrationOccurred || diagnostics.hasIssues()) {
+            Path updatedConfigPath = ConfigUpdater.generateUpdatedConfig(
+                    path, loadResult.migratedUserConfig, diagnostics);
+            if (updatedConfigPath != null) {
+                logConfigUpdate(loadResult.migrationOccurred, updatedConfigPath);
+                
+                // Reload configs from the updated file - reuse defaults since they haven't changed
+                Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
+                Config migratedUserConfig = ConfigLoader.loadMigratedUserConfig(rawUserConfig, loadResult.defaults);
+                Config mergedConfig = ConfigLoader.mergeWithDefaults(migratedUserConfig, loadResult.defaults);
+                return new ConfigLoadResult(migratedUserConfig, mergedConfig, 
+                        loadResult.defaults, loadResult.migrationOccurred);
+            }
+        }
+        return loadResult;
+    }
+    
+    /**
+     * Logs diagnostic issues at appropriate level.
+     */
+    private void logDiagnostics(ConfigDiagnostics.Report diagnostics) {
+        if (diagnostics.hasIssues()) {
+            if (diagnostics.hasErrors()) {
+                LOGGER.error("Config diagnostics - {}", diagnostics.generateMessage());
+            } else if (diagnostics.hasWarnings()) {
+                LOGGER.warn("Config diagnostics - {}", diagnostics.generateMessage());
+            }
+        }
+    }
+    
+    /**
+     * Logs config update/migration message.
+     */
+    private void logConfigUpdate(boolean migrationOccurred, Path updatedConfigPath) {
+        if (migrationOccurred) {
+            LOGGER.info("Config file migrated and updated: {}. Original backed up with .bak extension.", 
+                    updatedConfigPath);
+        } else {
+            LOGGER.info("Config file updated: {}. Original backed up with .bak extension.", 
+                    updatedConfigPath);
+        }
+    }
+    
+    /**
+     * Validates token and owner, prompting user if needed. Returns false if validation fails.
+     */
+    private boolean validateRequiredFields() {
+        ValidationResult tokenResult = ConfigValidator.validateToken(token, userInteraction, path);
+        if (!tokenResult.isValid()) {
+            return false;
+        }
+        token = tokenResult.getValue();
+        boolean needsWrite = tokenResult.needsWrite();
+
+        ValidationResult ownerResult = ConfigValidator.validateOwner(owner, userInteraction, path);
+        if (!ownerResult.isValid()) {
+            return false;
+        }
+        owner = ownerResult.getValue();
+        needsWrite = needsWrite || ownerResult.needsWrite();
+
+        if (needsWrite) {
+            writeToFile();
+        }
+        return true;
+    }
+    
+    /**
+     * Holds the result of loading and migrating config.
+     */
+    private static class ConfigLoadResult {
+        final Config migratedUserConfig;
+        final Config mergedConfig;
+        final Config defaults;
+        final boolean migrationOccurred;
+        
+        ConfigLoadResult(Config migratedUserConfig, Config mergedConfig, 
+                        Config defaults, boolean migrationOccurred) {
+            this.migratedUserConfig = migratedUserConfig;
+            this.mergedConfig = mergedConfig;
+            this.defaults = defaults;
+            this.migrationOccurred = migrationOccurred;
         }
     }
     

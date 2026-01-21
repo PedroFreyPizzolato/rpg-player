@@ -37,15 +37,51 @@ public abstract class BaseConfigTest {
     protected List<Path> tempFiles;
     protected MockUserInteraction mockUserInteraction;
     
+    // System property backup for config.file and config
+    private String originalConfigFile;
+    private String originalConfig;
+    
     @BeforeEach
     protected void setUpBase() {
         tempFiles = new ArrayList<>();
         mockUserInteraction = new MockUserInteraction();
+        saveSystemProperties();
     }
     
     @AfterEach
     protected void tearDownBase() throws IOException {
-        // Clean up temporary files
+        restoreSystemProperties();
+        cleanupTempFiles();
+    }
+    
+    /**
+     * Saves the current system properties for restoration after test.
+     */
+    protected void saveSystemProperties() {
+        originalConfigFile = System.getProperty("config.file");
+        originalConfig = System.getProperty("config");
+    }
+    
+    /**
+     * Restores system properties to their original values.
+     */
+    protected void restoreSystemProperties() {
+        if (originalConfigFile != null) {
+            System.setProperty("config.file", originalConfigFile);
+        } else {
+            System.clearProperty("config.file");
+        }
+        if (originalConfig != null) {
+            System.setProperty("config", originalConfig);
+        } else {
+            System.clearProperty("config");
+        }
+    }
+    
+    /**
+     * Cleans up temporary files created during the test.
+     */
+    private void cleanupTempFiles() {
         for (Path tempFile : tempFiles) {
             try {
                 if (Files.exists(tempFile)) {
@@ -56,6 +92,13 @@ public abstract class BaseConfigTest {
             }
         }
         tempFiles.clear();
+    }
+    
+    /**
+     * Sets the config.file system property to point to the given file.
+     */
+    protected void setConfigFileProperty(Path configFile) {
+        System.setProperty("config.file", configFile.toString());
     }
     
     /**

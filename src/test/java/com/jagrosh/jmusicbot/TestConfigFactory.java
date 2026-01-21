@@ -61,7 +61,11 @@ public class TestConfigFactory {
     
     /**
      * Creates a temporary config file with the given content.
+     * 
+     * @deprecated Use {@link BaseConfigTest#createTempConfigFile(String)} instead,
+     *             which properly tracks files for cleanup via @TempDir.
      */
+    @Deprecated
     public static Path createTempConfigFile(String content) throws IOException {
         Path tempFile = Files.createTempFile("test-config-", ".conf");
         Files.write(tempFile, content.getBytes());

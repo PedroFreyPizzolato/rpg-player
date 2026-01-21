@@ -17,7 +17,6 @@ package com.jagrosh.jmusicbot.unit;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.BotConfig;
-import com.jagrosh.jmusicbot.TestConfigFactory;
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -54,8 +53,17 @@ class BotConfigUnitTest extends BaseConfigTest {
         @Test
         @DisplayName("All getters return correct values after load")
         void allGettersReturnCorrectValuesAfterLoad() throws IOException {
-            Path configFile = TestConfigFactory.createFullTempConfigFile();
-            System.setProperty("config.file", configFile.toString());
+            String configContent = """
+                token = test_token_12345
+                owner = 123456789
+                prefix = "@mention"
+                altprefix = "NONE"
+                help = help
+                game = DEFAULT
+                status = ONLINE
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -78,7 +86,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 commands.altPrefix = "NONE"
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -99,7 +107,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 commands.altPrefix = "!!"
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -119,7 +127,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 presence.game = NONE
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -139,7 +147,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 presence.game = Playing music
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -158,7 +166,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 discord.owner = 113156185389092864
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -177,7 +185,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -202,7 +210,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 playback.maxTrackSeconds = 0
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -224,7 +232,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 playback.maxTrackSeconds = 300
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -246,7 +254,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 playback.maxTrackSeconds = 300
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -276,7 +284,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -301,7 +309,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -321,7 +329,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -346,7 +354,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 discord.owner = 123456789
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -374,7 +382,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -400,7 +408,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -425,7 +433,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -459,7 +467,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 status = IDLE
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
@@ -478,7 +486,7 @@ class BotConfigUnitTest extends BaseConfigTest {
                 game = Playing music
                 """;
             Path configFile = createTempConfigFile(configContent);
-            System.setProperty("config.file", configFile.toString());
+            setConfigFileProperty(configFile);
             
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();

@@ -31,31 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("ConfigFileManager Unit Tests")
 class ConfigFileManagerTest extends BaseConfigTest {
-    
-    private String originalConfigFile;
-    private String originalConfig;
-    
-    @BeforeEach
-    void setUpConfigFileManager() {
-        // Save original system properties
-        originalConfigFile = System.getProperty("config.file");
-        originalConfig = System.getProperty("config");
-    }
-    
-    @AfterEach
-    void tearDownConfigFileManager() {
-        // Restore original system properties
-        if (originalConfigFile != null) {
-            System.setProperty("config.file", originalConfigFile);
-        } else {
-            System.clearProperty("config.file");
-        }
-        if (originalConfig != null) {
-            System.setProperty("config", originalConfig);
-        } else {
-            System.clearProperty("config");
-        }
-    }
+    // Uses BaseConfigTest's system property management
     
     @Nested
     @DisplayName("getConfigPath() Tests")
@@ -77,7 +53,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
         @DisplayName("getConfigPath() uses config.file system property")
         void getConfigPathUsesConfigFileProperty() throws IOException {
             Path testFile = createTempConfigFile("token = test");
-            System.setProperty("config.file", testFile.toString());
+            setConfigFileProperty(testFile);
             
             Path path = ConfigFileManager.getConfigPath();
             

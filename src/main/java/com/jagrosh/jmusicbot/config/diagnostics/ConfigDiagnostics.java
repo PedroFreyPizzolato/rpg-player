@@ -99,22 +99,7 @@ public class ConfigDiagnostics {
      */
     private static void collectPaths(Config config, String prefix, Set<String> missing, 
                                      Set<String> knownKeys, Config userConfig) {
-        for (String key : config.root().keySet()) {
-            String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
-            
-            // Skip meta.configVersion as it's added by migration
-            if (META_CONFIG_VERSION_KEY.equals(fullPath)) {
-                continue;
-            }
-            
-            // Skip lyrics keys as lyrics functionality is being removed
-            if (fullPath.startsWith(LYRICS_PREFIX)) {
-                continue;
-            }
-            
-            ConfigValue value = config.getValue(key);
-            
-            // If it's a nested object, recurse
+        traverseConfig(config, prefix, (fullPath, key, value) -> {
             if (value.valueType() == com.typesafe.config.ConfigValueType.OBJECT) {
                 try {
                     Config nestedConfig = config.getConfig(key);
@@ -125,12 +110,10 @@ public class ConfigDiagnostics {
             } else {
                 // It's a leaf value - check if it exists in user config
                 if (!userConfig.hasPath(fullPath)) {
-                    // Only report if it's a known key or we want to report all missing defaults
-                    // For now, report all missing defaults as they might be new options
                     missing.add(fullPath);
                 }
             }
-        }
+        });
     }
     
     /**
@@ -161,52 +144,68 @@ public class ConfigDiagnostics {
      */
     private static void collectUserPaths(Config config, String prefix, Set<String> deprecated,
                                         Set<String> knownKeys, Config defaults) {
-        for (String key : config.root().keySet()) {
-            String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
-            
-            // Skip meta.configVersion as it's expected in migrated configs
-            if (META_CONFIG_VERSION_KEY.equals(fullPath)) {
-                continue;
-            }
-            
-            // Skip lyrics keys as lyrics functionality is being removed
-            if (fullPath.startsWith(LYRICS_PREFIX)) {
-                continue;
-            }
-            
-            ConfigValue value = config.getValue(key);
-            
-            // If it's a nested object, recurse
+        traverseConfig(config, prefix, (fullPath, key, value) -> {
             if (value.valueType() == com.typesafe.config.ConfigValueType.OBJECT) {
                 try {
                     Config nestedConfig = config.getConfig(key);
-                    // Check if the key exists in the current defaults context
                     if (!defaults.hasPath(key)) {
-                        // Key doesn't exist in defaults at this level, mark as deprecated
                         deprecated.add(fullPath);
                     } else {
-                        // Key exists, get nested config and recurse
                         try {
                             Config defaultNested = defaults.getConfig(key);
                             collectUserPaths(nestedConfig, fullPath, deprecated, knownKeys, defaultNested);
                         } catch (Exception e) {
-                            // Not a config object in defaults, mark as deprecated
                             deprecated.add(fullPath);
                         }
                     }
                 } catch (Exception e) {
-                    // Not a config object in user config, treat as leaf
                     if (!defaults.hasPath(key)) {
                         deprecated.add(fullPath);
                     }
                 }
             } else {
-                // It's a leaf value - check if the key exists in the current defaults context
                 if (!defaults.hasPath(key)) {
                     deprecated.add(fullPath);
                 }
             }
+        });
+    }
+    
+    /**
+     * Traverses a config object, calling the visitor for each key that should be processed.
+     * Automatically skips meta.configVersion and lyrics.* keys.
+     * 
+     * @param config the config to traverse
+     * @param prefix the current path prefix
+     * @param visitor the visitor to call for each key (receives fullPath, key, value)
+     */
+    private static void traverseConfig(Config config, String prefix, ConfigKeyVisitor visitor) {
+        for (String key : config.root().keySet()) {
+            String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
+            
+            // Skip meta.configVersion and lyrics keys
+            if (shouldSkipPath(fullPath)) {
+                continue;
+            }
+            
+            ConfigValue value = config.getValue(key);
+            visitor.visit(fullPath, key, value);
         }
+    }
+    
+    /**
+     * Determines if a config path should be skipped during traversal.
+     */
+    private static boolean shouldSkipPath(String fullPath) {
+        return META_CONFIG_VERSION_KEY.equals(fullPath) || fullPath.startsWith(LYRICS_PREFIX);
+    }
+    
+    /**
+     * Functional interface for visiting config keys during traversal.
+     */
+    @FunctionalInterface
+    private interface ConfigKeyVisitor {
+        void visit(String fullPath, String key, ConfigValue value);
     }
     
     /**

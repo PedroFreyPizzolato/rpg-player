@@ -40,13 +40,13 @@ public class ConfigValidator {
                     + "\nhttps://github.com/jagrosh/MusicBot/wiki/Getting-a-Bot-Token."
                     + "\nBot Token: ");
             if (newToken == null) {
-                userInteraction.alert(Prompt.Level.WARNING, CONTEXT,
-                        "No token provided! Exiting.\n\nConfig Location: " + configPath.toAbsolutePath().toString());
-                return new ValidationResult(null, false, false);
+                alertWithConfigLocation(userInteraction, Prompt.Level.WARNING, 
+                        "No token provided! Exiting.", configPath);
+                return ValidationResult.invalid();
             }
-            return new ValidationResult(newToken, true, true);
+            return ValidationResult.validWithWrite(newToken);
         }
-        return new ValidationResult(token, true, false);
+        return ValidationResult.valid(token);
     }
     
     /**
@@ -65,17 +65,26 @@ public class ConfigValidator {
                 if (ownerInput != null) {
                     long newOwner = Long.parseLong(ownerInput);
                     if (newOwner > 0) {
-                        return new ValidationResult(newOwner, true, true);
+                        return ValidationResult.validWithWrite(newOwner);
                     }
                 }
             } catch (NumberFormatException | NullPointerException ex) {
                 // Fall through to error
             }
-            userInteraction.alert(Prompt.Level.ERROR, CONTEXT,
-                    "Invalid User ID! Exiting.\n\nConfig Location: " + configPath.toAbsolutePath().toString());
-            return new ValidationResult(null, false, false);
+            alertWithConfigLocation(userInteraction, Prompt.Level.ERROR, 
+                    "Invalid User ID! Exiting.", configPath);
+            return ValidationResult.invalid();
         }
-        return new ValidationResult(owner, true, false);
+        return ValidationResult.valid(owner);
+    }
+    
+    /**
+     * Shows an alert with the config file location appended.
+     */
+    private static void alertWithConfigLocation(UserInteraction userInteraction, Prompt.Level level, 
+            String message, Path configPath) {
+        userInteraction.alert(level, CONTEXT, 
+                message + "\n\nConfig Location: " + configPath.toAbsolutePath().toString());
     }
     
     /**
@@ -90,6 +99,21 @@ public class ConfigValidator {
             this.value = value;
             this.valid = valid;
             this.needsWrite = needsWrite;
+        }
+        
+        /** Creates a valid result with no write needed. */
+        public static ValidationResult valid(Object value) {
+            return new ValidationResult(value, true, false);
+        }
+        
+        /** Creates a valid result that requires a config file write. */
+        public static ValidationResult validWithWrite(Object value) {
+            return new ValidationResult(value, true, true);
+        }
+        
+        /** Creates an invalid result. */
+        public static ValidationResult invalid() {
+            return new ValidationResult(null, false, false);
         }
         
         @SuppressWarnings("unchecked")

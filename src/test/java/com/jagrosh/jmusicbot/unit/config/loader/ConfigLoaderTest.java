@@ -31,16 +31,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class ConfigLoaderTest extends BaseConfigTest {
     
     @Nested
-    @DisplayName("loadUserConfig() Tests")
-    class LoadUserConfigTests {
+    @DisplayName("loadRawUserConfig() Tests")
+    class LoadRawUserConfigTests {
         
         @Test
-        @DisplayName("loadUserConfig() loads existing config file")
-        void loadUserConfigLoadsExistingFile() throws IOException {
-            // Test with legacy format - loadUserConfig returns raw config before migration
+        @DisplayName("loadRawUserConfig() loads existing config file")
+        void loadRawUserConfigLoadsExistingFile() throws IOException {
+            // Test with legacy format - loadRawUserConfig returns raw config before migration
             Path configFile = createTempConfigFile("token = test_token\nowner = 123456789");
             
-            Config config = ConfigLoader.loadUserConfig(configFile);
+            Config config = ConfigLoader.loadRawUserConfig(configFile);
             
             assertNotNull(config);
             // Raw config has flat keys
@@ -49,11 +49,11 @@ class ConfigLoaderTest extends BaseConfigTest {
         }
         
         @Test
-        @DisplayName("loadUserConfig() returns empty config for non-existing file")
-        void loadUserConfigReturnsEmptyForNonExistingFile() {
+        @DisplayName("loadRawUserConfig() returns empty config for non-existing file")
+        void loadRawUserConfigReturnsEmptyForNonExistingFile() {
             Path nonExistentFile = tempDir.resolve("nonexistent.conf");
             
-            Config config = ConfigLoader.loadUserConfig(nonExistentFile);
+            Config config = ConfigLoader.loadRawUserConfig(nonExistentFile);
             
             assertNotNull(config);
             assertTrue(config.isEmpty());
@@ -61,8 +61,8 @@ class ConfigLoaderTest extends BaseConfigTest {
         }
         
         @Test
-        @DisplayName("loadUserConfig() loads complex config with nested structures")
-        void loadUserConfigLoadsComplexConfig() throws IOException {
+        @DisplayName("loadRawUserConfig() loads complex config with nested structures")
+        void loadRawUserConfigLoadsComplexConfig() throws IOException {
             String configContent = """
                 token = test_token
                 owner = 123456789
@@ -74,7 +74,7 @@ class ConfigLoaderTest extends BaseConfigTest {
                 """;
             Path configFile = createTempConfigFile(configContent);
             
-            Config config = ConfigLoader.loadUserConfig(configFile);
+            Config config = ConfigLoader.loadRawUserConfig(configFile);
             
             assertNotNull(config);
             assertTrue(config.hasPath("aliases.play"));
@@ -83,11 +83,11 @@ class ConfigLoaderTest extends BaseConfigTest {
         }
         
         @Test
-        @DisplayName("loadUserConfig() handles empty config file")
-        void loadUserConfigHandlesEmptyFile() throws IOException {
+        @DisplayName("loadRawUserConfig() handles empty config file")
+        void loadRawUserConfigHandlesEmptyFile() throws IOException {
             Path configFile = createTempConfigFile("");
             
-            Config config = ConfigLoader.loadUserConfig(configFile);
+            Config config = ConfigLoader.loadRawUserConfig(configFile);
             
             assertNotNull(config);
             assertTrue(config.isEmpty());
@@ -184,7 +184,7 @@ class ConfigLoaderTest extends BaseConfigTest {
             // Create user config (legacy format)
             Path userConfigFile = createTempConfigFile("token = user_override");
             
-            Config userConfig = ConfigLoader.loadUserConfig(userConfigFile);
+            Config userConfig = ConfigLoader.loadRawUserConfig(userConfigFile);
             Config merged = ConfigLoader.loadMergedConfig(userConfigFile);
             
             // After migration, user config should take priority in merged config

@@ -180,61 +180,89 @@ public enum AudioSource
     {
         final Logger logger = LoggerFactory.getLogger(AudioSource.class);
         
-        YoutubeSourceOptions options = new YoutubeSourceOptions()
-                .setAllowSearch(true)
-                .setAllowDirectVideoIds(true)
-                .setAllowDirectPlaylistIds(true);
-        Client[] clients;
-        if(useOauth)
-        {
-            // url, password, userAgent (userAgent is optional, but nice for metrics)
-            options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
-            // These are the only youtube clients that support OAuth2
-            clients = new Client[] {
-                    new TvHtml5Embedded(),
-                    new Tv()
-            };
-        }
-        else
-        {
-            // These clients don't support OAuth2
-            clients = new Client[] {
-                    new AndroidVr(),
-                    new Web(),
-                    new MWeb(),
-            };
-        }
+        YoutubeSourceOptions options = buildYoutubeOptions(useOauth);
+        Client[] clients = buildYoutubeClients(useOauth);
 
         YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(options, clients);
         yt.setPlaylistPageCount(maxYTPlaylistPages);
 
-        // OAuth2 setup
         if (useOauth)
         {
-            String token = null;
-            try
-            {
-                token = Files.readString(OtherUtil.getPath("youtubetoken.txt"));
-            }
-            catch (NoSuchFileException e)
-            {
-                /* ignored */
-            }
-            catch (IOException e)
-            {
-                logger.warn("Failed to read YouTube OAuth2 token file: {}", e.getMessage());
-                return yt;
-            }
-            logger.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
-            try
-            {
-                yt.useOauth2(token, false);
-            }
-            catch (Exception e)
-            {
-                logger.warn("Failed to authorise with YouTube. If this issue persists, delete the youtubetoken.txt file to reauthorise.", e);
-            }
+            applyOAuth(yt, logger);
         }
         return yt;
+    }
+    
+    /**
+     * Builds YouTube source options.
+     */
+    private static YoutubeSourceOptions buildYoutubeOptions(boolean useOauth)
+    {
+        YoutubeSourceOptions options = new YoutubeSourceOptions()
+                .setAllowSearch(true)
+                .setAllowDirectVideoIds(true)
+                .setAllowDirectPlaylistIds(true);
+        
+        if (useOauth)
+        {
+            options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
+        }
+        return options;
+    }
+    
+    /**
+     * Builds the appropriate YouTube clients based on OAuth setting.
+     */
+    private static Client[] buildYoutubeClients(boolean useOauth)
+    {
+        if (useOauth)
+        {
+            return new Client[] { new TvHtml5Embedded(), new Tv() };
+        }
+        return new Client[] { new AndroidVr(), new Web(), new MWeb() };
+    }
+    
+    /**
+     * Reads OAuth token and applies it to the YouTube source manager.
+     */
+    private static void applyOAuth(YoutubeAudioSourceManager yt, Logger logger)
+    {
+        String token = readOAuthToken(logger);
+        if (token == null)
+        {
+            return;
+        }
+        
+        logger.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
+        try
+        {
+            yt.useOauth2(token, false);
+        }
+        catch (Exception e)
+        {
+            logger.warn("Failed to authorise with YouTube. If this issue persists, delete the youtubetoken.txt file to reauthorise.", e);
+        }
+    }
+    
+    /**
+     * Reads the OAuth token from file.
+     * 
+     * @return the token, or null if file doesn't exist or read failed
+     */
+    private static String readOAuthToken(Logger logger)
+    {
+        try
+        {
+            return Files.readString(OtherUtil.getPath("youtubetoken.txt"));
+        }
+        catch (NoSuchFileException e)
+        {
+            return null;
+        }
+        catch (IOException e)
+        {
+            logger.warn("Failed to read YouTube OAuth2 token file: {}", e.getMessage());
+            return null;
+        }
     }
 }
