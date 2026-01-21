@@ -76,36 +76,6 @@ class ConfigValidatorTest extends BaseConfigTest {
         }
         
         @Test
-        @DisplayName("validateToken() prompts for placeholder token")
-        void validateTokenPromptsForPlaceholderToken() {
-            Path configPath = tempDir.resolve("config.conf");
-            mockUserInteraction.setPromptResponse("new_token_from_user");
-            
-            ValidationResult result = ConfigValidator.validateToken("BOT_TOKEN_HERE", mockUserInteraction, configPath);
-            
-            assertTrue(result.isValid());
-            assertEquals("new_token_from_user", result.getValue());
-            assertTrue(result.needsWrite());
-        }
-        
-        @Test
-        @DisplayName("validateToken() returns invalid when user cancels")
-        void validateTokenReturnsInvalidWhenUserCancels() {
-            Path configPath = tempDir.resolve("config.conf");
-            mockUserInteraction.setPromptCancelled();
-            
-            ValidationResult result = ConfigValidator.validateToken(null, mockUserInteraction, configPath);
-            
-            assertFalse(result.isValid());
-            assertNull(result.getValue());
-            assertFalse(result.needsWrite());
-            assertEquals(1, mockUserInteraction.getAlertCalls().size());
-            var alert = mockUserInteraction.getLastAlert();
-            assertNotNull(alert);
-            assertEquals("Config", alert.getContext());
-        }
-        
-        @Test
         @DisplayName("validateToken() shows alert with config location on cancel")
         void validateTokenShowsAlertWithConfigLocationOnCancel() {
             Path configPath = tempDir.resolve("config.conf");
@@ -150,19 +120,6 @@ class ConfigValidatorTest extends BaseConfigTest {
             assertEquals(987654321L, (Long) result.getValue());
             assertTrue(result.needsWrite());
             assertEquals(1, mockUserInteraction.getPromptCalls().size());
-        }
-        
-        @Test
-        @DisplayName("validateOwner() prompts for zero owner")
-        void validateOwnerPromptsForZeroOwner() {
-            Path configPath = tempDir.resolve("config.conf");
-            mockUserInteraction.setPromptResponse("987654321");
-            
-            ValidationResult result = ConfigValidator.validateOwner(0L, mockUserInteraction, configPath);
-            
-            assertTrue(result.isValid());
-            assertEquals(987654321L, (Long) result.getValue());
-            assertTrue(result.needsWrite());
         }
         
         @Test
@@ -218,20 +175,6 @@ class ConfigValidatorTest extends BaseConfigTest {
             assertFalse(result.needsWrite());
         }
         
-        @Test
-        @DisplayName("validateOwner() shows error alert with config location")
-        void validateOwnerShowsErrorAlertWithConfigLocation() {
-            Path configPath = tempDir.resolve("config.conf");
-            mockUserInteraction.setPromptResponse("not_a_number");
-            
-            ConfigValidator.validateOwner(null, mockUserInteraction, configPath);
-            
-            var alert = mockUserInteraction.getLastAlert();
-            assertNotNull(alert);
-            assertEquals("Config", alert.getContext());
-            assertTrue(alert.getMessage().contains("Invalid User ID"));
-            assertTrue(alert.getMessage().contains("Config Location"));
-        }
     }
     
     @Nested

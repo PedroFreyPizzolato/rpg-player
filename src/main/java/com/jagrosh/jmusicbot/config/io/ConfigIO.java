@@ -15,7 +15,11 @@
  */
 package com.jagrosh.jmusicbot.config.io;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import com.jagrosh.jmusicbot.JMusicBot;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
@@ -25,12 +29,51 @@ import com.typesafe.config.parser.ConfigDocument;
 import com.typesafe.config.parser.ConfigDocumentFactory;
 
 /**
- * Handles loading configuration resources from the classpath.
- * This includes loading reference.conf and related template files.
+ * Handles all configuration I/O operations including file operations
+ * and loading resources from the classpath.
  * 
  * @author Arif Banai (arif-banai)
  */
-public class ConfigResourceLoader {
+public class ConfigIO {
+    
+    // ==================== File Operations ====================
+    
+    /**
+     * Gets the path to the config file, defaulting to config.txt.
+     */
+    public static Path getConfigPath() {
+        Path path = OtherUtil.getPath(System.getProperty("config.file", System.getProperty("config", "config.txt")));
+        if (path.toFile().exists()) {
+            if (System.getProperty("config.file") == null)
+                System.setProperty("config.file", System.getProperty("config", path.toAbsolutePath().toString()));
+            ConfigFactory.invalidateCaches();
+        }
+        return path;
+    }
+    
+    /**
+     * Writes content to the config file.
+     */
+    public static void writeConfigFile(Path path, String content) throws IOException {
+        Files.write(path, content.getBytes());
+    }
+    
+    /**
+     * Appends content to the config file.
+     */
+    public static void appendToConfigFile(Path path, String content) throws IOException {
+        Files.write(path, content.getBytes(), StandardOpenOption.APPEND);
+    }
+    
+    /**
+     * Checks if the config file exists.
+     */
+    public static boolean configFileExists(Path path) {
+        return path.toFile().exists();
+    }
+    
+    // ==================== Resource Loading ====================
+    
     /**
      * Loads the default configuration from reference.conf in the classpath.
      * This explicitly loads the reference.conf resource file.

@@ -17,7 +17,7 @@ package com.jagrosh.jmusicbot.integration.config.update;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
@@ -438,7 +438,7 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
          */
         private ConfigUpdateType determineUpdateType(Path configFile) {
             Config rawUserConfig = ConfigLoader.loadRawUserConfig(configFile);
-            Config defaults = ConfigResourceLoader.loadDefaults();
+            Config defaults = ConfigIO.loadDefaults();
             
             int originalVersion = ConfigMigration.detectVersion(rawUserConfig);
             int latestVersion = ConfigMigration.getLatestVersion(defaults);

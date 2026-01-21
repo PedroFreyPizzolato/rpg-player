@@ -16,14 +16,13 @@
 package com.jagrosh.jmusicbot.testutil.config;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigException;
-import com.typesafe.config.parser.ConfigDocument;
-import com.typesafe.config.parser.ConfigDocumentFactory;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.jagrosh.jmusicbot.testutil.config.ConfigTestConstants.ALL_AUDIO_SOURCES;
+import static com.jagrosh.jmusicbot.testutil.config.ConfigTestConstants.DEFAULT_ALIASES;
 
 /**
  * Builder for creating legacy (version 0) config objects with flat key structure.
@@ -43,16 +42,13 @@ import java.util.Map;
  * 
  * <p>This builder is based on the reference-legacy.conf file structure.
  */
-public class LegacyConfigBuilder implements ConfigBuilder {
+public class LegacyConfigBuilder extends AbstractConfigBuilder {
     private final Map<String, Object> config = new HashMap<>();
     
-    /**
-     * All available audio source names (matching reference-legacy.conf).
-     */
-    public static final String[] ALL_AUDIO_SOURCES = {
-        "youtube", "soundcloud", "bandcamp", "vimeo", "twitch", 
-        "beam", "getyarn", "nico", "http", "local"
-    };
+    @Override
+    protected Map<String, Object> getConfigMap() {
+        return config;
+    }
     
     /**
      * Sets the bot token.
@@ -309,61 +305,6 @@ public class LegacyConfigBuilder implements ConfigBuilder {
     }
     
     /**
-     * Builds the ConfigDocument from the configured values.
-     * This is the primary method, matching how application code works.
-     * 
-     * @return the built ConfigDocument
-     */
-    @Override
-    public ConfigDocument buildDocument() {
-        try {
-            // First try to build as ConfigDocument from the string representation
-            String hoconString = buildAsStringFromConfig();
-            return ConfigDocumentFactory.parseString(hoconString);
-        } catch (ConfigException e) {
-            // If ConfigDocument parsing fails, we'll fall back to Config in build()
-            // This matches the application pattern where ConfigDocument is preferred
-            // but Config is used as fallback for error cases
-            throw new IllegalStateException("Failed to build ConfigDocument, use build() as fallback", e);
-        }
-    }
-    
-    /**
-     * Builds the Config object from the configured values.
-     * This is a fallback method for cases where ConfigDocument parsing fails
-     * or when Config is needed for migration/validation.
-     * 
-     * @return the built Config object
-     */
-    @Override
-    public Config build() {
-        return ConfigFactory.parseMap(config);
-    }
-    
-    /**
-     * Builds the config as a HOCON string.
-     * Uses ConfigDocument when possible to preserve formatting.
-     * 
-     * @return the config as a HOCON-formatted string
-     */
-    @Override
-    public String buildAsString() {
-        try {
-            return buildDocument().render();
-        } catch (Exception e) {
-            // Fallback to Config rendering if ConfigDocument fails
-            return buildAsStringFromConfig();
-        }
-    }
-    
-    /**
-     * Internal helper to build string from Config (fallback method).
-     */
-    private String buildAsStringFromConfig() {
-        return build().root().render();
-    }
-    
-    /**
      * Creates a new builder instance.
      */
     public static LegacyConfigBuilder create() {
@@ -385,34 +326,6 @@ public class LegacyConfigBuilder implements ConfigBuilder {
      * This includes all default values from the reference file.
      */
     public static Config withReferenceDefaults() {
-        Map<String, List<String>> defaultAliases = new HashMap<>();
-        defaultAliases.put("settings", List.of("status"));
-        defaultAliases.put("lyrics", List.of());
-        defaultAliases.put("nowplaying", List.of("np", "current"));
-        defaultAliases.put("play", List.of());
-        defaultAliases.put("playlists", List.of("pls"));
-        defaultAliases.put("queue", List.of("list"));
-        defaultAliases.put("remove", List.of("delete"));
-        defaultAliases.put("scsearch", List.of());
-        defaultAliases.put("search", List.of("ytsearch"));
-        defaultAliases.put("shuffle", List.of());
-        defaultAliases.put("skip", List.of("voteskip"));
-        defaultAliases.put("prefix", List.of("setprefix"));
-        defaultAliases.put("setdj", List.of());
-        defaultAliases.put("setskip", List.of("setskippercent", "skippercent", "setskipratio"));
-        defaultAliases.put("settc", List.of());
-        defaultAliases.put("setvc", List.of());
-        defaultAliases.put("forceremove", List.of("forcedelete", "modremove", "moddelete", "modelete"));
-        defaultAliases.put("forceskip", List.of("modskip"));
-        defaultAliases.put("movetrack", List.of("move"));
-        defaultAliases.put("pause", List.of());
-        defaultAliases.put("playnext", List.of());
-        defaultAliases.put("queuetype", List.of());
-        defaultAliases.put("repeat", List.of());
-        defaultAliases.put("skipto", List.of("jumpto"));
-        defaultAliases.put("stop", List.of("leave"));
-        defaultAliases.put("volume", List.of("vol"));
-        
         return new LegacyConfigBuilder()
             .withToken("BOT_TOKEN_HERE")
             .withOwner(0L)
@@ -440,7 +353,7 @@ public class LegacyConfigBuilder implements ConfigBuilder {
             .withEval(false)
             .withEvalEngine("Nashorn")
             .withAllAudioSources()
-            .withAliases(defaultAliases)
+            .withAliases(new HashMap<>(DEFAULT_ALIASES))
             .withTransforms(new HashMap<>())
             .build();
     }

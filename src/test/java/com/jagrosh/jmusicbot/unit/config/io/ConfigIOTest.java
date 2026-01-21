@@ -16,9 +16,9 @@
 package com.jagrosh.jmusicbot.unit.config.io;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
-import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
+import com.typesafe.config.Config;
+import com.typesafe.config.parser.ConfigDocument;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,9 +29,10 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("ConfigFileManager Unit Tests")
-class ConfigFileManagerTest extends BaseConfigTest {
-    // Uses BaseConfigTest's system property management
+@DisplayName("ConfigIO Unit Tests")
+class ConfigIOTest extends BaseConfigTest {
+    
+    // ==================== File Operations Tests ====================
     
     @Nested
     @DisplayName("getConfigPath() Tests")
@@ -43,7 +44,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             System.clearProperty("config.file");
             System.clearProperty("config");
             
-            Path path = ConfigFileManager.getConfigPath();
+            Path path = ConfigIO.getConfigPath();
             
             assertNotNull(path);
             assertTrue(path.toString().contains("config.txt") || path.toFile().exists());
@@ -55,7 +56,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             Path testFile = createTempConfigFile("token = test");
             setConfigFileProperty(testFile);
             
-            Path path = ConfigFileManager.getConfigPath();
+            Path path = ConfigIO.getConfigPath();
             
             assertEquals(testFile.toAbsolutePath(), path.toAbsolutePath());
         }
@@ -67,7 +68,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             System.clearProperty("config.file");
             System.setProperty("config", testFile.toString());
             
-            Path path = ConfigFileManager.getConfigPath();
+            Path path = ConfigIO.getConfigPath();
             
             assertEquals(testFile.toAbsolutePath(), path.toAbsolutePath());
         }
@@ -86,38 +87,10 @@ class ConfigFileManagerTest extends BaseConfigTest {
             // Set working directory to temp dir
             System.setProperty("user.dir", tempDir.toString());
             
-            Path path = ConfigFileManager.getConfigPath();
+            Path path = ConfigIO.getConfigPath();
             
             // The property should be set if file exists
             assertNotNull(path);
-        }
-    }
-    
-    @Nested
-    @DisplayName("loadDefaultConfig() Tests")
-    class LoadDefaultConfigTests {
-        
-        @Test
-        @DisplayName("loadDefaultConfig() loads from reference.conf")
-        void loadDefaultConfigLoadsFromReference() {
-            String config = ConfigFileManager.loadDefaultConfig();
-            
-            assertNotNull(config);
-            assertFalse(config.isEmpty());
-            // Should contain token and owner fields
-            assertTrue(config.contains("token") || config.contains("BOT_TOKEN_HERE"));
-        }
-        
-        @Test
-        @DisplayName("loadDefaultConfig() returns fallback when resource missing")
-        void loadDefaultConfigReturnsFallbackWhenResourceMissing() {
-            // This test verifies the fallback behavior exists
-            // The actual fallback would only trigger if resource is truly missing
-            String config = ConfigFileManager.loadDefaultConfig();
-            
-            assertNotNull(config);
-            // Should either be from resource or fallback
-            assertTrue(config.contains("token") || config.contains("BOT_TOKEN_HERE"));
         }
     }
     
@@ -131,7 +104,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             Path testFile = tempDir.resolve("test-config.conf");
             String content = "token = test_token\nowner = 123456789";
             
-            ConfigFileManager.writeConfigFile(testFile, content);
+            ConfigIO.writeConfigFile(testFile, content);
             
             assertFileExists(testFile);
             String writtenContent = readFileContent(testFile);
@@ -144,7 +117,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             Path testFile = createTempConfigFile("old content");
             String newContent = "token = new_token\nowner = 987654321";
             
-            ConfigFileManager.writeConfigFile(testFile, newContent);
+            ConfigIO.writeConfigFile(testFile, newContent);
             
             String writtenContent = readFileContent(testFile);
             assertEquals(newContent, writtenContent);
@@ -158,7 +131,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             Path invalidPath = tempDir;
             
             assertThrows(IOException.class, () -> {
-                ConfigFileManager.writeConfigFile(invalidPath, "content");
+                ConfigIO.writeConfigFile(invalidPath, "content");
             });
         }
     }
@@ -173,7 +146,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             Path testFile = createTempConfigFile("original content\n");
             String appendContent = "new content\n";
             
-            ConfigFileManager.appendToConfigFile(testFile, appendContent);
+            ConfigIO.appendToConfigFile(testFile, appendContent);
             
             String fileContent = readFileContent(testFile);
             assertTrue(fileContent.contains("original content"));
@@ -188,7 +161,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
             
             // appendToConfigFile uses APPEND option which requires file to exist
             assertThrows(java.io.IOException.class, () -> {
-                ConfigFileManager.appendToConfigFile(testFile, content);
+                ConfigIO.appendToConfigFile(testFile, content);
             });
         }
         
@@ -197,8 +170,8 @@ class ConfigFileManagerTest extends BaseConfigTest {
         void appendToConfigFileCanAppendMultipleTimes() throws IOException {
             Path testFile = createTempConfigFile("line1\n");
             
-            ConfigFileManager.appendToConfigFile(testFile, "line2\n");
-            ConfigFileManager.appendToConfigFile(testFile, "line3\n");
+            ConfigIO.appendToConfigFile(testFile, "line2\n");
+            ConfigIO.appendToConfigFile(testFile, "line3\n");
             
             String fileContent = readFileContent(testFile);
             assertTrue(fileContent.contains("line1"));
@@ -216,7 +189,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
         void configFileExistsReturnsTrueForExistingFile() throws IOException {
             Path testFile = createTempConfigFile("content");
             
-            assertTrue(ConfigFileManager.configFileExists(testFile));
+            assertTrue(ConfigIO.configFileExists(testFile));
         }
         
         @Test
@@ -224,7 +197,7 @@ class ConfigFileManagerTest extends BaseConfigTest {
         void configFileExistsReturnsFalseForNonExistingFile() {
             Path testFile = tempDir.resolve("nonexistent.conf");
             
-            assertFalse(ConfigFileManager.configFileExists(testFile));
+            assertFalse(ConfigIO.configFileExists(testFile));
         }
         
         @Test
@@ -232,7 +205,117 @@ class ConfigFileManagerTest extends BaseConfigTest {
         void configFileExistsReturnsTrueForDirectory() {
             // configFileExists() checks if path exists, not if it's a file
             // So it returns true for directories too
-            assertTrue(ConfigFileManager.configFileExists(tempDir));
+            assertTrue(ConfigIO.configFileExists(tempDir));
+        }
+    }
+    
+    // ==================== Resource Loading Tests ====================
+    
+    @Nested
+    @DisplayName("loadDefaults() Tests")
+    class LoadDefaultsTests {
+        
+        @Test
+        @DisplayName("loadDefaults loads reference.conf from classpath")
+        void loadDefaultsLoadsReferenceConf() {
+            Config defaults = ConfigIO.loadDefaults();
+            
+            assertNotNull(defaults);
+            // Should have meta.configVersion
+            assertTrue(defaults.hasPath("meta.configVersion"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("loadDefaultConfig() Tests")
+    class LoadDefaultConfigTests {
+        
+        @Test
+        @DisplayName("loadDefaultConfig() loads from reference.conf")
+        void loadDefaultConfigLoadsFromReference() {
+            String config = ConfigIO.loadDefaultConfig();
+            
+            assertNotNull(config);
+            assertFalse(config.isEmpty());
+            // Should contain token and owner fields
+            assertTrue(config.contains("token") || config.contains("BOT_TOKEN_HERE"));
+        }
+        
+        @Test
+        @DisplayName("loadDefaultConfig() returns fallback when resource missing")
+        void loadDefaultConfigReturnsFallbackWhenResourceMissing() {
+            // This test verifies the fallback behavior exists
+            // The actual fallback would only trigger if resource is truly missing
+            String config = ConfigIO.loadDefaultConfig();
+            
+            assertNotNull(config);
+            // Should either be from resource or fallback
+            assertTrue(config.contains("token") || config.contains("BOT_TOKEN_HERE"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("loadReferenceConfigAsDocument() Tests")
+    class LoadReferenceConfigAsDocumentTests {
+        
+        @Test
+        @DisplayName("loadReferenceConfigAsDocument loads reference.conf as ConfigDocument")
+        void loadReferenceConfigAsDocumentLoadsDocument() {
+            ConfigDocument doc = ConfigIO.loadReferenceConfigAsDocument();
+            
+            assertNotNull(doc, "Should load reference.conf as ConfigDocument");
+        }
+        
+        @Test
+        @DisplayName("loadReferenceConfigAsDocument preserves comments")
+        void loadReferenceConfigAsDocumentPreservesComments() {
+            ConfigDocument doc = ConfigIO.loadReferenceConfigAsDocument();
+            
+            assertNotNull(doc);
+            String rendered = doc.render();
+            // reference.conf should have comments
+            assertTrue(rendered.contains("#") || rendered.contains("//"), 
+                "ConfigDocument should preserve comments from reference.conf");
+        }
+        
+        @Test
+        @DisplayName("loadReferenceConfigAsDocument preserves structure")
+        void loadReferenceConfigAsDocumentPreservesStructure() {
+            ConfigDocument doc = ConfigIO.loadReferenceConfigAsDocument();
+            
+            assertNotNull(doc);
+            String rendered = doc.render();
+            // Should have nested structure
+            assertTrue(rendered.contains("meta {") || rendered.contains("meta"));
+            assertTrue(rendered.contains("discord {") || rendered.contains("discord"));
+        }
+        
+        @Test
+        @DisplayName("loadReferenceConfigAsDocument can be parsed back to Config")
+        void loadReferenceConfigAsDocumentCanBeParsedToConfig() {
+            ConfigDocument doc = ConfigIO.loadReferenceConfigAsDocument();
+            
+            assertNotNull(doc);
+            // Should be parseable as Config
+            Config config = com.typesafe.config.ConfigFactory.parseString(doc.render());
+            assertNotNull(config);
+            assertTrue(config.hasPath("meta.configVersion"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("loadReferenceConfigAsString() Tests")
+    class LoadReferenceConfigAsStringTests {
+        
+        @Test
+        @DisplayName("loadReferenceConfigAsString loads reference.conf content")
+        void loadReferenceConfigAsStringLoadsContent() {
+            String content = ConfigIO.loadReferenceConfigAsString();
+            
+            assertNotNull(content);
+            assertFalse(content.isEmpty());
+            // Should contain key config elements
+            assertTrue(content.contains("meta") || content.contains("discord"));
         }
     }
 }

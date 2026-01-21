@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.typesafe.config.Config;
@@ -63,7 +63,7 @@ public class ConfigLoader {
      */
     public static Config loadMigratedUserConfig(Path configPath) {
         Config rawUserConfig = loadRawUserConfig(configPath);
-        Config defaults = ConfigResourceLoader.loadDefaults();
+        Config defaults = ConfigIO.loadDefaults();
         return migrateIfNeeded(rawUserConfig, defaults, false);
     }
     
@@ -88,7 +88,7 @@ public class ConfigLoader {
      */
     public static Config loadMergedConfig(Path configPath) {
         Config rawUserConfig = loadRawUserConfig(configPath);
-        Config defaults = ConfigResourceLoader.loadDefaults();
+        Config defaults = ConfigIO.loadDefaults();
         Config migratedUserConfig = migrateIfNeeded(rawUserConfig, defaults, true);
         
         // Merge with defaults (migrated user config takes precedence)
@@ -134,7 +134,7 @@ public class ConfigLoader {
      * @return the merged config with defaults
      */
     public static Config loadMergedConfig(Config migratedUserConfig) {
-        Config defaults = ConfigResourceLoader.loadDefaults();
+        Config defaults = ConfigIO.loadDefaults();
         return mergeWithDefaults(migratedUserConfig, defaults);
     }
     

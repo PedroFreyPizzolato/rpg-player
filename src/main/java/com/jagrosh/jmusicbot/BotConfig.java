@@ -29,8 +29,7 @@ import net.dv8tion.jda.api.entities.Activity;
 
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
-import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
 import com.jagrosh.jmusicbot.config.update.ConfigUpdater;
 import com.jagrosh.jmusicbot.config.validation.ConfigValidator;
@@ -78,7 +77,7 @@ public class BotConfig {
         valid = false;
 
         try {
-            path = ConfigFileManager.getConfigPath();
+            path = ConfigIO.getConfigPath();
             
             // Load and migrate config
             ConfigLoadResult loadResult = loadAndMigrateConfig();
@@ -112,7 +111,7 @@ public class BotConfig {
     private ConfigLoadResult loadAndMigrateConfig() {
         // Parse each resource exactly once
         Config rawUserConfig = ConfigLoader.loadRawUserConfig(path);
-        Config defaults = ConfigResourceLoader.loadDefaults();
+        Config defaults = ConfigIO.loadDefaults();
         
         // Detect versions for migration check
         int userVersion = ConfigMigration.detectVersion(rawUserConfig);
@@ -330,11 +329,11 @@ public class BotConfig {
 
     private void writeToFile() {
         try {
-            String content = ConfigResourceLoader.loadDefaultConfig()
+            String content = ConfigIO.loadDefaultConfig()
                     .replace("BOT_TOKEN_HERE", token)
                     .replace("0 // OWNER ID", Long.toString(owner))
                     .trim();
-            ConfigFileManager.writeConfigFile(path, content);
+            ConfigIO.writeConfigFile(path, content);
         } catch (Exception ex) {
             userInteraction.alert(Prompt.Level.WARNING, "Config", "Failed to write new config options to config.txt: " + ex
                     + "\nPlease make sure that the files are not on your desktop or some other restricted area.\n\nConfig Location: "
@@ -345,11 +344,11 @@ public class BotConfig {
     public static void writeDefaultConfig() {
         Prompt prompt = new Prompt(null, null, true, true);
         prompt.alert(Prompt.Level.INFO, "JMusicBot Config", "Generating default config file");
-        Path path = ConfigFileManager.getConfigPath();
+        Path path = ConfigIO.getConfigPath();
         try {
             prompt.alert(Prompt.Level.INFO, "JMusicBot Config",
                     "Writing default config file to " + path.toAbsolutePath().toString());
-            ConfigFileManager.writeConfigFile(path, ConfigResourceLoader.loadDefaultConfig());
+            ConfigIO.writeConfigFile(path, ConfigIO.loadDefaultConfig());
         } catch (Exception ex) {
             prompt.alert(Prompt.Level.ERROR, "JMusicBot Config",
                     "An error occurred writing the default config file: " + ex.getMessage());

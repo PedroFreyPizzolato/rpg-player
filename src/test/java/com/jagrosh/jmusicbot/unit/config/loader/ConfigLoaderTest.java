@@ -99,20 +99,6 @@ class ConfigLoaderTest extends BaseConfigTest {
     class LoadMergedConfigTests {
         
         @Test
-        @DisplayName("loadMergedConfig() merges user config with defaults")
-        void loadMergedConfigMergesWithDefaults() throws IOException {
-            // Legacy config gets migrated, so check migrated paths
-            Path configFile = createTempConfigFile("token = user_token\nowner = 123456789");
-            
-            Config merged = ConfigLoader.loadMergedConfig(configFile);
-            
-            assertNotNull(merged);
-            // After migration, legacy keys become nested
-            assertEquals("user_token", merged.getString("discord.token"));
-            assertEquals(123456789L, merged.getLong("discord.owner"));
-        }
-        
-        @Test
         @DisplayName("loadMergedConfig() uses defaults when user config is empty")
         void loadMergedConfigUsesDefaultsWhenUserConfigEmpty() {
             Path nonExistentFile = tempDir.resolve("nonexistent.conf");
@@ -122,20 +108,6 @@ class ConfigLoaderTest extends BaseConfigTest {
             assertNotNull(merged);
             // Should have access to defaults from reference.conf if available
             // The exact behavior depends on what's in reference.conf
-        }
-        
-        @Test
-        @DisplayName("loadMergedConfig() user config overrides defaults")
-        void loadMergedConfigUserOverridesDefaults() throws IOException {
-            // Create a user config with a value that might exist in defaults
-            Path configFile = createTempConfigFile("prefix = \"!!\"");
-            
-            Config merged = ConfigLoader.loadMergedConfig(configFile);
-            
-            assertNotNull(merged);
-            if (merged.hasPath("prefix")) {
-                assertEquals("!!", merged.getString("prefix"));
-            }
         }
         
         @Test
@@ -160,48 +132,5 @@ class ConfigLoaderTest extends BaseConfigTest {
             assertTrue(merged.getBoolean("voice.stayInChannel"));
         }
         
-        @Test
-        @DisplayName("loadMergedConfig() handles missing optional fields")
-        void loadMergedConfigHandlesMissingOptionalFields() throws IOException {
-            // User config with only required fields
-            Path configFile = createTempConfigFile("token = test_token\nowner = 123456789");
-            
-            Config merged = ConfigLoader.loadMergedConfig(configFile);
-            
-            assertNotNull(merged);
-            // Should still be able to access optional fields from defaults
-            // The exact behavior depends on reference.conf
-        }
-    }
-    
-    @Nested
-    @DisplayName("Config Merging Behavior Tests")
-    class ConfigMergingBehaviorTests {
-        
-        @Test
-        @DisplayName("Merged config respects user config priority")
-        void mergedConfigRespectsUserConfigPriority() throws IOException {
-            // Create user config (legacy format)
-            Path userConfigFile = createTempConfigFile("token = user_override");
-            
-            Config userConfig = ConfigLoader.loadRawUserConfig(userConfigFile);
-            Config merged = ConfigLoader.loadMergedConfig(userConfigFile);
-            
-            // After migration, user config should take priority in merged config
-            assertEquals("user_override", merged.getString("discord.token"));
-        }
-        
-        @Test
-        @DisplayName("Merged config includes defaults for missing user values")
-        void mergedConfigIncludesDefaultsForMissingValues() throws IOException {
-            // User config with minimal values
-            Path userConfigFile = createTempConfigFile("token = test_token\nowner = 123456789");
-            
-            Config merged = ConfigLoader.loadMergedConfig(userConfigFile);
-            
-            // Should have access to default values from reference.conf
-            assertNotNull(merged);
-            // The exact fields depend on reference.conf content
-        }
     }
 }

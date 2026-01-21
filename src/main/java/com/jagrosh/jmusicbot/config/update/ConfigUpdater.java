@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.io.ConfigFileManager;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.jagrosh.jmusicbot.config.render.ConfigRenderer;
 import com.typesafe.config.Config;
@@ -66,7 +66,7 @@ public class ConfigUpdater {
             String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics, updateType);
             
             // Write the migrated config to the original location
-            ConfigFileManager.writeConfigFile(normalizedPath, content);
+            ConfigIO.writeConfigFile(normalizedPath, content);
             
             LOGGER.info("Updated config file: {}", normalizedPath);
             return normalizedPath;

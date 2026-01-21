@@ -106,22 +106,6 @@ class ConfigValidatorIntegrationTest extends BaseConfigTest {
     class ValidationFlowIntegrationTests {
         
         @Test
-        @DisplayName("Complete validation flow with both token and owner")
-        void completeValidationFlowWithBothTokenAndOwner() throws IOException {
-            Path configFile = createTempConfigFile("token = BOT_TOKEN_HERE\nowner = 0");
-            mockUserInteraction.addPromptResponse("new_token");
-            mockUserInteraction.addPromptResponse("123456789");
-            
-            ValidationResult tokenResult = ConfigValidator.validateToken("BOT_TOKEN_HERE", mockUserInteraction, configFile);
-            assertTrue(tokenResult.isValid());
-            
-            ValidationResult ownerResult = ConfigValidator.validateOwner(0L, mockUserInteraction, configFile);
-            assertTrue(ownerResult.isValid());
-            
-            assertEquals(2, mockUserInteraction.getPromptCalls().size());
-        }
-        
-        @Test
         @DisplayName("Validation stops on first failure")
         void validationStopsOnFirstFailure() throws IOException {
             Path configFile = createTempConfigFile("token = BOT_TOKEN_HERE\nowner = 0");

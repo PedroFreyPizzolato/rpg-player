@@ -23,11 +23,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jagrosh.jmusicbot.config.diagnostics.ConfigDiagnostics;
-import com.jagrosh.jmusicbot.config.io.ConfigResourceLoader;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.config.model.ConfigOption;
 import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.parser.ConfigDocument;
 
@@ -38,6 +39,13 @@ import com.typesafe.config.parser.ConfigDocument;
  */
 public class ConfigRenderer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigRenderer.class);
+    
+    /** Render options for inline HOCON values (no comments, no formatting). */
+    private static final ConfigRenderOptions INLINE_VALUE_OPTIONS = ConfigRenderOptions.defaults()
+            .setOriginComments(false)
+            .setComments(false)
+            .setFormatted(false)
+            .setJson(false);
     
     /**
      * Generates the HOCON content for the updated config file.
@@ -67,7 +75,7 @@ public class ConfigRenderer {
     public static String generateConfigContent(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
                                                ConfigUpdateType updateType, Clock clock) {
         // Load reference.conf as ConfigDocument (template)
-        ConfigDocument templateDoc = ConfigResourceLoader.loadReferenceConfigAsDocument();
+        ConfigDocument templateDoc = ConfigIO.loadReferenceConfigAsDocument();
         
         if (templateDoc == null) {
             // Fallback to old behavior if template cannot be loaded
@@ -96,7 +104,7 @@ public class ConfigRenderer {
                             String fullPath = key + "." + nestedKey;
                             try {
                                 ConfigValue nestedValue = nestedConfig.getValue(nestedKey);
-                                String renderedValue = HoconRenderUtil.renderValue(nestedValue);
+                                String renderedValue = renderValue(nestedValue);
                                 outputDoc = outputDoc.withValueText(fullPath, renderedValue);
                             } catch (ConfigException e) {
                                 LOGGER.debug("Could not get nested value for key {}: {}", fullPath, e.getMessage());
@@ -105,7 +113,7 @@ public class ConfigRenderer {
                     } else {
                         // For simple values, get the ConfigValue and render it
                         ConfigValue value = migratedUserConfig.getValue(key);
-                        String renderedValue = HoconRenderUtil.renderValue(value);
+                        String renderedValue = renderValue(value);
                         // Update the document with the user's value
                         outputDoc = outputDoc.withValueText(key, renderedValue);
                     }
@@ -154,7 +162,7 @@ public class ConfigRenderer {
     public static String generateConfigContentFallback(Config migratedUserConfig, ConfigDiagnostics.Report diagnostics,
                                                        ConfigUpdateType updateType, Clock clock) {
         // Merge with defaults to match old behavior
-        Config defaults = ConfigResourceLoader.loadDefaults();
+        Config defaults = ConfigIO.loadDefaults();
         Config config = migratedUserConfig.withFallback(defaults).resolve();
         
         // Build the output with header comments
@@ -204,5 +212,19 @@ public class ConfigRenderer {
         }
         
         return sb;
+    }
+    
+    /**
+     * Renders a ConfigValue as a HOCON string suitable for inline use.
+     * This preserves HOCON syntax (not JSON) and is appropriate for setting values in a ConfigDocument.
+     * 
+     * @param value the ConfigValue to render
+     * @return the HOCON string representation
+     */
+    private static String renderValue(ConfigValue value) {
+        if (value == null) {
+            return "null";
+        }
+        return value.render(INLINE_VALUE_OPTIONS);
     }
 }
