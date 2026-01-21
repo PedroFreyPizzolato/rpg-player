@@ -26,7 +26,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -240,7 +242,6 @@ class ConfigRendererTest {
             
             // ConfigDocument should preserve comments from reference.conf template
             // The rendered document should maintain the structure
-            String rendered = doc.render();
             
             // Verify the content is valid and has correct values
             Config parsed = ConfigFactory.parseString(content);
@@ -250,6 +251,143 @@ class ConfigRendererTest {
             // Verify structure is preserved (ConfigDocument maintains nested structure)
             assertTrue(parsed.hasPath("meta.configVersion"));
             assertTrue(parsed.hasPath("discord.token"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("Nested Config Preservation")
+    class NestedConfigPreservationTests {
+        
+        @Test
+        @DisplayName("generateConfigContent preserves template values for missing nested config keys")
+        void generateConfigContentPreservesTemplateValuesForMissingNestedKeys() {
+            // Create a config with only some audioSources keys set (missing local and others)
+            Map<String, Boolean> partialAudioSources = new HashMap<>();
+            partialAudioSources.put("youtube", false);
+            partialAudioSources.put("soundcloud", false);
+            // Intentionally missing: local, bandcamp, vimeo, twitch, etc.
+            
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .withPlaybackAudioSources(partialAudioSources)
+                .build();
+            
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), new HashSet<>()
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            
+            // Parse the generated content
+            Config parsed = ConfigFactory.parseString(content);
+            assertTrue(parsed.hasPath("playback.audioSources"));
+            Config audioSources = parsed.getConfig("playback.audioSources");
+            
+            // Verify user's values are preserved
+            assertFalse(audioSources.getBoolean("youtube"), 
+                "User's youtube=false should be preserved");
+            assertFalse(audioSources.getBoolean("soundcloud"), 
+                "User's soundcloud=false should be preserved");
+            
+            // Verify template defaults are preserved for missing keys
+            assertTrue(audioSources.getBoolean("local"), 
+                "Template's local=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("bandcamp"), 
+                "Template's bandcamp=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("vimeo"), 
+                "Template's vimeo=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("twitch"), 
+                "Template's twitch=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("beam"), 
+                "Template's beam=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("getyarn"), 
+                "Template's getyarn=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("nico"), 
+                "Template's nico=true should be preserved (was missing from user config)");
+            assertTrue(audioSources.getBoolean("http"), 
+                "Template's http=true should be preserved (was missing from user config)");
+        }
+        
+        @Test
+        @DisplayName("generateConfigContent preserves template values when user config has partial nested config")
+        void generateConfigContentPreservesTemplateValuesForPartialNestedConfig() {
+            // Create a config with only one audioSources key set
+            Map<String, Boolean> minimalAudioSources = new HashMap<>();
+            minimalAudioSources.put("youtube", false);
+            // All other keys are missing
+            
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .withPlaybackAudioSources(minimalAudioSources)
+                .build();
+            
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), new HashSet<>()
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            
+            // Parse the generated content
+            Config parsed = ConfigFactory.parseString(content);
+            Config audioSources = parsed.getConfig("playback.audioSources");
+            
+            // Verify user's single value is preserved
+            assertFalse(audioSources.getBoolean("youtube"), 
+                "User's youtube=false should be preserved");
+            
+            // Verify all other template defaults are preserved
+            assertTrue(audioSources.getBoolean("soundcloud"), 
+                "Template's soundcloud=true should be preserved");
+            assertTrue(audioSources.getBoolean("local"), 
+                "Template's local=true should be preserved");
+            assertTrue(audioSources.getBoolean("bandcamp"), 
+                "Template's bandcamp=true should be preserved");
+        }
+        
+        @Test
+        @DisplayName("generateConfigContent updates individual nested keys without replacing entire object")
+        void generateConfigContentUpdatesIndividualNestedKeys() {
+            // Create a config with mixed audioSources values
+            Map<String, Boolean> mixedAudioSources = new HashMap<>();
+            mixedAudioSources.put("youtube", true);
+            mixedAudioSources.put("soundcloud", false);
+            mixedAudioSources.put("local", false);
+            // Missing: bandcamp, vimeo, twitch, etc.
+            
+            Config migratedUserConfig = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .withDiscordToken("test_token")
+                .withDiscordOwner(123456789L)
+                .withPlaybackAudioSources(mixedAudioSources)
+                .build();
+            
+            ConfigDiagnostics.Report diagnostics = new ConfigDiagnostics.Report(
+                new HashSet<>(), new HashSet<>(), new HashSet<>()
+            );
+            
+            String content = ConfigRenderer.generateConfigContent(migratedUserConfig, diagnostics);
+            
+            // Parse the generated content
+            Config parsed = ConfigFactory.parseString(content);
+            Config audioSources = parsed.getConfig("playback.audioSources");
+            
+            // Verify all user values are correctly applied
+            assertTrue(audioSources.getBoolean("youtube"), 
+                "User's youtube=true should be preserved");
+            assertFalse(audioSources.getBoolean("soundcloud"), 
+                "User's soundcloud=false should be preserved");
+            assertFalse(audioSources.getBoolean("local"), 
+                "User's local=false should be preserved");
+            
+            // Verify template defaults are preserved for missing keys
+            assertTrue(audioSources.getBoolean("bandcamp"), 
+                "Template's bandcamp=true should be preserved");
+            assertTrue(audioSources.getBoolean("vimeo"), 
+                "Template's vimeo=true should be preserved");
         }
     }
     

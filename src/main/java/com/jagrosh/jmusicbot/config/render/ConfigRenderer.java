@@ -62,20 +62,30 @@ public class ConfigRenderer {
             // Check if user config has this key
             if (migratedUserConfig.hasPath(key)) {
                 try {
-                    String renderedValue;
-                    
                     // Handle nested configs (CONFIG type) specially
+                    // For nested configs, we need to update individual keys to preserve
+                    // template keys that aren't in the user config
                     if (option.getType() == ConfigOption.ConfigType.CONFIG) {
                         Config nestedConfig = option.getConfig(migratedUserConfig);
-                        renderedValue = HoconRenderUtil.renderConfigObject(nestedConfig);
+                        // Update each key within the nested config individually
+                        // This preserves keys from the template that aren't in the user config
+                        for (String nestedKey : nestedConfig.root().keySet()) {
+                            String fullPath = key + "." + nestedKey;
+                            try {
+                                ConfigValue nestedValue = nestedConfig.getValue(nestedKey);
+                                String renderedValue = HoconRenderUtil.renderValue(nestedValue);
+                                outputDoc = outputDoc.withValueText(fullPath, renderedValue);
+                            } catch (ConfigException e) {
+                                LOGGER.debug("Could not get nested value for key {}: {}", fullPath, e.getMessage());
+                            }
+                        }
                     } else {
                         // For simple values, get the ConfigValue and render it
                         ConfigValue value = migratedUserConfig.getValue(key);
-                        renderedValue = HoconRenderUtil.renderValue(value);
+                        String renderedValue = HoconRenderUtil.renderValue(value);
+                        // Update the document with the user's value
+                        outputDoc = outputDoc.withValueText(key, renderedValue);
                     }
-                    
-                    // Update the document with the user's value
-                    outputDoc = outputDoc.withValueText(key, renderedValue);
                 } catch (ConfigException e) {
                     // If we can't get the value, skip it (will use template default)
                     LOGGER.debug("Could not get value for key {}: {}", key, e.getMessage());

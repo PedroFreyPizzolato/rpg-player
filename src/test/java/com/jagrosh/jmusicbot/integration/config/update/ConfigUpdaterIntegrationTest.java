@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -122,9 +121,6 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             
             ConfigDiagnostics.Report diagnostics = 
                 ConfigDiagnostics.analyze(migratedUser, merged, defaults);
-            
-            // Read original content before update
-            String originalContent = readFileContent(configFile);
             
             Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
             
@@ -226,6 +222,132 @@ class ConfigUpdaterIntegrationTest extends BaseConfigTest {
             assertTrue(parsed.hasPath("discord.token"));
             assertTrue(parsed.hasPath("commands.prefix"));
             assertTrue(parsed.hasPath("presence.game"));
+        }
+    }
+    
+    @Nested
+    @DisplayName("Nested Config Preservation")
+    class NestedConfigPreservationTests {
+        
+        @Test
+        @DisplayName("generateUpdatedConfig preserves existing nested config values when adding missing keys")
+        void generateUpdatedConfigPreservesExistingNestedConfigValues() throws IOException {
+            // Create a v1 config with partial audioSources (missing local key)
+            // This simulates the user's scenario where they had some keys set to false
+            // but deleted the local key
+            String v1Config = """
+                meta {
+                  configVersion = 1
+                }
+                discord {
+                  token = test_token
+                  owner = 123456789
+                }
+                playback {
+                  audioSources {
+                    youtube = false
+                    soundcloud = false
+                    bandcamp = false
+                    vimeo = false
+                    twitch = false
+                    beam = false
+                    getyarn = false
+                    nico = false
+                    http = false
+                    # local key is intentionally missing
+                  }
+                }
+                """;
+            
+            Path configFile = createTempConfigFile(v1Config);
+            
+            Config merged = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            
+            ConfigDiagnostics.Report diagnostics = 
+                ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            
+            // Verify that local is detected as missing
+            assertTrue(diagnostics.getMissingOptional().contains("playback.audioSources.local"),
+                "local key should be detected as missing");
+            
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            
+            assertNotNull(updatedPath);
+            String content = readFileContent(updatedPath);
+            
+            // Parse the updated config
+            Config updated = ConfigFactory.parseString(content);
+            assertTrue(updated.hasPath("playback.audioSources"));
+            Config audioSources = updated.getConfig("playback.audioSources");
+            
+            // Verify that existing values are preserved (should still be false)
+            assertFalse(audioSources.getBoolean("youtube"), 
+                "Existing youtube=false should be preserved");
+            assertFalse(audioSources.getBoolean("soundcloud"), 
+                "Existing soundcloud=false should be preserved");
+            assertFalse(audioSources.getBoolean("bandcamp"), 
+                "Existing bandcamp=false should be preserved");
+            assertFalse(audioSources.getBoolean("vimeo"), 
+                "Existing vimeo=false should be preserved");
+            
+            // Verify that missing key is added with template default (true)
+            assertTrue(audioSources.getBoolean("local"), 
+                "Missing local key should be added with template default (true)");
+        }
+        
+        @Test
+        @DisplayName("generateUpdatedConfig preserves template defaults for missing nested keys")
+        void generateUpdatedConfigPreservesTemplateDefaultsForMissingNestedKeys() throws IOException {
+            // Create a v1 config with only one audioSources key set
+            String v1Config = """
+                meta {
+                  configVersion = 1
+                }
+                discord {
+                  token = test_token
+                  owner = 123456789
+                }
+                playback {
+                  audioSources {
+                    youtube = false
+                    # All other keys are missing
+                  }
+                }
+                """;
+            
+            Path configFile = createTempConfigFile(v1Config);
+            
+            Config merged = ConfigLoader.loadMergedConfig(configFile);
+            Config migratedUser = ConfigLoader.loadMigratedUserConfig(configFile);
+            Config defaults = ConfigFactory.load();
+            
+            ConfigDiagnostics.Report diagnostics = 
+                ConfigDiagnostics.analyze(migratedUser, merged, defaults);
+            
+            Path updatedPath = ConfigUpdater.generateUpdatedConfig(configFile, migratedUser, diagnostics);
+            
+            assertNotNull(updatedPath);
+            String content = readFileContent(updatedPath);
+            
+            // Parse the updated config
+            Config updated = ConfigFactory.parseString(content);
+            Config audioSources = updated.getConfig("playback.audioSources");
+            
+            // Verify user's value is preserved
+            assertFalse(audioSources.getBoolean("youtube"), 
+                "User's youtube=false should be preserved");
+            
+            // Verify all missing keys get template defaults (true)
+            assertTrue(audioSources.getBoolean("soundcloud"), 
+                "Missing soundcloud should get template default (true)");
+            assertTrue(audioSources.getBoolean("local"), 
+                "Missing local should get template default (true)");
+            assertTrue(audioSources.getBoolean("bandcamp"), 
+                "Missing bandcamp should get template default (true)");
+            assertTrue(audioSources.getBoolean("vimeo"), 
+                "Missing vimeo should get template default (true)");
         }
     }
 }
