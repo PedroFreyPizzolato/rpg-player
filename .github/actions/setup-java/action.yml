@@ -1,5 +1,5 @@
 name: 'Setup Java Environment'
-description: 'Sets up JDK 17 with Temurin distribution and Maven caching'
+description: 'Sets up JDK 25 with Temurin distribution and Maven caching'
 
 runs:
   using: composite
