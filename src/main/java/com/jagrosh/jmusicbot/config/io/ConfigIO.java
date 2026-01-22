@@ -17,6 +17,7 @@ package com.jagrosh.jmusicbot.config.io;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -55,14 +56,14 @@ public class ConfigIO {
      * Writes content to the config file.
      */
     public static void writeConfigFile(Path path, String content) throws IOException {
-        Files.write(path, content.getBytes());
+        Files.write(path, content.getBytes(StandardCharsets.UTF_8));
     }
     
     /**
      * Appends content to the config file.
      */
     public static void appendToConfigFile(Path path, String content) throws IOException {
-        Files.write(path, content.getBytes(), StandardOpenOption.APPEND);
+        Files.write(path, content.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
     }
     
     /**

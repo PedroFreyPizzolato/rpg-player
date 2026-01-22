@@ -34,6 +34,7 @@ import java.io.*;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -81,7 +82,7 @@ public class OtherUtil
      */
     public static String loadResource(Class<?> clazz, String name)
     {
-        try(BufferedReader reader = new BufferedReader(new InputStreamReader(clazz.getResourceAsStream(name))))
+        try(BufferedReader reader = new BufferedReader(new InputStreamReader(clazz.getResourceAsStream(name), StandardCharsets.UTF_8)))
         {
             StringBuilder sb = new StringBuilder();
             reader.lines().forEach(line -> sb.append("\r\n").append(line));
