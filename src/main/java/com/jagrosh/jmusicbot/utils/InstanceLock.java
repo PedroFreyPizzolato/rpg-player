@@ -54,4 +54,27 @@ public class InstanceLock {
             return false;
         }
     }
+    
+    /**
+     * Releases the instance lock and closes the file channel.
+     * Safe to call even if lock was never acquired or already released.
+     */
+    public static void release() {
+        try {
+            if (lock != null && lock.isValid()) {
+                lock.release();
+            }
+        } catch (IOException ignored) {
+        } finally {
+            lock = null;
+        }
+        try {
+            if (channel != null && channel.isOpen()) {
+                channel.close();
+            }
+        } catch (IOException ignored) {
+        } finally {
+            channel = null;
+        }
+    }
 }

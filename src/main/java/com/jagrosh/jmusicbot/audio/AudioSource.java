@@ -277,18 +277,21 @@ public enum AudioSource
     
     /**
      * Reads OAuth token and applies it to the YouTube source manager.
+     * If no token exists, triggers the OAuth device flow to obtain one.
      */
     private static void applyOAuth(YoutubeAudioSourceManager yt, Logger logger)
     {
         String token = readOAuthToken(logger);
-        if (token == null)
+        if (token != null)
         {
-            return;
+            logger.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
         }
         
-        logger.debug("Read YouTube OAuth2 refresh token from youtubetoken.txt");
         try
         {
+            // Call useOauth2 with null token to trigger the device flow.
+            // When token is null, this initiates the OAuth device code flow which
+            // logs the authorization URL and code that YoutubeOauth2TokenHandler captures.
             yt.useOauth2(token, false);
         }
         catch (Exception e)

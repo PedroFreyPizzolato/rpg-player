@@ -23,6 +23,7 @@ import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
+import com.jagrosh.jmusicbot.utils.InstanceLock;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Activity;
@@ -132,28 +133,38 @@ public class Bot
             jda.getPresence().setActivity(game);
     }
 
+    /**
+     * Performs a full graceful shutdown with complete cleanup.
+     * Use this for normal shutdowns (GUI close, /shutdown command).
+     */
     public void shutdown()
     {
         if(shuttingDown)
             return;
         shuttingDown = true;
-        threadpool.shutdownNow();
-        if(jda.getStatus()!=JDA.Status.SHUTTING_DOWN)
+        
+        // Clean up audio connections first (before shutting down thread pool, as these may trigger events that use it)
+        if(jda != null && jda.getStatus() != JDA.Status.SHUTTING_DOWN)
         {
             jda.getGuilds().stream().forEach(g -> 
             {
-                g.getAudioManager().closeAudioConnection();
                 AudioHandler ah = (AudioHandler)g.getAudioManager().getSendingHandler();
                 if(ah!=null)
                 {
                     ah.stopAndClear();
                     ah.getPlayer().destroy();
                 }
+                g.getAudioManager().closeAudioConnection();
             });
             jda.shutdown();
         }
+        
+        // Shut down thread pool after audio cleanup to avoid RejectedExecutionException
+        threadpool.shutdownNow();
+        
         if(gui!=null)
             gui.dispose();
+        InstanceLock.release();
         System.exit(0);
     }
 

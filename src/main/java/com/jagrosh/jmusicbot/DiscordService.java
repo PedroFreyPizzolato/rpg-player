@@ -43,6 +43,7 @@ public class DiscordService {
                                 .withDaveSessionFactory(new JDaveSessionFactory())
                                 .withAudioSendFactory(new NativeAudioSendFactory())
                 )
+                .setEnableShutdownHook(true)
                 .build();
 
         // Perform post-startup validation
