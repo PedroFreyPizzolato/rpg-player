@@ -36,10 +36,8 @@ import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.YoutubeSourceOptions;
 import dev.lavalink.youtube.clients.AndroidVr;
-import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Embedded;
-import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.skeleton.Client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,13 +48,27 @@ import com.jagrosh.jmusicbot.utils.OtherUtil;
 /**
  * Enum representing available audio sources that can be listed in the config file.
  * 
+ * <p><b>Registration Order Matters:</b> Sources are registered with the audio player manager
+ * in order of their {@link #getRegistrationPriority() registrationPriority}. When a URL is
+ * played, sources are checked in registration order until one claims the URL. This means:
+ * <ul>
+ *   <li>Platform-specific sources (YouTube, SoundCloud, etc.) should have LOW priority numbers
+ *       so they are registered FIRST and get first chance to claim their URLs</li>
+ *   <li>Catch-all sources (HTTP, LOCAL) should have HIGH priority numbers so they are
+ *       registered LAST and only claim URLs that no specific source wanted</li>
+ * </ul>
+ * 
+ * <p>If HTTP is registered before SoundCloud, it will claim SoundCloud URLs and fail to play them.
+ * 
  * @author Arif Banai (arif-banai)
  */
 public enum AudioSource
 {
+    // Platform-specific sources (priority 10-90) - registered first to claim their URLs
     YOUTUBE(
         "youtube",
         "YouTube videos and playlists",
+        10,
         (manager, config) -> {
             YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(
                 config.useYouTubeOauth(),
@@ -68,57 +80,71 @@ public enum AudioSource
     SOUNDCLOUD(
         "soundcloud",
         "SoundCloud tracks",
+        20,
         (manager, config) -> manager.registerSourceManager(SoundCloudAudioSourceManager.createDefault())
     ),
     BANDCAMP(
         "bandcamp",
         "Bandcamp albums and tracks",
+        30,
         (manager, config) -> manager.registerSourceManager(new BandcampAudioSourceManager())
     ),
     VIMEO(
         "vimeo",
         "Vimeo videos",
+        40,
         (manager, config) -> manager.registerSourceManager(new VimeoAudioSourceManager())
     ),
     TWITCH(
         "twitch",
         "Twitch streams",
+        50,
         (manager, config) -> manager.registerSourceManager(new TwitchStreamAudioSourceManager())
     ),
     BEAM(
         "beam",
         "Beam.pro streams",
+        60,
         (manager, config) -> manager.registerSourceManager(new BeamAudioSourceManager())
     ),
     GETYARN(
         "getyarn",
         "Getyarn.io clips",
+        70,
         (manager, config) -> manager.registerSourceManager(new GetyarnAudioSourceManager())
     ),
     NICO(
         "nico",
         "NicoNico videos",
+        80,
         (manager, config) -> manager.registerSourceManager(new NicoAudioSourceManager())
     ),
+    
+    // Catch-all sources (priority 100+) - registered last as fallbacks
     HTTP(
         "http",
         "Direct HTTP audio links",
+        100,
         (manager, config) -> manager.registerSourceManager(new HttpAudioSourceManager(MediaContainerRegistry.DEFAULT_REGISTRY))
     ),
     LOCAL(
         "local",
         "Local file playback",
+        110,
         (manager, config) -> AudioSourceManagers.registerLocalSource(manager)
     );
 
     private final String configName;
     private final String description;
+    private final int registrationPriority;
     private final BiConsumer<DefaultAudioPlayerManager, BotConfig> registrationAction;
 
-    AudioSource(String configName, String description, BiConsumer<DefaultAudioPlayerManager, BotConfig> registrationAction)
+    AudioSource(String configName, String description, int registrationPriority, 
+                BiConsumer<DefaultAudioPlayerManager, BotConfig> registrationAction)
     {
         this.configName = configName;
         this.description = description;
+        this.registrationPriority = registrationPriority;
         this.registrationAction = registrationAction;
     }
 
@@ -140,6 +166,32 @@ public enum AudioSource
     public String getDescription()
     {
         return description;
+    }
+    
+    /**
+     * Gets the registration priority for this audio source.
+     * Lower numbers are registered first. Platform-specific sources should have
+     * low priorities (10-90), while catch-all sources like HTTP should have
+     * high priorities (100+).
+     * 
+     * @return the registration priority
+     */
+    public int getRegistrationPriority()
+    {
+        return registrationPriority;
+    }
+    
+    /**
+     * Returns all audio sources sorted by registration priority (lowest first).
+     * This ensures platform-specific sources are registered before catch-all sources.
+     * 
+     * @return list of audio sources in registration order
+     */
+    public static java.util.List<AudioSource> valuesSortedByPriority()
+    {
+        return Arrays.stream(values())
+                .sorted(java.util.Comparator.comparingInt(AudioSource::getRegistrationPriority))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**
@@ -219,7 +271,8 @@ public enum AudioSource
         {
             return new Client[] { new TvHtml5Embedded(), new Tv() };
         }
-        return new Client[] { new AndroidVr(), new Web(), new MWeb() };
+        // Clients are required even without OAuth to properly handle YouTube URLs
+        return new Client[] { new AndroidVr() };
     }
     
     /**

@@ -268,63 +268,47 @@ public class BotConfig {
     
     /**
      * Loads audio sources configuration.
-     * New format uses nested booleans (playback.audioSources.youtube = true).
+     * All sources are enabled by default (from reference.conf).
+     * Users can disable specific sources by setting them to false.
      */
     private void loadAudioSources(Config config, Config migratedUserConfig) {
-        // AUDIO_SOURCES points to playback.audioSources
         if (AUDIO_SOURCES.hasValue(config)) {
             try {
                 Config audioSourcesConfig = AUDIO_SOURCES.getConfig(config);
-                // Check which sources were explicitly set in the user config (without defaults)
-                Config userAudioSourcesConfig = null;
-                if (AUDIO_SOURCES.hasValue(migratedUserConfig)) {
-                    try {
-                        userAudioSourcesConfig = AUDIO_SOURCES.getConfig(migratedUserConfig);
-                    } catch (ConfigException e) {
-                        // If user config doesn't have audioSources, userAudioSourcesConfig remains null
-                    }
-                }
+                Set<AudioSource> enabled = new java.util.LinkedHashSet<>();
                 
-                Set<AudioSource> enabled = new java.util.HashSet<>();
-                
-                // Iterate through all audio sources and check if they're enabled
-                for (AudioSource source : AudioSource.values()) {
+                // Iterate sources in priority order (platform-specific first, catch-alls last)
+                // This ensures the LinkedHashSet maintains the correct registration order
+                for (AudioSource source : AudioSource.valuesSortedByPriority()) {
                     String sourceKey = source.getConfigName();
-                    // Only include sources that were explicitly set in the user config
-                    boolean explicitlySet = userAudioSourcesConfig != null && userAudioSourcesConfig.hasPath(sourceKey);
-                    
-                    if (explicitlySet) {
-                        // Get the value from the merged config (which has the actual boolean value)
-                        boolean enabledValue = audioSourcesConfig.getBoolean(sourceKey);
-                        if (enabledValue) {
-                            enabled.add(source);
-                        }
+                    if (audioSourcesConfig.hasPath(sourceKey) && audioSourcesConfig.getBoolean(sourceKey)) {
+                        enabled.add(source);
                     }
-                    // If key is missing from user config, don't add it (only explicitly enabled sources are included)
                 }
                 
-                // If no sources were explicitly enabled, default to all enabled (backward compatibility)
-                if (enabled.isEmpty()) {
-                    enabledAudioSources = Set.of(AudioSource.values());
-                    LOGGER.info("No audio sources explicitly enabled, defaulting to all sources enabled");
-                } else {
-                    enabledAudioSources = enabled;
-                }
+                // If no sources ended up enabled (all set to false), enable all sources
+                enabledAudioSources = enabled.isEmpty() ? allAudioSourcesInOrder() : enabled;
             } catch (ConfigException e) {
                 LOGGER.warn("Failed to parse audioSources config, defaulting to all enabled: {}", e.getMessage());
-                enabledAudioSources = Set.of(AudioSource.values());
+                enabledAudioSources = allAudioSourcesInOrder();
             }
         } else {
-            // Key not found, use default behavior (all sources enabled)
-            enabledAudioSources = Set.of(AudioSource.values());
-            LOGGER.info("Audio sources config not found, defaulting to all sources enabled");
+            // Key not found, enable all sources
+            enabledAudioSources = allAudioSourcesInOrder();
         }
         
-        LOGGER.info("Setup {} valid audio sources: {}", 
-                    enabledAudioSources.size(), 
+        LOGGER.info("Enabled audio sources: {}", 
                     enabledAudioSources.stream()
                             .map(AudioSource::getConfigName)
                             .collect(Collectors.toList()));
+    }
+    
+    /**
+     * Returns all audio sources sorted by registration priority.
+     * Platform-specific sources come first, catch-all sources (HTTP, LOCAL) come last.
+     */
+    private static Set<AudioSource> allAudioSourcesInOrder() {
+        return new java.util.LinkedHashSet<>(AudioSource.valuesSortedByPriority());
     }
 
     private void writeToFile() {

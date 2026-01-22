@@ -15,8 +15,6 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
-import java.util.Set;
-
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import net.dv8tion.jda.api.entities.Guild;
@@ -24,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.BotConfig;
 
 /**
  *
@@ -41,15 +40,25 @@ public class PlayerManager extends DefaultAudioPlayerManager
     
     public void init()
     {
+        BotConfig config = bot.getConfig();
+        
         // Register transformative audio sources
-        TransformativeAudioSourceManager.createTransforms(bot.getConfig().getTransforms())
+        TransformativeAudioSourceManager.createTransforms(config.getTransforms())
                 .forEach(this::registerSourceManager);
 
-        // Register enabled audio sources
-        Set<AudioSource> enabledSources = bot.getConfig().getEnabledAudioSources();
-        for(AudioSource source : enabledSources)
+        // Register enabled audio sources with error handling
+        for (AudioSource source : config.getEnabledAudioSources())
         {
-            source.register(this, bot.getConfig());
+            try
+            {
+                source.register(this, config);
+                LOGGER.debug("Successfully registered audio source: {}", source.getConfigName());
+            }
+            catch (Exception e)
+            {
+                LOGGER.error("Failed to register audio source '{}': {}", 
+                    source.getConfigName(), e.getMessage(), e);
+            }
         }
     }
     

@@ -344,8 +344,8 @@ class BotConfigUnitTest extends BaseConfigTest {
     class AudioSourcesTests {
         
         @Test
-        @DisplayName("getEnabledAudioSources() returns all sources when not specified")
-        void getEnabledAudioSourcesReturnsAllWhenNotSpecified() throws IOException {
+        @DisplayName("All sources enabled when audioSources key is missing")
+        void allSourcesEnabledWhenAudioSourcesKeyMissing() throws IOException {
             String configContent = """
                 meta {
                   configVersion = 1
@@ -361,14 +361,54 @@ class BotConfigUnitTest extends BaseConfigTest {
             
             Set<AudioSource> sources = config.getEnabledAudioSources();
             assertNotNull(sources);
-            assertFalse(sources.isEmpty());
-            // Should contain all AudioSource values
-            assertEquals(AudioSource.values().length, sources.size());
+            assertEquals(AudioSource.values().length, sources.size(),
+                "All sources should be enabled when audioSources key is missing");
+            for (AudioSource source : AudioSource.values()) {
+                assertTrue(config.isAudioSourceEnabled(source),
+                    source.getConfigName() + " should be enabled");
+            }
         }
         
         @Test
-        @DisplayName("getEnabledAudioSources() returns specified sources")
-        void getEnabledAudioSourcesReturnsSpecifiedSources() throws IOException {
+        @DisplayName("All sources enabled when all set to true")
+        void allSourcesEnabledWhenAllSetToTrue() throws IOException {
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = true
+                  bandcamp = true
+                  vimeo = true
+                  twitch = true
+                  beam = true
+                  getyarn = true
+                  nico = true
+                  http = true
+                  local = true
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            Set<AudioSource> sources = config.getEnabledAudioSources();
+            assertEquals(AudioSource.values().length, sources.size(),
+                "All sources should be enabled when all set to true");
+            for (AudioSource source : AudioSource.values()) {
+                assertTrue(config.isAudioSourceEnabled(source),
+                    source.getConfigName() + " should be enabled");
+            }
+        }
+        
+        @Test
+        @DisplayName("Some sources disabled when set to false")
+        void someSourcesDisabledWhenSetToFalse() throws IOException {
             String configContent = """
                 meta {
                   configVersion = 1
@@ -379,6 +419,13 @@ class BotConfigUnitTest extends BaseConfigTest {
                   youtube = true
                   soundcloud = true
                   bandcamp = false
+                  vimeo = true
+                  twitch = true
+                  beam = false
+                  getyarn = true
+                  nico = true
+                  http = true
+                  local = true
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
@@ -388,14 +435,67 @@ class BotConfigUnitTest extends BaseConfigTest {
             config.load();
             
             Set<AudioSource> sources = config.getEnabledAudioSources();
-            assertTrue(sources.contains(AudioSource.YOUTUBE));
-            assertTrue(sources.contains(AudioSource.SOUNDCLOUD));
-            assertFalse(sources.contains(AudioSource.BANDCAMP));
+            
+            // Should have 8 sources enabled (10 total - 2 disabled)
+            assertEquals(8, sources.size(), "Should have 8 sources enabled");
+            
+            // Enabled sources
+            assertTrue(config.isAudioSourceEnabled(AudioSource.YOUTUBE));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.SOUNDCLOUD));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.VIMEO));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.TWITCH));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.GETYARN));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.NICO));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.HTTP));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.LOCAL));
+            
+            // Disabled sources
+            assertFalse(config.isAudioSourceEnabled(AudioSource.BANDCAMP),
+                "Bandcamp should be disabled when set to false");
+            assertFalse(config.isAudioSourceEnabled(AudioSource.BEAM),
+                "Beam should be disabled when set to false");
         }
         
         @Test
-        @DisplayName("isAudioSourceEnabled() returns true for enabled source")
-        void isAudioSourceEnabledReturnsTrueForEnabledSource() throws IOException {
+        @DisplayName("All sources enabled when all set to false (fallback behavior)")
+        void allSourcesEnabledWhenAllSetToFalse() throws IOException {
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = false
+                  soundcloud = false
+                  bandcamp = false
+                  vimeo = false
+                  twitch = false
+                  beam = false
+                  getyarn = false
+                  nico = false
+                  http = false
+                  local = false
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            Set<AudioSource> sources = config.getEnabledAudioSources();
+            assertEquals(AudioSource.values().length, sources.size(),
+                "All sources should be enabled when all are set to false (fallback behavior)");
+            for (AudioSource source : AudioSource.values()) {
+                assertTrue(config.isAudioSourceEnabled(source),
+                    source.getConfigName() + " should be enabled (fallback)");
+            }
+        }
+        
+        @Test
+        @DisplayName("isAudioSourceEnabled() returns correct values")
+        void isAudioSourceEnabledReturnsCorrectValues() throws IOException {
             String configContent = """
                 meta {
                   configVersion = 1
@@ -405,6 +505,14 @@ class BotConfigUnitTest extends BaseConfigTest {
                 playback.audioSources {
                   youtube = true
                   soundcloud = false
+                  bandcamp = true
+                  vimeo = false
+                  twitch = true
+                  beam = true
+                  getyarn = true
+                  nico = true
+                  http = true
+                  local = true
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
@@ -415,11 +523,13 @@ class BotConfigUnitTest extends BaseConfigTest {
             
             assertTrue(config.isAudioSourceEnabled(AudioSource.YOUTUBE));
             assertFalse(config.isAudioSourceEnabled(AudioSource.SOUNDCLOUD));
+            assertTrue(config.isAudioSourceEnabled(AudioSource.BANDCAMP));
+            assertFalse(config.isAudioSourceEnabled(AudioSource.VIMEO));
         }
         
         @Test
-        @DisplayName("isAudioSourceEnabled() filters invalid source names")
-        void isAudioSourceEnabledFiltersInvalidSourceNames() throws IOException {
+        @DisplayName("Invalid source names in config are ignored")
+        void invalidSourceNamesAreIgnored() throws IOException {
             String configContent = """
                 meta {
                   configVersion = 1
@@ -430,6 +540,15 @@ class BotConfigUnitTest extends BaseConfigTest {
                   youtube = true
                   soundcloud = true
                   invalid_source = true
+                  another_invalid = false
+                  bandcamp = true
+                  vimeo = true
+                  twitch = true
+                  beam = true
+                  getyarn = true
+                  nico = true
+                  http = true
+                  local = true
                 }
                 """;
             Path configFile = createTempConfigFile(configContent);
@@ -438,18 +557,127 @@ class BotConfigUnitTest extends BaseConfigTest {
             BotConfig config = new BotConfig(mockUserInteraction);
             config.load();
             
-            // After config update, missing audio source keys are added with template defaults (true)
-            // So all valid sources that exist in the updated config file are considered "explicitly set"
-            // Invalid source names are ignored (they don't match any AudioSource enum value)
-            // Since only youtube and soundcloud were explicitly set to true in the original config,
-            // and all other sources are added with defaults (true) during config update,
-            // all valid sources end up enabled
+            // Invalid source names should be ignored, all valid sources enabled
             Set<AudioSource> sources = config.getEnabledAudioSources();
+            assertEquals(AudioSource.values().length, sources.size(),
+                "All valid sources should be enabled, invalid names ignored");
             assertTrue(sources.contains(AudioSource.YOUTUBE));
             assertTrue(sources.contains(AudioSource.SOUNDCLOUD));
-            // After config update, all missing keys are added, so all sources are enabled
-            assertEquals(AudioSource.values().length, sources.size(),
-                "After config update, all missing keys are added with defaults, so all sources are enabled");
+        }
+        
+        @Test
+        @DisplayName("getEnabledAudioSources() returns sources in priority order")
+        void getEnabledAudioSourcesReturnsPriorityOrder() throws IOException {
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = true
+                  soundcloud = true
+                  bandcamp = true
+                  vimeo = true
+                  twitch = true
+                  beam = true
+                  getyarn = true
+                  nico = true
+                  http = true
+                  local = true
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            Set<AudioSource> sources = config.getEnabledAudioSources();
+            
+            // Convert to list to check ordering
+            java.util.List<AudioSource> sourceList = new java.util.ArrayList<>(sources);
+            
+            // Verify the list is in priority order
+            for (int i = 0; i < sourceList.size() - 1; i++) {
+                assertTrue(sourceList.get(i).getRegistrationPriority() <= sourceList.get(i + 1).getRegistrationPriority(),
+                    String.format("Source %s (priority %d) should come before %s (priority %d)",
+                        sourceList.get(i).getConfigName(), sourceList.get(i).getRegistrationPriority(),
+                        sourceList.get(i + 1).getConfigName(), sourceList.get(i + 1).getRegistrationPriority()));
+            }
+        }
+        
+        @Test
+        @DisplayName("SoundCloud is registered before HTTP (regression test)")
+        void soundCloudRegisteredBeforeHttp() throws IOException {
+            // This test specifically guards against the regression where HTTP claimed SoundCloud URLs
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  soundcloud = true
+                  http = true
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            Set<AudioSource> sources = config.getEnabledAudioSources();
+            java.util.List<AudioSource> sourceList = new java.util.ArrayList<>(sources);
+            
+            int soundcloudIndex = sourceList.indexOf(AudioSource.SOUNDCLOUD);
+            int httpIndex = sourceList.indexOf(AudioSource.HTTP);
+            
+            assertTrue(soundcloudIndex >= 0, "SoundCloud should be in the enabled sources");
+            assertTrue(httpIndex >= 0, "HTTP should be in the enabled sources");
+            assertTrue(soundcloudIndex < httpIndex,
+                "SoundCloud must be registered before HTTP to avoid HTTP claiming SoundCloud URLs");
+        }
+        
+        @Test
+        @DisplayName("Partial source selection maintains priority order")
+        void partialSourceSelectionMaintainsPriorityOrder() throws IOException {
+            // Enable only a subset of sources, including both platform-specific and catch-all
+            String configContent = """
+                meta {
+                  configVersion = 1
+                }
+                discord.token = test_token
+                discord.owner = 123456789
+                playback.audioSources {
+                  youtube = false
+                  soundcloud = true
+                  bandcamp = false
+                  vimeo = true
+                  twitch = false
+                  beam = false
+                  getyarn = false
+                  nico = false
+                  http = true
+                  local = false
+                }
+                """;
+            Path configFile = createTempConfigFile(configContent);
+            setConfigFileProperty(configFile);
+            
+            BotConfig config = new BotConfig(mockUserInteraction);
+            config.load();
+            
+            Set<AudioSource> sources = config.getEnabledAudioSources();
+            assertEquals(3, sources.size(), "Should have 3 sources enabled");
+            
+            java.util.List<AudioSource> sourceList = new java.util.ArrayList<>(sources);
+            
+            // Verify order: soundcloud, vimeo, http (ascending priority)
+            assertEquals(AudioSource.SOUNDCLOUD, sourceList.get(0), "SoundCloud should be first");
+            assertEquals(AudioSource.VIMEO, sourceList.get(1), "Vimeo should be second");
+            assertEquals(AudioSource.HTTP, sourceList.get(2), "HTTP should be last");
         }
     }
     
