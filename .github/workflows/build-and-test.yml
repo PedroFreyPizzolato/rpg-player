@@ -15,7 +15,9 @@ jobs:
       - name: Set up Java Environment
         uses: ./.github/actions/setup-java
       - name: Build and Test with Coverage
-        run: mvn --batch-mode --update-snapshots verify -Pcoverage
+        run: |
+          COMMIT_TIME=$(git log -1 --format=%cI)
+          mvn --batch-mode --update-snapshots verify -Pcoverage -Dproject.build.outputTimestamp=$COMMIT_TIME
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

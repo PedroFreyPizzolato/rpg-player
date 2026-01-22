@@ -82,6 +82,10 @@ jobs:
           
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
+      - name: Get commit timestamp
+        id: timestamp
+        run: echo "value=$(git log -1 --format=%cI)" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
@@ -92,7 +96,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64  # Multi-platform build
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_TIMESTAMP=${{ steps.timestamp.outputs.value }}
 
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

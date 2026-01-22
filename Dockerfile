@@ -1,13 +1,16 @@
 # Multi-stage build for JMusicBot
 FROM maven:3.9-eclipse-temurin-25 AS builder
 
+ARG BUILD_TIMESTAMP
+ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+
 WORKDIR /build
 
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B -Dproject.build.outputTimestamp=${BUILD_TIMESTAMP}
 
 # Stage 2: Runtime image
 FROM eclipse-temurin:25-jre-jammy
