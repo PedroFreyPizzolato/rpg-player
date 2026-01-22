@@ -69,10 +69,10 @@ public class SettingsManager implements GuildSettingsManager<Settings>
                             o.has("dj_role_id")      ? o.get("dj_role_id").asText()                 : null,
                             o.has("volume")          ? o.get("volume").asInt()                        : 100,
                             o.has("default_playlist")? o.get("default_playlist").asText()           : null,
-                            o.has("repeat_mode")     ? RepeatMode.valueOf(o.get("repeat_mode").asText()) : RepeatMode.OFF,
+                            o.has("repeat_mode")     ? RepeatMode.valueOfOrDefault(o.get("repeat_mode").asText(), RepeatMode.OFF) : RepeatMode.OFF,
                             o.has("prefix")          ? o.get("prefix").asText()                     : null,
                             o.has("skip_ratio")      ? o.get("skip_ratio").asDouble()                 : -1,
-                            o.has("queue_type")      ? QueueType.valueOf(o.get("queue_type").asText())  : QueueType.FAIR));
+                            o.has("queue_type")      ? QueueType.valueOfOrDefault(o.get("queue_type").asText(), QueueType.FAIR)  : QueueType.FAIR));
                 }
             }
         } catch (NoSuchFileException e) {

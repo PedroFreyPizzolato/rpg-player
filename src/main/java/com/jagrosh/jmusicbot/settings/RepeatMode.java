@@ -15,6 +15,8 @@
  */
 package com.jagrosh.jmusicbot.settings;
 
+import com.jagrosh.jmusicbot.utils.EnumUtil;
+
 /**
  *
  * @author Michaili K
@@ -28,10 +30,24 @@ public enum RepeatMode
     private final String emoji;
     private final String userFriendlyName;
 
-    private RepeatMode(String emoji, String userFriendlyName)
+    RepeatMode(String emoji, String userFriendlyName)
     {
         this.emoji = emoji;
         this.userFriendlyName = userFriendlyName;
+    }
+
+    /**
+     * Parses a RepeatMode from a string, returning the default value if parsing fails.
+     * This handles invalid values gracefully (e.g., from manual editing or data corruption)
+     * instead of throwing IllegalArgumentException.
+     *
+     * @param value the string value to parse
+     * @param defaultValue the default value to return if parsing fails
+     * @return the parsed RepeatMode, or defaultValue if parsing fails
+     */
+    public static RepeatMode valueOfOrDefault(String value, RepeatMode defaultValue)
+    {
+        return EnumUtil.valueOfOrDefault(RepeatMode.class, value, defaultValue);
     }
 
     public String getEmoji()
