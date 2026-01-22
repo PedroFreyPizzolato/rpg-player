@@ -28,6 +28,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 
+import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -47,6 +48,7 @@ public class Bot
     private final NowPlayingHandler nowplaying;
     private final AloneInVoiceHandler aloneInVoiceHandler;
     private final YoutubeOauth2TokenHandler youTubeOauth2TokenHandler;
+    private final Instant startTime;
     
     private boolean shuttingDown = false;
     private JDA jda;
@@ -59,6 +61,7 @@ public class Bot
         this.settings = settings;
         this.playlists = new PlaylistLoader(config);
         this.threadpool = Executors.newSingleThreadScheduledExecutor();
+        this.startTime = Instant.now();
         this.youTubeOauth2TokenHandler = new YoutubeOauth2TokenHandler();
         this.youTubeOauth2TokenHandler.init();
         this.players = new PlayerManager(this);
@@ -166,5 +169,9 @@ public class Bot
 
     public YoutubeOauth2TokenHandler getYouTubeOauth2Handler() {
         return youTubeOauth2TokenHandler;
+    }
+    
+    public Instant getStartTime() {
+        return startTime;
     }
 }
