@@ -17,12 +17,17 @@ package com.jagrosh.jmusicbot.integration;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.BotConfig;
+import com.jagrosh.jmusicbot.MockUserInteraction;
 import com.jagrosh.jmusicbot.audio.AudioSource;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.jagrosh.jmusicbot.config.io.ConfigIO;
+import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
+import com.typesafe.config.Config;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -179,6 +184,52 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
             assertTrue(enabled.contains(AudioSource.SOUNDCLOUD));
             assertTrue(enabled.contains(AudioSource.LOCAL));
             assertTrue(enabled.contains(AudioSource.BANDCAMP));
+        }
+    }
+    
+    @Nested
+    @DisplayName("BotConfig Migration Failure Tests")
+    class BotConfigMigrationFailureTests {
+        
+        @Test
+        @DisplayName("BotConfig.load() shows error alert when migration fails")
+        void testBotConfigShowsErrorOnMigrationFailure() throws IOException {
+            // Create a legacy config (version 0)
+            String legacyConfig = """
+                token = test_token
+                owner = 123456789
+                """;
+            
+            Path configFile = createTempConfigFile(legacyConfig);
+            setConfigFileProperty(configFile);
+            
+            // Create a defaults config that claims version 2 (no migration path from 1->2)
+            Config fakeDefaults = V1ConfigBuilder.create()
+                .withMetaVersion(2)
+                .withDiscordToken("BOT_TOKEN_HERE")
+                .withDiscordOwner(0L)
+                .build();
+            
+            // Mock ConfigIO.loadDefaults() to return our fake defaults
+            try (MockedStatic<ConfigIO> mockedConfigIO = Mockito.mockStatic(ConfigIO.class)) {
+                mockedConfigIO.when(ConfigIO::loadDefaults).thenReturn(fakeDefaults);
+                // Let getConfigPath() work normally
+                mockedConfigIO.when(ConfigIO::getConfigPath).thenCallRealMethod();
+                
+                BotConfig config = new BotConfig(mockUserInteraction);
+                config.load();
+                
+                // Config should be invalid due to migration failure
+                assertFalse(config.isValid());
+                
+                // User should have been alerted about the migration failure
+                MockUserInteraction.AlertCall lastAlert = mockUserInteraction.getLastAlert();
+                assertNotNull(lastAlert, "Expected an alert to be shown");
+                assertEquals(Prompt.Level.ERROR, lastAlert.getLevel());
+                assertEquals("Config Migration", lastAlert.getContext());
+                assertTrue(lastAlert.getMessage().contains("migration"),
+                    "Alert message should mention migration: " + lastAlert.getMessage());
+            }
         }
     }
 }

@@ -111,6 +111,12 @@ public class ConfigLoader {
             LOGGER.info("Config version detected: {}, latest version: {}", userVersion, latestVersion);
         }
         
+        if (userVersion > latestVersion) {
+            LOGGER.warn("Config version {} is newer than the latest known version {}. " +
+                "This may indicate a corrupted or manually edited config.", userVersion, latestVersion);
+            return rawUserConfig;
+        }
+        
         if (userVersion < latestVersion) {
             try {
                 Config migrated = ConfigMigration.migrate(rawUserConfig, userVersion, latestVersion);
@@ -120,7 +126,7 @@ public class ConfigLoader {
                 return migrated;
             } catch (ConfigMigrationException e) {
                 LOGGER.error("Config migration failed: {}", e.getMessage());
-                return rawUserConfig;
+                throw e;  // Re-throw to let caller handle
             }
         }
         return rawUserConfig;

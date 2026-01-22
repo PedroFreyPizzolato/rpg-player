@@ -17,6 +17,9 @@ package com.jagrosh.jmusicbot.unit.config.loader;
 
 import com.jagrosh.jmusicbot.BaseConfigTest;
 import com.jagrosh.jmusicbot.config.loader.ConfigLoader;
+import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
+import com.jagrosh.jmusicbot.testutil.config.LegacyConfigBuilder;
+import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
 import com.typesafe.config.Config;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -132,5 +135,76 @@ class ConfigLoaderTest extends BaseConfigTest {
             assertTrue(merged.getBoolean("voice.stayInChannel"));
         }
         
+    }
+    
+    @Nested
+    @DisplayName("Migration Exception Propagation Tests")
+    class MigrationExceptionTests {
+        
+        @Test
+        @DisplayName("loadMigratedUserConfig() propagates ConfigMigrationException when migration path is missing")
+        void loadMigratedUserConfigPropagatesException() {
+            // Create a legacy config (version 0)
+            Config rawUserConfig = LegacyConfigBuilder.create()
+                .withToken("test_token")
+                .build();
+            
+            // Create defaults that claim version 2 (no migration path exists for 1->2)
+            // Migration will succeed for 0->1, then fail for 1->2
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(2)
+                .build();
+            
+            // Should throw ConfigMigrationException, not swallow it
+            assertThrows(ConfigMigrationException.class, () -> {
+                ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
+            });
+        }
+    }
+    
+    @Nested
+    @DisplayName("Version Validation Tests")
+    class VersionValidationTests {
+        
+        @Test
+        @DisplayName("loadMigratedUserConfig() returns raw config when user version is higher than latest")
+        void loadMigratedUserConfigReturnsRawConfigWhenUserVersionHigher() {
+            // Create a config with version higher than latest (user manually set version 2)
+            Config rawUserConfig = V1ConfigBuilder.create()
+                .withDiscordToken("test_token")
+                .withMetaVersion(2)
+                .build();
+            
+            // Defaults have version 1 (the actual latest)
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
+            
+            // Should return raw config without modification (and log a warning)
+            Config result = ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
+            
+            // Config should be returned unchanged
+            assertNotNull(result);
+            assertEquals(2, result.getInt("meta.configVersion"));
+            assertEquals("test_token", result.getString("discord.token"));
+        }
+        
+        @Test
+        @DisplayName("loadMigratedUserConfig() does not throw when user version is higher than latest")
+        void loadMigratedUserConfigDoesNotThrowWhenUserVersionHigher() {
+            Config rawUserConfig = V1ConfigBuilder.create()
+                .withDiscordToken("test_token")
+                .withMetaVersion(99)  // Absurdly high version
+                .build();
+            
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
+            
+            // Should not throw - just warn and return the config
+            assertDoesNotThrow(() -> {
+                ConfigLoader.loadMigratedUserConfig(rawUserConfig, defaults);
+            });
+        }
     }
 }
