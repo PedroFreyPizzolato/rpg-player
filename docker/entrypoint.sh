@@ -16,7 +16,7 @@ if [ ! -f "$JAR" ]; then
 fi
 
 echo "[INFO] ========================================"
-echo "[INFO] JMusicBot Docker Container"
+echo "[INFO] JMusicBot Containerized"
 echo "[INFO] ========================================"
 echo "[INFO] Selected jar: $JAR"
 echo "[INFO] Working directory: $(pwd)"
@@ -28,7 +28,7 @@ fi
 echo "[INFO] ========================================"
 
 # Build argv
-set -- java -Dnogui=true
+set -- java -Dnogui=true --enable-native-access=ALL-UNNAMED
 
 # Append JAVA_OPTS if provided (space-separated)
 if [ -n "${JAVA_OPTS:-}" ]; then
