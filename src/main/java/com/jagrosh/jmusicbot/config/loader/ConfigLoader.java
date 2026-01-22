@@ -104,6 +104,14 @@ public class ConfigLoader {
      * @return the migrated config, or the original if no migration needed or migration failed
      */
     static Config migrateIfNeeded(Config rawUserConfig, Config defaults, boolean logVersionInfo) {
+        // Empty config means no file exists - this is a fresh install, not a v0 legacy config
+        if (rawUserConfig.isEmpty()) {
+            if (logVersionInfo) {
+                LOGGER.info("No config file found, using defaults");
+            }
+            return rawUserConfig; // Skip migration, will use defaults
+        }
+        
         int userVersion = ConfigMigration.detectVersion(rawUserConfig);
         int latestVersion = ConfigMigration.getLatestVersion(defaults);
         

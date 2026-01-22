@@ -129,6 +129,11 @@ public class BotConfig {
      * Returns updated configs if file was modified.
      */
     private ConfigLoadResult runDiagnosticsAndUpdate(ConfigLoadResult loadResult) {
+        // Fresh install - skip diagnostics since user will be prompted for required fields
+        if (loadResult.migratedUserConfig.isEmpty()) {
+            return loadResult;
+        }
+        
         ConfigDiagnostics.Report diagnostics = ConfigDiagnostics.analyze(
                 loadResult.migratedUserConfig, loadResult.mergedConfig, loadResult.defaults);
         

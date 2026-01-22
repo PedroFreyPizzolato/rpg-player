@@ -163,6 +163,61 @@ class ConfigLoaderTest extends BaseConfigTest {
     }
     
     @Nested
+    @DisplayName("Fresh Install (Empty Config) Tests")
+    class FreshInstallTests {
+        
+        @Test
+        @DisplayName("loadMigratedUserConfig() skips migration for empty config (fresh install)")
+        void loadMigratedUserConfigSkipsMigrationForEmptyConfig() {
+            // Empty config simulates no config file exists (fresh install)
+            Config emptyConfig = com.typesafe.config.ConfigFactory.empty();
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
+            
+            // Should return empty config without triggering migration
+            Config result = ConfigLoader.loadMigratedUserConfig(emptyConfig, defaults);
+            
+            assertNotNull(result);
+            assertTrue(result.isEmpty(), "Empty config should remain empty - no migration should occur");
+        }
+        
+        @Test
+        @DisplayName("loadMergedConfig() returns defaults for non-existent file without migration")
+        void loadMergedConfigReturnsDefaultsForNonExistentFile() {
+            Path nonExistentFile = tempDir.resolve("nonexistent.conf");
+            
+            // Should not throw and should return merged config with defaults
+            Config merged = ConfigLoader.loadMergedConfig(nonExistentFile);
+            
+            assertNotNull(merged);
+            // The merged config should have values from defaults (reference.conf)
+            // Verify it has the expected structure from v1 format
+            assertTrue(merged.hasPath("meta.configVersion"));
+            assertEquals(1, merged.getInt("meta.configVersion"));
+        }
+        
+        @Test
+        @DisplayName("Empty config is not treated as version 0 legacy config")
+        void emptyConfigNotTreatedAsLegacy() {
+            // Create an empty config (simulating non-existent file)
+            Config emptyConfig = com.typesafe.config.ConfigFactory.empty();
+            Config defaults = V1ConfigBuilder.create()
+                .withMetaVersion(1)
+                .build();
+            
+            Config result = ConfigLoader.loadMigratedUserConfig(emptyConfig, defaults);
+            
+            // Result should be empty - not contain migrated meta.configVersion
+            // If migration occurred, it would add meta.configVersion = 1
+            assertFalse(result.hasPath("meta.configVersion"), 
+                "Empty config should not have meta.configVersion added by migration");
+            assertTrue(result.isEmpty(), 
+                "Empty config should remain empty after loadMigratedUserConfig");
+        }
+    }
+    
+    @Nested
     @DisplayName("Version Validation Tests")
     class VersionValidationTests {
         
