@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -38,7 +37,7 @@ import java.util.Map;
  */
 public class SettingsManager implements GuildSettingsManager<Settings>
 {
-    private final static Logger LOG = LoggerFactory.getLogger("Settings");
+    private final static Logger LOG = LoggerFactory.getLogger(SettingsManager.class);
     private final static String SETTINGS_FILE = "serversettings.json";
     private final HashMap<Long,Settings> settings;
     private final static ObjectMapper objectMapper = new ObjectMapper();
@@ -52,9 +51,7 @@ public class SettingsManager implements GuildSettingsManager<Settings>
             JsonNode loadedSettings = objectMapper.readTree(jsonContent);
             
             if (loadedSettings != null && loadedSettings.isObject()) {
-                Iterator<Map.Entry<String, JsonNode>> fields = loadedSettings.fields();
-                while (fields.hasNext()) {
-                    Map.Entry<String, JsonNode> entry = fields.next();
+                for (Map.Entry<String, JsonNode> entry : loadedSettings.properties()) {
                     String id = entry.getKey();
                     JsonNode o = entry.getValue();
 
