@@ -10,7 +10,12 @@ COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
 COPY src ./src
-RUN mvn clean package -DskipTests -B -Dproject.build.outputTimestamp=${BUILD_TIMESTAMP}
+RUN if [ -n "$BUILD_TIMESTAMP" ]; then \
+      mvn clean package -DskipTests -B -Dproject.build.outputTimestamp=$BUILD_TIMESTAMP ; \
+    else \
+      mvn clean package -DskipTests -B ; \
+    fi
+
 
 # Stage 2: Runtime image
 FROM eclipse-temurin:25-jre-jammy
