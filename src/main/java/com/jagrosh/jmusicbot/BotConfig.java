@@ -315,7 +315,7 @@ public class BotConfig {
         try {
             String content = ConfigIO.loadDefaultConfig()
                     .replace("BOT_TOKEN_HERE", token)
-                    .replace("0 // OWNER ID", Long.toString(owner))
+                    .replace("0 # OWNER ID", Long.toString(owner))
                     .trim();
             ConfigIO.writeConfigFile(path, content);
         } catch (Exception ex) {
