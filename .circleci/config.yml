@@ -33,10 +33,17 @@ jobs:
             - ~/.m2
 
       # Collect test reports if present (doesn't fail if empty)
+      # Note: failsafe-reports contains failsafe-summary.xml which is not JUnit format,
+      # so we copy only the actual test result files (TEST-*.xml) to a clean directory
+      - run:
+          name: Uploading test results
+          when: always
+          command: |
+            mkdir -p target/test-results/surefire target/test-results/failsafe
+            cp target/surefire-reports/TEST-*.xml target/test-results/surefire/ 2>/dev/null || true
+            cp target/failsafe-reports/TEST-*.xml target/test-results/failsafe/ 2>/dev/null || true
       - store_test_results:
-          path: target/surefire-reports
-      - store_test_results:
-          path: target/failsafe-reports
+          path: target/test-results
 
 workflows:
   build:
