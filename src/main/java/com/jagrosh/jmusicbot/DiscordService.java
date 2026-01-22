@@ -5,9 +5,12 @@ import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
+import com.sedmelluq.discord.lavaplayer.jdaudp.NativeAudioSendFactory;
+import club.minnced.discord.jdave.interop.JDaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
+import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
 import org.slf4j.Logger;
@@ -35,6 +38,11 @@ public class DiscordService {
                         : OnlineStatus.DO_NOT_DISTURB)
                 .addEventListeners(client, waiter, new Listener(bot))
                 .setBulkDeleteSplittingEnabled(true)
+                .setAudioModuleConfig(
+                        new AudioModuleConfig()
+                                .withDaveSessionFactory(new JDaveSessionFactory())
+                                .withAudioSendFactory(new NativeAudioSendFactory())
+                )
                 .build();
 
         // Perform post-startup validation

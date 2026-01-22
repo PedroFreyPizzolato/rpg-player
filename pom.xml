@@ -37,7 +37,7 @@
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>6.2.0</version>
+            <version>6.3.0</version>
         </dependency>
         <dependency>
             <groupId>pw.chew</groupId>
@@ -45,6 +45,87 @@
             <version>2.2.1</version>
             <scope>compile</scope>
             <type>pom</type>
+        </dependency>
+
+        <!-- DAVE Protocol Dependencies -->
+        <!-- https://github.com/MinnDevelopment/jdave -->
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-api</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-linux-x86-64</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-linux-aarch64</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-win-x86-64</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>jdave-native-darwin</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+
+        <!-- Native Audio Send (udpqueue) Dependencies -->
+        <!-- https://github.com/MinnDevelopment/udpqueue.rs -->
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-x86-64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-x86</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-aarch64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-arm</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-musl-x86-64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-linux-musl-aarch64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-win-x86-64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-win-x86</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-win-aarch64</artifactId>
+            <version>0.2.12</version>
+        </dependency>
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-native-darwin</artifactId>
+            <version>0.2.12</version>
         </dependency>
 
         <!-- Music Dependencies -->
@@ -169,7 +250,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
     </properties>
 </project>
