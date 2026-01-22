@@ -9,3 +9,4 @@ nb*.xml
 /.vscode/
 /.cursor/
 dependency-reduced-pom.xml
+*.lock

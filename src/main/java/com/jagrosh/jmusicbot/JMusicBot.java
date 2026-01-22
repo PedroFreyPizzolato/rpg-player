@@ -31,6 +31,7 @@ import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.ConsoleUtil;
+import com.jagrosh.jmusicbot.utils.InstanceLock;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 
 /**
@@ -92,6 +93,15 @@ public class JMusicBot
             {
                 LOG.warn("Could not redirect console streams to GUI. Logs may not appear in GUI console.");
             }
+        }
+        
+        // Check for another running instance
+        if (!InstanceLock.tryAcquire()) {
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot",
+                    "Another instance of JMusicBot is already running.\n" +
+                    "Running multiple instances with the same configuration causes duplicate responses to commands.\n" +
+                    "Please close the other instance first.");
+            System.exit(1);
         }
         
         // startup checks
