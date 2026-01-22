@@ -712,15 +712,15 @@
                                     <goal>integration-test</goal>
                                     <goal>verify</goal>
                                 </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/e2e/**/*Test.java</include>
+                                        <include>**/e2e/**/*Tests.java</include>
+                                        <include>**/e2e/**/*IT.java</include>
+                                    </includes>
+                                </configuration>
                             </execution>
                         </executions>
-                        <configuration>
-                            <includes>
-                                <include>**/e2e/**/*Test.java</include>
-                                <include>**/e2e/**/*Tests.java</include>
-                                <include>**/e2e/**/*IT.java</include>
-                            </includes>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>
