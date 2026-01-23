@@ -15,6 +15,7 @@
  */
 package com.jagrosh.jmusicbot;
 
+import com.jagrosh.jdautilities.command.CommandClient;
 import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.audio.AloneInVoiceHandler;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
@@ -56,6 +57,7 @@ public class Bot
     private boolean shuttingDown = false;
     private JDA jda;
     private GUI gui;
+    private CommandClient commandClient;
     
     public Bot(EventWaiter waiter, BotConfig config, SettingsManager settings)
     {
@@ -184,6 +186,16 @@ public class Bot
     public void setGUI(GUI gui)
     {
         this.gui = gui;
+    }
+
+    public void setCommandClient(CommandClient commandClient)
+    {
+        this.commandClient = commandClient;
+    }
+
+    public CommandClient getCommandClient()
+    {
+        return commandClient;
     }
 
     public YoutubeOauth2TokenHandler getYouTubeOauth2Handler() {

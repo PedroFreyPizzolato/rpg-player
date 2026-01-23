@@ -1,6 +1,5 @@
 package com.jagrosh.jmusicbot.service;
 
-import com.jagrosh.jdautilities.menu.ButtonMenu;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
@@ -15,12 +14,15 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.exceptions.PermissionException;
-import net.dv8tion.jda.api.utils.messages.MessageEditData;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -273,22 +275,37 @@ public class PlayerService
                 output.editMessage(addMsg);
             else
             {
+                String promptMsg = addMsg + "\n" + bot.getConfig().getWarning() + " This track has a playlist of **" + playlist.getTracks().size() + "** tracks attached. Select " + LOAD + " to load playlist.";
+                
+                // Use native JDA buttons instead of deprecated ButtonMenu
+                MessageEditBuilder editBuilder = new MessageEditBuilder()
+                        .setContent(promptMsg)
+                        .setComponents(ActionRow.of(
+                                Button.success("load_playlist", Emoji.fromUnicode(LOAD)).withLabel("Load Playlist"),
+                                Button.danger("cancel_playlist", Emoji.fromUnicode(CANCEL)).withLabel("Cancel")
+                        ));
+                
                 output.editMessage(addMsg, m -> {
-                    new ButtonMenu.Builder()
-                            .setText(addMsg+"\n"+bot.getConfig().getWarning()+" This track has a playlist of **"+playlist.getTracks().size()+"** tracks attached. Select "+LOAD+" to load playlist.")
-                            .setChoices(LOAD, CANCEL)
-                            .setEventWaiter(bot.getWaiter())
-                            .setTimeout(30, TimeUnit.SECONDS)
-                            .setAction(re ->
-                            {
-                                if(re.getName().equals(LOAD))
-                                    m.editMessage(addMsg+"\n"+bot.getConfig().getSuccess()+" Loaded **"+loadPlaylist(playlist, track)+"** additional tracks!").queue();
-                                else
-                                    m.editMessage(addMsg).queue();
-                            }).setFinalAction(msg ->
-                            {
-                                try{ msg.clearReactions().queue(); }catch(PermissionException ignore) {}
-                            }).build().display(m);
+                    m.editMessage(editBuilder.build()).queue(msg -> {
+                        // Wait for button interaction
+                        bot.getWaiter().waitForEvent(ButtonInteractionEvent.class,
+                                event -> event.getMessageId().equals(msg.getId()) &&
+                                        (event.getComponentId().equals("load_playlist") || event.getComponentId().equals("cancel_playlist")) &&
+                                        event.getUser().getIdLong() == member.getIdLong(),
+                                event -> {
+                                    if (event.getComponentId().equals("load_playlist"))
+                                    {
+                                        int loaded = loadPlaylist(playlist, track);
+                                        event.editMessage(addMsg + "\n" + bot.getConfig().getSuccess() + " Loaded **" + loaded + "** additional tracks!").setComponents().queue();
+                                    }
+                                    else
+                                    {
+                                        event.editMessage(addMsg).setComponents().queue();
+                                    }
+                                },
+                                30, TimeUnit.SECONDS,
+                                () -> msg.editMessage(addMsg).setComponents().queue());
+                    });
                 });
             }
         }

@@ -16,13 +16,10 @@
 package com.jagrosh.jmusicbot;
 
 import com.jagrosh.jmusicbot.audio.AudioHandler;
-import com.jagrosh.jmusicbot.audio.QueuedTrack;
-import com.jagrosh.jmusicbot.audio.RequestMetadata;
-import com.jagrosh.jmusicbot.commands.v1.DJCommand;
-import com.jagrosh.jmusicbot.settings.RepeatMode;
+
+import com.jagrosh.jmusicbot.commands.SlashCommandRegistry;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
@@ -66,6 +63,13 @@ public class Listener extends ListenerAdapter
             log.warn("This bot is not on any guilds! Use the following link to add the bot to your guilds!");
             log.warn(event.getJDA().getInviteUrl(JMusicBot.RECOMMENDED_PERMS));
         }
+        
+        // Register slash commands if they have changed
+        if(bot.getCommandClient() != null)
+        {
+            SlashCommandRegistry.registerIfChanged(event.getJDA(), bot.getCommandClient());
+        }
+        
         credit(event.getJDA());
         event.getJDA().getGuilds().forEach((Guild guild) ->
         {

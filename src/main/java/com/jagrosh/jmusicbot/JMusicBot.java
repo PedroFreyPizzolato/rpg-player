@@ -140,6 +140,7 @@ public class JMusicBot
         }
         
         CommandClient client = CommandFactory.createCommandClient(config, settings, bot);
+        bot.setCommandClient(client);
 
         // Now that GUI/Logging is ready, initialize the player manager
         bot.getPlayerManager().init();
