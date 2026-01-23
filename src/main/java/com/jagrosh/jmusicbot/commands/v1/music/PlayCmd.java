@@ -35,16 +35,13 @@ import java.util.function.Consumer;
  */
 public class PlayCmd extends MusicCommand
 {
-    private final static String LOAD = "\uD83D\uDCE5"; // 📥
-    private final static String CANCEL = "\uD83D\uDEAB"; // 🚫
-    
     private final String loadingEmoji;
     private final PlayerService playerService;
     
-    public PlayCmd(Bot bot, PlayerService playerService)
+    public PlayCmd(Bot bot)
     {
         super(bot);
-        this.playerService = playerService;
+        this.playerService = bot.getPlayerService();
         this.loadingEmoji = bot.getConfig().getLoading();
         this.name = "play";
         this.arguments = "<title|URL|subcommand>";

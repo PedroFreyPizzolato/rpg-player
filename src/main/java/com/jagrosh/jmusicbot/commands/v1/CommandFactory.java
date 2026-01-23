@@ -43,7 +43,7 @@ public class CommandFactory {
                     // Lyrics functionality removed - JLyrics dependency removed
                     // new LyricsCmd(bot),
                     new NowPlayingCmd(bot),
-                    new PlayCmd(bot, playerService),
+                    new PlayCmd(bot),
                     new PlaylistsCmd(bot),
                     new QueueCmd(bot),
                     new RemoveCmd(bot),
@@ -79,7 +79,7 @@ public class CommandFactory {
                     new SetstatusCmd(bot),
                     new ShutdownCmd(bot)
             ).addSlashCommands(
-                    new PlaySlashCmd(bot, playerService),
+                    new PlaySlashCmd(bot),
                     new NowPlayingSlashCmd(bot)
             ).setManualUpsert(true);
 

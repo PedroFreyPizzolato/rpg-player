@@ -18,11 +18,9 @@ package com.jagrosh.jmusicbot.commands.v1;
 import com.jagrosh.jdautilities.command.Command;
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.commands.MusicCommandValidator;
 import com.jagrosh.jmusicbot.settings.Settings;
-import net.dv8tion.jda.api.entities.GuildVoiceState;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.exceptions.PermissionException;
 
@@ -47,56 +45,62 @@ public abstract class MusicCommand extends Command
     protected void execute(CommandEvent event)
     {
         Settings settings = event.getClient().getSettingsFor(event.getGuild());
-        TextChannel tchannel = settings.getTextChannel(event.getGuild());
-        if(tchannel!=null && !event.getChannel().equals(tchannel))
-        {
-            try
-            {
-                event.getMessage().delete().queue();
-            } catch(PermissionException ignore){}
-            event.replyInDm(event.getClient().getError()+" You can only use that command in "+tchannel.getAsMention()+"!");
-            return;
-        }
-        bot.getPlayerManager().setUpHandler(event.getGuild()); // no point constantly checking for this later
-        if(bePlaying && !((AudioHandler)event.getGuild().getAudioManager().getSendingHandler()).isMusicPlaying(event.getJDA()))
-        {
-            event.reply(event.getClient().getError()+" There must be music playing to use that!");
-            return;
-        }
-        if(beListening)
-        {
-            AudioChannel current = event.getGuild().getSelfMember().getVoiceState().getChannel();
-            if(current==null)
-                current = settings.getVoiceChannel(event.getGuild());
-            GuildVoiceState userState = event.getMember().getVoiceState();
-            if(userState.getChannel() == null || userState.isDeafened() || (current!=null && !userState.getChannel().equals(current)))
-            {
-                event.replyError("You must be listening in "+(current==null ? "a voice channel" : current.getAsMention())+" to use that!");
-                return;
-            }
+        String errorEmoji = event.getClient().getError();
 
-            VoiceChannel afkChannel = userState.getGuild().getAfkChannel();
-            if(afkChannel != null && afkChannel.equals(userState.getChannel()))
-            {
-                event.replyError("You cannot use that command in an AFK channel!");
-                return;
-            }
-
-            if(event.getGuild().getSelfMember().getVoiceState().getChannel() == null)
-            {
-                try
+        boolean valid = MusicCommandValidator.validate(
+                event.getGuild(),
+                event.getMember(),
+                event.getTextChannel(),
+                settings,
+                bot,
+                event.getJDA(),
+                bePlaying,
+                beListening,
+                new MusicCommandValidator.ErrorHandler()
                 {
-                    event.getGuild().getAudioManager().openAudioConnection(userState.getChannel());
-                }
-                catch(PermissionException ex)
-                {
-                    event.reply(event.getClient().getError()+" I am unable to connect to "+userState.getChannel().getAsMention()+"!");
-                    return;
-                }
-            }
-        }
+                    @Override
+                    public void onTextChannelError(TextChannel requiredChannel)
+                    {
+                        // Text commands: delete message and reply in DM
+                        try
+                        {
+                            event.getMessage().delete().queue();
+                        }
+                        catch (PermissionException ignore) {}
+                        event.replyInDm(errorEmoji + " You can only use that command in " + requiredChannel.getAsMention() + "!");
+                    }
 
-        doCommand(event);
+                    @Override
+                    public void onNotPlayingError()
+                    {
+                        event.reply(errorEmoji + " There must be music playing to use that!");
+                    }
+
+                    @Override
+                    public void onNotListeningError(AudioChannel requiredChannel)
+                    {
+                        String channelName = requiredChannel == null ? "a voice channel" : requiredChannel.getAsMention();
+                        event.replyError("You must be listening in " + channelName + " to use that!");
+                    }
+
+                    @Override
+                    public void onAfkChannelError()
+                    {
+                        event.replyError("You cannot use that command in an AFK channel!");
+                    }
+
+                    @Override
+                    public void onVoiceConnectError(AudioChannel channel)
+                    {
+                        event.reply(errorEmoji + " I am unable to connect to " + channel.getAsMention() + "!");
+                    }
+                }
+        );
+
+        if (valid)
+        {
+            doCommand(event);
+        }
     }
     
     public abstract void doCommand(CommandEvent event);
