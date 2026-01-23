@@ -1,7 +1,8 @@
-package com.jagrosh.jmusicbot.utils;
+package com.jagrosh.jmusicbot.unit.utils;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class FormatUtilTest {
 

@@ -1,12 +1,13 @@
-package com.jagrosh.jmusicbot.audio;
+package com.jagrosh.jmusicbot.unit.audio;
 
 import com.jagrosh.jmusicbot.TestBase;
+import com.jagrosh.jmusicbot.audio.AloneInVoiceHandler;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import java.util.Collections;
@@ -22,7 +23,7 @@ public class AloneInVoiceHandlerTest extends TestBase {
 
     private AloneInVoiceHandler aloneInVoiceHandler;
 
-    @Before
+    @BeforeEach
     @Override
     public void setUp() {
         super.setUp();

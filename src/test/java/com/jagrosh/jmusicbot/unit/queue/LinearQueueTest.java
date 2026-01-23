@@ -1,7 +1,9 @@
-package com.jagrosh.jmusicbot.queue;
+package com.jagrosh.jmusicbot.unit.queue;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import com.jagrosh.jmusicbot.queue.LinearQueue;
+import com.jagrosh.jmusicbot.queue.Queueable;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class LinearQueueTest {
 

@@ -1,16 +1,18 @@
-package com.jagrosh.jmusicbot.audio;
+package com.jagrosh.jmusicbot.unit.audio;
 
 import com.jagrosh.jmusicbot.TestBase;
+import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public class AudioHandlerTest extends TestBase {
@@ -22,13 +24,24 @@ public class AudioHandlerTest extends TestBase {
 
     private AudioHandler audioHandler;
 
-    @Before
+    @BeforeEach
     @Override
     public void setUp() {
         super.setUp();
         when(settings.getQueueType()).thenReturn(QueueType.FAIR);
 
-        audioHandler = new AudioHandler(playerManager, guild, audioPlayer);
+        // AudioHandler's constructor is not visible, so use reflection to instantiate it for testing
+        try {
+            var constructor = AudioHandler.class.getDeclaredConstructor(
+                    playerManager.getClass().getInterfaces().length > 0 ? playerManager.getClass().getInterfaces()[0] : playerManager.getClass(),
+                    guild.getClass().getInterfaces().length > 0 ? guild.getClass().getInterfaces()[0] : guild.getClass(),
+                    audioPlayer.getClass().getInterfaces().length > 0 ? audioPlayer.getClass().getInterfaces()[0] : audioPlayer.getClass()
+            );
+            constructor.setAccessible(true);
+            audioHandler = (AudioHandler) constructor.newInstance(playerManager, guild, audioPlayer);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to instantiate AudioHandler via reflection", e);
+        }
     }
 
     @Test

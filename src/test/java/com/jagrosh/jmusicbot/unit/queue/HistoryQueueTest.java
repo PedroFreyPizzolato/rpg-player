@@ -1,7 +1,8 @@
-package com.jagrosh.jmusicbot.queue;
+package com.jagrosh.jmusicbot.unit.queue;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import com.jagrosh.jmusicbot.queue.HistoryQueue;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
 
 public class HistoryQueueTest {
@@ -71,10 +72,10 @@ public class HistoryQueueTest {
         assertEquals("4", queue.get(1));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testSetNegativeMaxSize() {
         HistoryQueue<String> queue = new HistoryQueue<>();
-        queue.setMaxSize(-1);
+        assertThrows(IllegalArgumentException.class, () -> queue.setMaxSize(-1));
     }
 
     @Test

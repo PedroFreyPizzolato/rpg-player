@@ -1,10 +1,10 @@
-package com.jagrosh.jmusicbot.service;
+package com.jagrosh.jmusicbot.unit.service;
 
 import com.jagrosh.jmusicbot.TestBase;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.service.PlayerService;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -15,7 +15,7 @@ public class PlayerServiceTest extends TestBase {
 
     private PlayerService playerService;
 
-    @Before
+    @BeforeEach
     @Override
     public void setUp() {
         super.setUp();
@@ -37,7 +37,7 @@ public class PlayerServiceTest extends TestBase {
 
     @Test
     public void testPlayWithArgsCallsLoadItem() {
-        String args = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        String args = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; // this is the best song ever
         
         playerService.play(guild, member, args, textChannel, output);
 

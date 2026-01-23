@@ -79,6 +79,7 @@ public class OtherUtilTest
     }
 
     @Test
+<<<<<<< HEAD
     @DisplayName("getLatestVersion returns latest non-prerelease version when latest is not a pre-release")
     void testGetLatestVersion_NonPrerelease() throws IOException
     {
@@ -311,5 +312,14 @@ public class OtherUtilTest
         String result = OtherUtil.getLatestVersion(baseUrl);
 
         assertEquals("0.6.2", result);
+    }
+
+    @Test
+    @DisplayName("makeNonEmpty returns the string if not empty, otherwise returns zero-width space")
+    public void testMakeNonEmpty()
+    {
+        assertEquals("test", OtherUtil.makeNonEmpty("test"));
+        assertEquals("\u200B", OtherUtil.makeNonEmpty(null));
+        assertEquals("\u200B", OtherUtil.makeNonEmpty(""));
     }
 }
