@@ -64,7 +64,11 @@ public enum ConfigOption {
     // Complex options - Nested configurations
     ALIASES("commands.aliases", ConfigType.CONFIG, false, "Command aliases configuration"),
     TRANSFORMS("playback.transforms", ConfigType.CONFIG, false, "Audio source transforms configuration"),
-    AUDIO_SOURCES("playback.audioSources", ConfigType.CONFIG, false, "Audio sources configuration (nested booleans)");
+    AUDIO_SOURCES("playback.audioSources", ConfigType.CONFIG, false, "Audio sources configuration (nested booleans)"),
+    
+    // Metrics/Telemetry options
+    METRICS_ENABLED("metrics.enabled", ConfigType.BOOLEAN, false, "Whether anonymous telemetry collection is enabled"),
+    METRICS_MANIFEST_URL("metrics.manifestUrl", ConfigType.STRING, false, "URL to the telemetry collection manifest file");
     
     private final String key;
     private final ConfigType type;

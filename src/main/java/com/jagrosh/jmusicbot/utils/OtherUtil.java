@@ -31,6 +31,7 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.*;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -106,12 +107,12 @@ public class OtherUtil
             return null;
         try 
         {
-            URL u = new URL(url);
+            URL u = new URI(url).toURL();
             URLConnection urlConnection = u.openConnection();
             urlConnection.setRequestProperty("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.112 Safari/537.36");
             return urlConnection.getInputStream();
         }
-        catch(IOException | IllegalArgumentException ignore) {}
+        catch(URISyntaxException  | IOException | IllegalArgumentException ignore) {}
         return null;
     }
     

@@ -21,6 +21,10 @@ import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.gui.GUI;
+import com.jagrosh.jmusicbot.metrics.CollectionPoller;
+import com.jagrosh.jmusicbot.metrics.InstanceIdManager;
+import com.jagrosh.jmusicbot.metrics.MetricsCollector;
+import com.jagrosh.jmusicbot.metrics.store.TelemetryStore;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.InstanceLock;
@@ -33,6 +37,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -50,6 +55,12 @@ public class Bot
     private final AloneInVoiceHandler aloneInVoiceHandler;
     private final YoutubeOauth2TokenHandler youTubeOauth2TokenHandler;
     private final Instant startTime;
+    
+    // Metrics/Telemetry components
+    private final InstanceIdManager instanceIdManager;
+    private final TelemetryStore telemetryStore;
+    private final MetricsCollector metricsCollector;
+    private final CollectionPoller collectionPoller;
     
     private boolean shuttingDown = false;
     private JDA jda;
@@ -72,6 +83,14 @@ public class Bot
         this.nowplaying.init();
         this.aloneInVoiceHandler = new AloneInVoiceHandler(this);
         this.aloneInVoiceHandler.init();
+        
+        // Initialize metrics/telemetry components
+        this.instanceIdManager = new InstanceIdManager();
+        this.instanceIdManager.init();
+        this.telemetryStore = new TelemetryStore();
+        this.telemetryStore.init();
+        this.metricsCollector = new MetricsCollector(telemetryStore, instanceIdManager, config.isMetricsEnabled());
+        this.collectionPoller = new CollectionPoller(metricsCollector, config.getMetricsManifestUrl(), config.isMetricsEnabled());
     }
     
     public BotConfig getConfig()
@@ -143,6 +162,9 @@ public class Bot
             return;
         shuttingDown = true;
         
+        // Stop the telemetry poller
+        collectionPoller.stop();
+        
         // Clean up audio connections first (before shutting down thread pool, as these may trigger events that use it)
         if(jda != null && jda.getStatus() != JDA.Status.SHUTTING_DOWN)
         {
@@ -184,5 +206,36 @@ public class Bot
     
     public Instant getStartTime() {
         return startTime;
+    }
+
+    public MetricsCollector getMetricsCollector() {
+        return metricsCollector;
+    }
+
+    /**
+     * Starts the metrics/telemetry system.
+     * Should be called after the bot has fully initialized and connected to Discord.
+     */
+    public void startMetrics() {
+        if (!config.isMetricsEnabled()) {
+            return;
+        }
+        
+        // Record startup event
+        metricsCollector.recordStartup();
+        
+        // Schedule periodic snapshots (every 30 minutes)
+        threadpool.scheduleAtFixedRate(() -> {
+            if (jda != null) {
+                int guildCount = jda.getGuilds().size();
+                int activeAudioSessions = (int) jda.getGuilds().stream()
+                        .filter(g -> g.getAudioManager().isConnected())
+                        .count();
+                metricsCollector.recordSnapshot(guildCount, activeAudioSessions);
+            }
+        }, 30, 30, TimeUnit.MINUTES);
+        
+        // Start the collection poller
+        collectionPoller.start();
     }
 }

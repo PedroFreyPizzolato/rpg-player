@@ -149,6 +149,9 @@ public class JMusicBot
         {
             JDA jda = DiscordService.createJDA(config, bot, waiter, client, userInteraction);
             bot.setJDA(jda);
+            
+            // Start metrics/telemetry system after successful connection
+            bot.startMetrics();
         }
         catch(IllegalArgumentException ex)
         {

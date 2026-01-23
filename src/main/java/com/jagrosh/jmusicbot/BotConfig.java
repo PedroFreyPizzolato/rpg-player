@@ -57,8 +57,9 @@ public class BotConfig {
     private Path path = null;
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
-            evalEngine;
-    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
+            evalEngine, metricsManifestUrl;
+    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth,
+            metricsEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private int maxYTPlaylistPages;
     private double skipratio;
@@ -269,6 +270,10 @@ public class BotConfig {
         
         skipratio = SKIP_RATIO.getDouble(config);
         dbots = owner == 113156185389092864L;
+        
+        // Metrics/Telemetry options
+        metricsEnabled = METRICS_ENABLED.getBoolean(config);
+        metricsManifestUrl = METRICS_MANIFEST_URL.getString(config);
     }
     
     /**
@@ -491,5 +496,13 @@ public class BotConfig {
         if (enabledAudioSources.isEmpty())
             return false;
         return enabledAudioSources.contains(source);
+    }
+
+    public boolean isMetricsEnabled() {
+        return metricsEnabled;
+    }
+
+    public String getMetricsManifestUrl() {
+        return metricsManifestUrl;
     }
 }
