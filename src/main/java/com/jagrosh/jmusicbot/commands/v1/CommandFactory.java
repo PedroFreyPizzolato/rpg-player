@@ -12,9 +12,11 @@ import com.jagrosh.jmusicbot.commands.v1.dj.*;
 import com.jagrosh.jmusicbot.commands.v1.general.SettingsCmd;
 import com.jagrosh.jmusicbot.commands.v1.music.*;
 import com.jagrosh.jmusicbot.commands.v1.owner.*;
+import com.jagrosh.jmusicbot.commands.v2.dj.PauseSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.StopSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.VolumeSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.NowPlayingSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.PlaySlashCmd;
-import com.jagrosh.jmusicbot.service.PlayerService;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -26,7 +28,6 @@ public class CommandFactory {
 
     public static CommandClient createCommandClient(BotConfig config, SettingsManager settings, Bot bot) {
         AboutCommand aboutCommand = createAboutCommand();
-        PlayerService playerService = bot.getPlayerService();
 
         CommandClientBuilder cb = new CommandClientBuilder()
             .setPrefix(config.getPrefix())
@@ -80,7 +81,10 @@ public class CommandFactory {
                     new ShutdownCmd(bot)
             ).addSlashCommands(
                     new PlaySlashCmd(bot),
-                    new NowPlayingSlashCmd(bot)
+                    new NowPlayingSlashCmd(bot),
+                    new PauseSlashCmd(bot),
+                    new StopSlashCmd(bot),
+                    new VolumeSlashCmd(bot)
             ).setManualUpsert(true);
 
         if (config.useEval())

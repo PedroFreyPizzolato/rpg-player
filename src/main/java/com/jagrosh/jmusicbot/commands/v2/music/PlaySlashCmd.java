@@ -5,7 +5,7 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.InteractionHookOutputAdapter;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.SlashEventOutputAdapter;
-import com.jagrosh.jmusicbot.service.PlayerService;
+import com.jagrosh.jmusicbot.service.MusicService;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
@@ -22,12 +22,12 @@ import java.util.List;
 public class PlaySlashCmd extends MusicSlashCommand
 {
     private final String loadingEmoji;
-    private final PlayerService playerService;
+    private final MusicService musicService;
 
     public PlaySlashCmd(Bot bot)
     {
         super(bot);
-        this.playerService = bot.getPlayerService();
+        this.musicService = bot.getMusicService();
         this.loadingEmoji = bot.getConfig().getLoading();
         this.name = "play";
         this.help = "plays the provided song";
@@ -42,14 +42,14 @@ public class PlaySlashCmd extends MusicSlashCommand
     {
         if (event.getOption("query") == null)
         {
-            playerService.play(event.getGuild(), event.getMember(), "", event.getTextChannel(),
+            musicService.play(event.getGuild(), event.getMember(), "", event.getTextChannel(),
                     new SlashEventOutputAdapter(event));
             return;
         }
 
         String args = event.getOption("query").getAsString();
         event.reply(loadingEmoji + " Loading... `[" + args + "]`").queue(hook -> {
-            playerService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(),
+            musicService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(),
                     new InteractionHookOutputAdapter(hook, event.getJDA(), event.getClient().getWarning()));
         });
     }

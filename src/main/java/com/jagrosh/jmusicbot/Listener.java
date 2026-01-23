@@ -33,7 +33,7 @@ import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
-import com.jagrosh.jmusicbot.service.PlayerService;
+import com.jagrosh.jmusicbot.service.MusicService;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,8 +157,8 @@ public class Listener extends ListenerAdapter
             return;
         }
 
-        PlayerService playerService = bot.getPlayerService();
-        PlayerService.OutputAdapter adapter = new PlayerService.OutputAdapter() {
+        MusicService musicService = bot.getMusicService();
+        MusicService.OutputAdapter adapter = new MusicService.OutputAdapter() {
             @Override
             public void replySuccess(String content) {
                 event.reply(content).setEphemeral(true).queue();
@@ -203,28 +203,28 @@ public class Listener extends ListenerAdapter
         switch (event.getComponentId())
         {
             case "previous":
-                playerService.previous(event.getGuild(), event.getMember(), adapter);
+                musicService.previous(event.getGuild(), event.getMember(), adapter);
                 break;
             case "shuffle":
-                playerService.shuffle(event.getGuild(), event.getMember(), 0, adapter);
+                musicService.shuffle(event.getGuild(), event.getMember(), 0, adapter);
                 break;
             case "repeat":
-                playerService.cycleRepeatMode(event.getGuild(), event.getMember(), adapter);
+                musicService.cycleRepeatMode(event.getGuild(), event.getMember(), adapter);
                 break;
             case "voldown":
-                playerService.adjustVolume(event.getGuild(), event.getMember(), -10, adapter);
+                musicService.adjustVolume(event.getGuild(), event.getMember(), -10, adapter);
                 break;
             case "volup":
-                playerService.adjustVolume(event.getGuild(), event.getMember(), 10, adapter);
+                musicService.adjustVolume(event.getGuild(), event.getMember(), 10, adapter);
                 break;
             case "stop":
-                playerService.stop(event.getGuild(), event.getMember(), adapter);
+                musicService.stop(event.getGuild(), event.getMember(), adapter);
                 break;
             case "pause":
-                playerService.pause(event.getGuild(), event.getMember(), adapter);
+                musicService.pause(event.getGuild(), event.getMember(), adapter);
                 break;
             case "skip":
-                playerService.skip(event.getGuild(), event.getMember(), adapter);
+                musicService.skip(event.getGuild(), event.getMember(), adapter);
                 break;
         }
     }

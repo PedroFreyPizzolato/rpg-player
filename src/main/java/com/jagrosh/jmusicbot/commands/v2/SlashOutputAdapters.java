@@ -1,8 +1,23 @@
+/*
+ * Copyright 2026 Arif Banai (arif-banai)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.jagrosh.jmusicbot.commands.v2;
 
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
-import com.jagrosh.jmusicbot.service.PlayerService;
+import com.jagrosh.jmusicbot.commands.BaseOutputAdapter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.interactions.InteractionHook;
@@ -21,7 +36,7 @@ public final class SlashOutputAdapters
      * OutputAdapter for direct SlashCommandEvent replies (before any response is sent).
      * Errors and warnings are sent as ephemeral messages.
      */
-    public static class SlashEventOutputAdapter implements PlayerService.OutputAdapter
+    public static class SlashEventOutputAdapter extends BaseOutputAdapter
     {
         private final SlashCommandEvent event;
 
@@ -83,7 +98,7 @@ public final class SlashOutputAdapters
      * OutputAdapter for editing an existing interaction response via InteractionHook.
      * Used after a loading message has already been sent.
      */
-    public static class InteractionHookOutputAdapter implements PlayerService.OutputAdapter
+    public static class InteractionHookOutputAdapter extends BaseOutputAdapter
     {
         private final InteractionHook hook;
         private final JDA jda;

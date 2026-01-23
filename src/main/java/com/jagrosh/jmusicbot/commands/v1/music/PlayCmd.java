@@ -22,12 +22,11 @@ import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.MusicCommand;
+import com.jagrosh.jmusicbot.commands.v1.TextOutputAdapters.CommandEventOutputAdapter;
+import com.jagrosh.jmusicbot.commands.v1.TextOutputAdapters.MessageEditOutputAdapter;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist;
-import com.jagrosh.jmusicbot.service.PlayerService;
+import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
-import net.dv8tion.jda.api.entities.Message;
-
-import java.util.function.Consumer;
 
 /**
  *
@@ -36,12 +35,12 @@ import java.util.function.Consumer;
 public class PlayCmd extends MusicCommand
 {
     private final String loadingEmoji;
-    private final PlayerService playerService;
+    private final MusicService musicService;
     
     public PlayCmd(Bot bot)
     {
         super(bot);
-        this.playerService = bot.getPlayerService();
+        this.musicService = bot.getMusicService();
         this.loadingEmoji = bot.getConfig().getLoading();
         this.name = "play";
         this.arguments = "<title|URL|subcommand>";
@@ -55,53 +54,33 @@ public class PlayCmd extends MusicCommand
     @Override
     public void doCommand(CommandEvent event)
     {
-        String args = event.getArgs().startsWith("<") && event.getArgs().endsWith(">")
-                ? event.getArgs().substring(1,event.getArgs().length()-1)
-                : event.getArgs().isEmpty() ? event.getMessage().getAttachments().isEmpty() ? "" : event.getMessage().getAttachments().get(0).getUrl() : event.getArgs();
+        String args = parseArgs(event);
 
-        if (args.isEmpty()) {
-            playerService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(), new PlayerService.OutputAdapter() {
-                @Override public void replySuccess(String content) { event.replySuccess(content); }
-                @Override public void replyError(String content) { event.replyError(content); }
-                @Override public void replyWarning(String content) { event.replyWarning(content); }
-                @Override public void editMessage(String content) { /* No-op for unpause */ }
-                @Override public void editMessage(String content, Consumer<Message> onSuccess) { /* No-op for unpause */ }
-                @Override public void editNowPlaying(AudioHandler handler) { /* No-op for v1 play */ }
-                @Override public void editNoMusic(AudioHandler handler) { /* No-op for v1 play */ }
-                @Override public void onShowHelp() {
-                    StringBuilder builder = new StringBuilder(event.getClient().getWarning()+" Play Commands:\n");
-                    builder.append("\n`").append(event.getClient().getPrefix()).append(name).append(" <song title>` - plays the first result from Youtube");
-                    builder.append("\n`").append(event.getClient().getPrefix()).append(name).append(" <URL>` - plays the provided song, playlist, or stream");
-                    for(Command cmd: children)
-                        builder.append("\n`").append(event.getClient().getPrefix()).append(name).append(" ").append(cmd.getName()).append(" ").append(cmd.getArguments()).append("` - ").append(cmd.getHelp());
-                    event.reply(builder.toString());
-                }
-            });
+        if (args.isEmpty())
+        {
+            musicService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(),
+                    new CommandEventOutputAdapter(event, name, children));
             return;
         }
 
-        event.reply(loadingEmoji+" Loading... `["+args+"]`", m -> {
-            playerService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(), new PlayerService.OutputAdapter() {
-                @Override public void replySuccess(String content) { /* Used for unpause, not here */ }
-                @Override public void replyError(String content) { /* Used for unpause, not here */ }
-                @Override public void replyWarning(String content) { /* Used for unpause, not here */ }
-
-                @Override
-                public void editMessage(String content) {
-                    m.editMessage(content).queue();
-                }
-
-                @Override
-                public void editMessage(String content, Consumer<Message> onSuccess) {
-                    m.editMessage(content).queue(onSuccess);
-                }
-
-                @Override public void editNowPlaying(AudioHandler handler) { /* No-op for v1 play */ }
-                @Override public void editNoMusic(AudioHandler handler) { /* No-op for v1 play */ }
-
-                @Override public void onShowHelp() { /* Should not happen as args are checked */ }
-            });
+        event.reply(loadingEmoji + " Loading... `[" + args + "]`", m -> {
+            musicService.play(event.getGuild(), event.getMember(), args, event.getTextChannel(),
+                    new MessageEditOutputAdapter(m));
         });
+    }
+
+    private String parseArgs(CommandEvent event)
+    {
+        String args = event.getArgs();
+        if (args.startsWith("<") && args.endsWith(">"))
+        {
+            return args.substring(1, args.length() - 1);
+        }
+        if (args.isEmpty() && !event.getMessage().getAttachments().isEmpty())
+        {
+            return event.getMessage().getAttachments().get(0).getUrl();
+        }
+        return args;
     }
     
     public class PlaylistCmd extends MusicCommand
