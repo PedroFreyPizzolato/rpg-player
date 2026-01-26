@@ -6,10 +6,16 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-branch-name:
     name: Validate Branch Naming Convention
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Validate branch name
         run: |

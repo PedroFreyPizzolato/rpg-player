@@ -19,6 +19,11 @@ on:
     tags:
       - 'v*'
 
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: arif-banai/musicbot
@@ -27,6 +32,7 @@ jobs:
   publish:
     name: Publish Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # Only run if the triggering workflow succeeded (for workflow_run events)
     # For tag pushes, always run
     if: |
@@ -39,22 +45,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         # For workflow_run events, checkout the commit that triggered the original workflow
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0  # Full history needed for git commands
 
-      - name: Extract version from pom.xml
-        id: version
+      - name: Extract metadata
+        id: metadata
         run: |
           # Extract project version (first <version> tag, which is the project version)
           VERSION=$(grep -m 1 '<version>' pom.xml | sed 's/.*<version>\([^<]*\)<\/version>.*/\1/' | tr -d ' ')
+          SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(git log -1 --format=%cI)
+          
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Extracted version: $VERSION"
-
-      - name: Get commit SHA
-        id: sha
-        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+          echo "Extracted version: $VERSION, SHA: $SHA"
 
       - name: Determine Docker tags
         id: tags
@@ -68,53 +76,26 @@ jobs:
           else
             # Master branch (workflow_run): use latest + commit SHA
             TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.sha }}"
+            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.sha }}"
             # Also tag with Maven version if not SNAPSHOT
-            if [[ ! "${{ steps.version.outputs.version }}" =~ -SNAPSHOT$ ]]; then
-              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+            if [[ ! "${{ steps.metadata.outputs.version }}" =~ -SNAPSHOT$ ]]; then
+              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.version }}"
             fi
             echo "Tags: $TAGS (master branch)"
           fi
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get commit timestamp
-        id: timestamp
-        run: echo "value=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
-
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: ./.github/actions/docker-build
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
           tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            BUILD_TIMESTAMP=${{ steps.timestamp.outputs.value }}
-          # OCI annotations for multi-arch manifest (required for GHCR to display metadata)
-          annotations: |
-            org.opencontainers.image.title=JMusicBot
-            org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
-            org.opencontainers.image.url=https://jmusicbot.com
-            org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
-            org.opencontainers.image.vendor=JMusicBot
-            org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ steps.timestamp.outputs.value }}
+          version: ${{ steps.metadata.outputs.version }}
+          sha: ${{ steps.metadata.outputs.sha }}
+          timestamp: ${{ steps.metadata.outputs.timestamp }}
+          registry: ${{ env.REGISTRY }}
+          image-name: ${{ env.IMAGE_NAME }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

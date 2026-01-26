@@ -15,16 +15,28 @@ on:
         required: true
         type: string
 
+# Prevent concurrent releases
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   build_jar:
     name: Build JAR
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history needed for git commands
 
       - name: Set up Java Environment
-        uses: ./.github/actions/setup-java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
 
       - name: Set Version
         run: |
@@ -40,7 +52,7 @@ jobs:
         run: mv target/*-All.jar JMusicBot-${{ github.event.inputs.version_number }}.jar
 
       - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: jar
           path: JMusicBot-${{ github.event.inputs.version_number }}.jar
@@ -49,12 +61,13 @@ jobs:
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build_jar
     permissions:
       contents: write  # Required to create releases and tags
     steps:
       - name: Download JAR artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: jar
           path: .
