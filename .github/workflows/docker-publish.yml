@@ -54,88 +54,64 @@ jobs:
       - name: Extract metadata
         id: metadata
         run: |
-          # Extract project version (first <version> tag, which is the project version)
-          VERSION=$(grep -m 1 '<version>' pom.xml | sed 's/.*<version>\([^<]*\)<\/version>.*/\1/' | tr -d ' ')
-          SHA=$(git rev-parse --short HEAD)
+          # Extract project version from pom.xml
+          POM_VERSION=$(grep -m 1 '<version>' pom.xml | sed 's/.*<version>\([^<]*\)<\/version>.*/\1/' | tr -d ' ')
+          SHA_SHORT=$(git rev-parse --short HEAD)
           TIMESTAMP=$(git log -1 --format=%cI)
           
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
-          echo "Extracted version: $VERSION, SHA: $SHA"
-
-      - name: Determine Docker tags
-        id: tags
-        run: |
-          TAGS_CSV=""
+          # Determine if this is a tag build or master branch build
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
-            # Version tag: use the tag version (strip 'v' prefix if present)
-            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-            TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG_VERSION"
-            TAGS_CSV="$TAG"
-            echo "Tags: $TAG (from git tag)"
+            # For tag builds, use the git tag version (strip 'v' prefix)
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            IS_TAG_BUILD="true"
           else
-            # Master branch (workflow_run): use latest + commit SHA
-            TAG_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.metadata.outputs.sha }}"
-            TAGS_CSV="$TAG_LATEST,$TAG_SHA"
-            # Also tag with Maven version if not SNAPSHOT
-            if [[ ! "${{ steps.metadata.outputs.version }}" =~ -SNAPSHOT$ ]]; then
-              TAG_VERSION="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.version }}"
-              TAGS_CSV="$TAGS_CSV,$TAG_VERSION"
-            fi
-            echo "Tags: $TAGS_CSV (master branch)"
+            # For master builds, use pom.xml version
+            VERSION="$POM_VERSION"
+            IS_TAG_BUILD="false"
           fi
-          echo "tags=$TAGS_CSV" >> "$GITHUB_OUTPUT"
-
-      - name: Format tags for metadata-action
-        id: format-tags
-        run: |
-          # Convert comma-separated tags to multiline format for metadata-action
-          IFS=',' read -ra TAG_ARRAY <<< "${{ steps.tags.outputs.tags }}"
-          {
-            echo 'tags<<EOF'
-            echo 'type=raw'
-            for tag in "${TAG_ARRAY[@]}"; do
-              echo "value=$tag"
-            done
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
+          
+          # Check if version is a SNAPSHOT
+          if [[ "$VERSION" =~ -SNAPSHOT$ ]]; then
+            IS_SNAPSHOT="true"
+          else
+            IS_SNAPSHOT="false"
+          fi
+          
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pom_version=$POM_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA_SHORT" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+          echo "is_tag_build=$IS_TAG_BUILD" >> "$GITHUB_OUTPUT"
+          echo "is_snapshot=$IS_SNAPSHOT" >> "$GITHUB_OUTPUT"
+          echo "Extracted version: $VERSION (pom: $POM_VERSION), SHA: $SHA_SHORT, is_tag: $IS_TAG_BUILD, is_snapshot: $IS_SNAPSHOT"
 
       - name: Generate Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: ${{ steps.format-tags.outputs.tags }}
-          # Disable automatic tag generation (we use custom tags)
-          flavor: |
-            suffix=
-          # Custom labels/annotations
+          # Tag rules:
+          # - For tag builds: version tag (from git tag) + sha tag
+          # - For master builds: latest + sha + version (if not SNAPSHOT)
+          tags: |
+            type=raw,value=${{ steps.metadata.outputs.version }},enable=${{ steps.metadata.outputs.is_tag_build == 'true' }}
+            type=raw,value=latest,enable=${{ steps.metadata.outputs.is_tag_build == 'false' }}
+            type=raw,value=${{ steps.metadata.outputs.version }},enable=${{ steps.metadata.outputs.is_tag_build == 'false' && steps.metadata.outputs.is_snapshot == 'false' }}
+            type=raw,value=sha-${{ steps.metadata.outputs.sha }}
+          # Let metadata-action handle standard OCI labels, override specific ones
           labels: |
             org.opencontainers.image.title=JMusicBot
             org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
             org.opencontainers.image.url=https://jmusicbot.com
-            org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
             org.opencontainers.image.vendor=JMusicBot
-            org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ steps.metadata.outputs.timestamp }}
-        env:
-          # Set annotations at index level for multi-arch images (required for GHCR to display description)
-          # Note: This is safe because we always build for multiple platforms (linux/amd64,linux/arm64),
-          # which produces an image index. Single-platform builds would only produce a manifest.
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Build and push Docker image
         id: build
         uses: ./.github/actions/docker-build
         with:
           tags: ${{ steps.meta.outputs.tags }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-          version: ${{ steps.metadata.outputs.version }}
-          sha: ${{ steps.metadata.outputs.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
           timestamp: ${{ steps.metadata.outputs.timestamp }}
           registry: ${{ env.REGISTRY }}
           image-name: ${{ env.IMAGE_NAME }}

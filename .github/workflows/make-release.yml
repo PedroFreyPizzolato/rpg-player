@@ -25,6 +25,10 @@ jobs:
     name: Build JAR
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write  # Required to push version commit
+    outputs:
+      release_sha: ${{ steps.commit-version.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -42,6 +46,16 @@ jobs:
         run: |
           mvn -B versions:set -DnewVersion=${{ github.event.inputs.version_number }}
           mvn -B versions:commit
+
+      - name: Commit version bump
+        id: commit-version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "chore: bump version to ${{ github.event.inputs.version_number }}"
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build with Maven
         run: |
@@ -77,6 +91,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: v${{ github.event.inputs.version_number }}
+          commit: ${{ needs.build_jar.outputs.release_sha }}
           name: v${{ github.event.inputs.version_number }}
           draft: true
           prerelease: false
