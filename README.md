@@ -16,16 +16,14 @@
 
 A cross-platform Discord music bot with a clean interface, and that is easy to set up and run yourself!
 
-## ⚠️ Important Migration Notice (JDA 6 Update)
+## ⚠️ Important Notice (Java 25)
 
-This version of JMusicBot includes a major infrastructure update to **JDA 6.2.0** and **Lavaplayer 2.2.6**. To ensure your bot continues to function correctly, please note the following mandatory changes:
+This version of JMusicBot major dependency changes.To ensure your bot continues to function correctly, please note the following mandatory changes:
 
-*   **Java 17 Minimum:** The bot now requires **Java 17 or higher**. Please update your hosting environment (check `java -version`) before running the new JAR.
+*   **Java 25 Minimum:** The bot now requires **Java 25 or higher**. Please update your hosting environment (check `java -version`) before running the new JAR.
 *   **Privileged Gateway Intents:** You **must** enable the **Message Content Intent** in your [Discord Developer Portal](https://discord.com/developers/applications).
     *   *Navigate to: Your Application > Bot > Privileged Gateway Intents > Toggle "Message Content Intent" to ON.*
     *   *Without this, the bot will not see your commands.*
-*   **Audio Provider Update:** We have switched to the `dev.arbjerg` Lavaplayer fork and added the `dev.lavalink.youtube` source manager. This provides the most stable and up-to-date support for YouTube and other modern audio sources.
-*   **Dependency Cleanup:** Support for niche/legacy sources provided by the old DuncteBot library (such as TikTok or Reddit audio) has been removed to reduce the project's footprint and improve stability. Standard sources (YouTube, SoundCloud, Bandcamp, Twitch, etc.) are unaffected.
 
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://jmusicbot.com/setup)
 
@@ -75,39 +73,59 @@ JMusicBot can be run using Docker for easy deployment and management. Pre-built 
 
 **No local build required!** The pre-built image is automatically pulled from the registry.
 
-1. **Create a directory for your config:**
+#### For Existing Users (Migrating from JAR)
+
+If you already have a directory with your `config.txt`, `Playlists/` folder, and other bot files, either provide the path to that directory or run the container from within it:
+
+```bash
+docker run --rm -it \
+  --name jmusicbot \
+  -v "$(pwd):/config" \
+  ghcr.io/arif-banai/musicbot:latest
+```
+
+This mounts your current directory as the config volume, so the bot will use your existing configuration and playlists.
+
+#### For New Users
+
+1. **Create a directory for your bot and run the container:**
    ```bash
    mkdir -p /path/to/jmusicbot
-   ```
-
-2. **Use docker-compose** (recommended):
-   ```bash
-   # Copy the example compose file
-   cp docker-compose.example.yml docker-compose.yml
    
-   # Edit docker-compose.yml and update the volume path
-   # Then start the container (image will be pulled automatically)
-   docker-compose up -d
+   docker run --rm -it \
+     --name jmusicbot \
+     -v "/path/to/jmusicbot:/config" \
+     ghcr.io/arif-banai/musicbot:latest
    ```
 
-   Or use the example directly:
-   ```yaml
-   services:
-     jmusicbot:
-       image: ghcr.io/arif-banai/musicbot:latest  # or ghcr.io/arif-banai/musicbot:0.6.1 for a specific version
-       container_name: jmusicbot
-       environment:
-         # Optional: additional JVM options (e.g., memory settings)
-         # - JAVA_OPTS=-Xmx512m -Xms256m
-      volumes:
-        - /your/path/to/musicbot:/musicbot
-       restart: unless-stopped
-   ```
+2. **First Run:**
+   - On first run, if the mounted directory is empty, the bot will automatically generate a default `config.txt` file.
+   - Edit `/path/to/jmusicbot/config.txt` on your host and add your Discord bot token.
+   - Run the container again.
 
-3. **First Run:**
-   - On first run, if the mounted `/musicbot` directory is empty, the bot will automatically generate a default `config.txt` file.
-   - Edit `/your/path/to/musicbot/config.txt` on your host and add your Discord bot token.
-   - Restart the container: `docker-compose restart`
+#### Using Docker Compose (Optional)
+
+If you prefer docker-compose, copy the example compose file and update the volume path:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml and update the volume path
+docker-compose up -d
+```
+
+Example `docker-compose.yml`:
+
+```yaml
+services:
+  jmusicbot:
+    image: ghcr.io/arif-banai/musicbot:latest
+    container_name: jmusicbot
+    volumes:
+      - /path/to/jmusicbot:/config
+    restart: unless-stopped
+```
+
+Check the [Docker Compose Example](docker-compose.example.yml) for more details.
 
 ### Important Notes
 
@@ -121,6 +139,18 @@ JMusicBot can be run using Docker for easy deployment and management. Pre-built 
 
 
 To view published images, visit: `https://github.com/arif-banai/MusicBot/pkgs/container/musicbot`
+
+## Development Workflow
+
+This project follows a **trunk-based development** workflow. The `master` branch is always releasable, and all work happens in short-lived branches:
+
+- **`feature/<slug>`** - New features (e.g., `feature/new-player-ui`)
+- **`fix/<slug>`** - Bug fixes (e.g., `fix/youtube-oauth`)
+- **`chore/<slug>`** - Maintenance tasks (e.g., `chore/update-deps`)
+- **`deps/<slug>`** - Dependency experiments (e.g., `deps/youtube-source-pr195`)
+- **`release/<version>`** - Release stabilization (optional, e.g., `release/0.6.3`)
+
+Branch names are automatically validated by CI to ensure consistency. For detailed information about the development workflow, branch naming rules, and best practices, see [DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md).
 
 ## Questions/Suggestions/Bug Reports
 **Please read the [Issues List](https://github.com/arif-banai/MusicBot/issues) before suggesting a feature**. If you have a question, need troubleshooting help, or want to brainstorm a new feature, please start a [Discussion](https://github.com/arif-banai/MusicBot/discussions). If you'd like to suggest a feature or report a reproducible bug, please open an [Issue](https://github.com/arif-banai/MusicBot/issues) on this repository. If you like this bot, be sure to add a star to the libraries that make this possible: [**JDA**](https://github.com/DV8FromTheWorld/JDA) and [**lavaplayer**](https://github.com/lavalink-devs/lavaplayer)!
