@@ -98,6 +98,10 @@ jobs:
       - name: Generate Docker metadata
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          # For multi-arch images, annotations must be attached to the image index
+          # GitHub Packages reads annotations from the index level for multi-arch images
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # Tag rules for preview images:
@@ -106,20 +110,15 @@ jobs:
           tags: |
             type=raw,value=preview-${{ steps.sanitize.outputs.suffix }}
             type=raw,value=sha-${{ steps.metadata.outputs.sha }}
-          # Let metadata-action handle standard OCI labels, override specific ones
-          labels: |
-            org.opencontainers.image.title=JMusicBot
-            org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
-            org.opencontainers.image.url=https://jmusicbot.com
-            org.opencontainers.image.vendor=JMusicBot
-            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+          # Labels are automatically generated from git context by metadata-action
+          # No need to specify them - metadata-action will create standard OCI labels
 
       - name: Build and push Docker image
         id: build
         uses: ./.github/actions/docker-build
         with:
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           timestamp: ${{ steps.metadata.outputs.timestamp }}
           registry: ${{ env.REGISTRY }}
           image-name: ${{ env.IMAGE_NAME }}

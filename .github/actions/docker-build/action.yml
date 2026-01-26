@@ -5,8 +5,8 @@ inputs:
   tags:
     description: 'Docker image tags (from metadata-action)'
     required: true
-  labels:
-    description: 'OCI labels from metadata-action'
+  annotations:
+    description: 'OCI annotations from metadata-action (for multi-arch images)'
     required: true
   timestamp:
     description: 'Build timestamp in ISO 8601 format'
@@ -55,7 +55,7 @@ runs:
         file: ./Dockerfile
         push: true
         tags: ${{ inputs.tags }}
-        labels: ${{ inputs.labels }}
+        annotations: ${{ inputs.annotations }}
         cache-from: |
           type=gha
           type=registry,ref=${{ inputs.registry }}/${{ inputs.image-name }}:buildcache
