@@ -5,6 +5,9 @@ inputs:
   tags:
     description: 'Comma-separated list of Docker image tags'
     required: true
+  annotations:
+    description: 'OCI annotations from metadata-action (optional, falls back to manual annotations if not provided)'
+    required: false
   version:
     description: 'Project version for OCI annotations (optional)'
     required: false
@@ -51,6 +54,28 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.token }}
 
+    - name: Prepare annotations
+      id: prepare-annotations
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.annotations }}" ]; then
+          # Use annotations from metadata-action
+          echo "annotations=${{ inputs.annotations }}" >> "$GITHUB_OUTPUT"
+        else
+          # Fall back to manual annotations
+          cat >> "$GITHUB_OUTPUT" <<EOF
+        annotations=org.opencontainers.image.title=JMusicBot
+        org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
+        org.opencontainers.image.url=https://jmusicbot.com
+        org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
+        org.opencontainers.image.vendor=JMusicBot
+        org.opencontainers.image.licenses=Apache-2.0
+        org.opencontainers.image.version=${{ inputs.version }}
+        org.opencontainers.image.revision=${{ github.sha }}
+        org.opencontainers.image.created=${{ inputs.timestamp }}
+        EOF
+        fi
+
     - name: Build and push Docker image
       id: build
       uses: docker/build-push-action@v6
@@ -68,17 +93,7 @@ runs:
         platforms: linux/amd64,linux/arm64
         build-args: |
           BUILD_TIMESTAMP=${{ inputs.timestamp }}
-        # OCI annotations for multi-arch manifest (required for GHCR to display metadata)
-        annotations: |
-          org.opencontainers.image.title=JMusicBot
-          org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
-          org.opencontainers.image.url=https://jmusicbot.com
-          org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
-          org.opencontainers.image.vendor=JMusicBot
-          org.opencontainers.image.licenses=Apache-2.0
-          org.opencontainers.image.version=${{ inputs.version }}
-          org.opencontainers.image.revision=${{ github.sha }}
-          org.opencontainers.image.created=${{ inputs.timestamp }}
+        annotations: ${{ steps.prepare-annotations.outputs.annotations }}
 
     - name: Image digest
       shell: bash

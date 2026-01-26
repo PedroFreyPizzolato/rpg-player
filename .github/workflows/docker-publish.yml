@@ -67,29 +67,71 @@ jobs:
       - name: Determine Docker tags
         id: tags
         run: |
-          TAGS=""
+          TAGS_CSV=""
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
             # Version tag: use the tag version (strip 'v' prefix if present)
             TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG_VERSION"
-            echo "Tags: $TAGS (from git tag)"
+            TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG_VERSION"
+            TAGS_CSV="$TAG"
+            echo "Tags: $TAG (from git tag)"
           else
             # Master branch (workflow_run): use latest + commit SHA
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.sha }}"
+            TAG_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.sha }}"
+            TAGS_CSV="$TAG_LATEST,$TAG_SHA"
             # Also tag with Maven version if not SNAPSHOT
             if [[ ! "${{ steps.metadata.outputs.version }}" =~ -SNAPSHOT$ ]]; then
-              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.version }}"
+              TAG_VERSION="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.version }}"
+              TAGS_CSV="$TAGS_CSV,$TAG_VERSION"
             fi
-            echo "Tags: $TAGS (master branch)"
+            echo "Tags: $TAGS_CSV (master branch)"
           fi
-          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "tags=$TAGS_CSV" >> "$GITHUB_OUTPUT"
+
+      - name: Format tags for metadata-action
+        id: format-tags
+        run: |
+          # Convert comma-separated tags to multiline format for metadata-action
+          IFS=',' read -ra TAG_ARRAY <<< "${{ steps.tags.outputs.tags }}"
+          {
+            echo 'tags<<EOF'
+            echo 'type=raw'
+            for tag in "${TAG_ARRAY[@]}"; do
+              echo "value=$tag"
+            done
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: ${{ steps.format-tags.outputs.tags }}
+          # Disable automatic tag generation (we use custom tags)
+          flavor: |
+            suffix=
+          # Custom labels/annotations
+          labels: |
+            org.opencontainers.image.title=JMusicBot
+            org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
+            org.opencontainers.image.url=https://jmusicbot.com
+            org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
+            org.opencontainers.image.vendor=JMusicBot
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.metadata.outputs.timestamp }}
+        env:
+          # Set annotations at index level for multi-arch images (required for GHCR to display description)
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Build and push Docker image
         id: build
         uses: ./.github/actions/docker-build
         with:
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           version: ${{ steps.metadata.outputs.version }}
           sha: ${{ steps.metadata.outputs.sha }}
           timestamp: ${{ steps.metadata.outputs.timestamp }}
