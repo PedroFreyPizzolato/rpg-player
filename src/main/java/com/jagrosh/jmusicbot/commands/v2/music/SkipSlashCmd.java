@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 John Grosh <john.a.grosh@gmail.com>.
+ * Copyright 2026 Arif Banai (arif-banai)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,41 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.commands.v1.dj;
+package com.jagrosh.jmusicbot.commands.v2.music;
 
-import com.jagrosh.jdautilities.command.CommandEvent;
+import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
+import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.SlashEventOutputAdapter;
 import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
- *
- * @author John Grosh <john.a.grosh@gmail.com>
+ * Slash command to vote to skip the current song.
  */
-public class PauseCmd extends DJCommand
+public class SkipSlashCmd extends MusicSlashCommand
 {
     private final MusicService musicService;
 
-    public PauseCmd(Bot bot)
+    public SkipSlashCmd(Bot bot)
     {
         super(bot);
         this.musicService = bot.getMusicService();
-        this.name = "pause";
-        this.help = "pauses the current song";
+        this.name = "skip";
+        this.help = "votes to skip the current song";
         this.aliases = bot.getConfig().getAliases(this.name);
+        this.beListening = true;
         this.bePlaying = true;
     }
 
     @Override
-    public void doCommand(CommandEvent event)
+    public void doCommand(SlashCommandEvent event)
     {
-        if (musicService.isPaused(event.getGuild()))
-        {
-            event.replyWarning("The player is already paused! Use `" + event.getClient().getPrefix() + "play` to unpause!");
-            return;
-        }
+        int listeners = (int) event.getMember().getVoiceState().getChannel().getMembers().stream()
+                .filter(m -> !m.getUser().isBot() && !m.getVoiceState().isDeafened()).count();
 
-        String trackTitle = musicService.setPaused(event.getGuild(), true);
-        event.replySuccess("Paused **" + trackTitle + "**. Type `" + event.getClient().getPrefix() + "play` to unpause!");
+        musicService.skipWithVote(event.getGuild(), event.getMember(), listeners, new SlashEventOutputAdapter(event));
     }
 }

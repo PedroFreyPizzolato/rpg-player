@@ -17,20 +17,21 @@ package com.jagrosh.jmusicbot.commands.v1.dj;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
-import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
-import com.jagrosh.jmusicbot.utils.FormatUtil;
+import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
  *
  * @author John Grosh <john.a.grosh@gmail.com>
  */
-public class ForceskipCmd extends DJCommand 
+public class ForceskipCmd extends DJCommand
 {
+    private final MusicService musicService;
+
     public ForceskipCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "forceskip";
         this.help = "skips the current song";
         this.aliases = bot.getConfig().getAliases(this.name);
@@ -38,12 +39,12 @@ public class ForceskipCmd extends DJCommand
     }
 
     @Override
-    public void doCommand(CommandEvent event) 
+    public void doCommand(CommandEvent event)
     {
-        AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
-        RequestMetadata rm = handler.getRequestMetadata();
-        event.reply(event.getClient().getSuccess()+" Skipped **"+handler.getPlayer().getPlayingTrack().getInfo().title
-                +"** "+(rm.getOwner() == 0L ? "(autoplay)" : "(requested by **" + FormatUtil.formatUsername(rm.user) + "**)"));
-        handler.getPlayer().stopTrack();
+        MusicService.ForceSkipResult result = musicService.forceSkip(event.getGuild());
+        if (result != null)
+        {
+            event.replySuccess("Skipped **" + result.trackTitle + "** " + result.requesterInfo);
+        }
     }
 }

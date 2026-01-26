@@ -17,10 +17,9 @@ package com.jagrosh.jmusicbot.commands.v1.music;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v1.MusicCommand;
+import com.jagrosh.jmusicbot.service.MusicService;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 /**
  *
@@ -28,9 +27,12 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
  */
 public class NowPlayingCmd extends MusicCommand
 {
+    private final MusicService musicService;
+
     public NowPlayingCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "nowplaying";
         this.help = "shows the song that is currently playing";
         this.aliases = bot.getConfig().getAliases(this.name);
@@ -38,25 +40,24 @@ public class NowPlayingCmd extends MusicCommand
     }
 
     @Override
-    public void doCommand(CommandEvent event) 
+    public void doCommand(CommandEvent event)
     {
-        AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
+        MusicService.NowPlayingInfo info = musicService.getNowPlayingInfo(event.getGuild(), event.getJDA());
 
-        if(handler == null)
+        if (info == null)
         {
-            event.reply(event.getClient().getWarning() + " There is no music playing in this server.");
+            event.replyWarning("There is no music playing in this server.");
             return;
         }
 
-        MessageCreateData nowPlayingMsg = handler.getNowPlaying(event.getJDA());
-        if(nowPlayingMsg==null)
+        if (info.nowPlayingMessage == null || !info.isPlaying)
         {
-            event.reply(handler.getNoMusicPlaying(event.getJDA()));
+            event.reply(info.noMusicMessage);
             bot.getNowplayingHandler().clearLastNPMessage(event.getGuild());
         }
         else
         {
-            event.reply(nowPlayingMsg, msg -> bot.getNowplayingHandler().setLastNPMessage(msg));
+            event.reply(info.nowPlayingMessage, msg -> bot.getNowplayingHandler().setLastNPMessage(msg));
         }
     }
 }

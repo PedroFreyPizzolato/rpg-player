@@ -25,6 +25,8 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -34,11 +36,14 @@ import java.util.List;
  */
 public class SearchService
 {
+    private static final Logger LOG = LoggerFactory.getLogger(SearchService.class);
+
     private final Bot bot;
 
     public SearchService(Bot bot)
     {
         this.bot = bot;
+        LOG.info("SearchService initialized");
     }
 
     /**
@@ -54,11 +59,18 @@ public class SearchService
     public void search(Guild guild, Member member, String query, String searchPrefix,
                        TextChannel channel, SearchCallback callback)
     {
+        LOG.debug("Search requested: guild={}, user={}, query=\"{}\", prefix={}",
+                guild.getId(), member.getUser().getName(), query, searchPrefix);
+
         if (query == null || query.isEmpty())
         {
+            LOG.debug("Search rejected: empty query");
             callback.onError("Please include a query.");
             return;
         }
+
+        LOG.info("Executing search: guild={}, user={}, query=\"{}\"",
+                guild.getId(), member.getUser().getName(), query);
 
         bot.getPlayerManager().loadItemOrdered(guild, searchPrefix + query,
                 new SearchResultHandler(guild, member, query, channel, callback));
@@ -136,22 +148,32 @@ public class SearchService
         @Override
         public void trackLoaded(AudioTrack track)
         {
+            LOG.debug("Search result - single track: guild={}, track=\"{}\"",
+                    guild.getId(), track.getInfo().title);
+
             MusicService musicService = bot.getMusicService();
 
             // Use shared track operations from MusicService
             MusicService.TrackAddResult result = musicService.addTrackToQueue(guild, member, track, query, channel);
             if (result == null)
             {
+                LOG.warn("Search track rejected (too long): guild={}, track=\"{}\"",
+                        guild.getId(), track.getInfo().title);
                 callback.onLoadFailed(musicService.formatTooLongError(track));
                 return;
             }
 
+            LOG.info("Search result added to queue: guild={}, track=\"{}\", position={}",
+                    guild.getId(), track.getInfo().title, result.position);
             callback.onTrackLoaded(track, result.position, result.formattedMessage);
         }
 
         @Override
         public void playlistLoaded(AudioPlaylist playlist)
         {
+            LOG.debug("Search results loaded: guild={}, query=\"{}\", results={}",
+                    guild.getId(), query, playlist.getTracks().size());
+
             String[] choices = formatSearchChoices(playlist.getTracks(), 4);
             callback.onSearchResults(playlist, choices);
         }
@@ -159,6 +181,7 @@ public class SearchService
         @Override
         public void noMatches()
         {
+            LOG.debug("Search - no matches: guild={}, query=\"{}\"", guild.getId(), query);
             callback.onNoMatches(query);
         }
 
@@ -167,10 +190,14 @@ public class SearchService
         {
             if (throwable.severity == Severity.COMMON)
             {
+                LOG.warn("Search load failed (common): guild={}, query=\"{}\", error={}",
+                        guild.getId(), query, throwable.getMessage());
                 callback.onLoadFailed("Error loading: " + throwable.getMessage());
             }
             else
             {
+                LOG.error("Search load failed (severe): guild={}, query=\"{}\"",
+                        guild.getId(), query, throwable);
                 callback.onLoadFailed("Error loading track.");
             }
         }

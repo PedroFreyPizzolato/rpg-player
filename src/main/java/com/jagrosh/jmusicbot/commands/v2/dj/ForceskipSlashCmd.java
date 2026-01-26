@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 John Grosh <john.a.grosh@gmail.com>.
+ * Copyright 2026 Arif Banai (arif-banai)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,41 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.commands.v1.dj;
+package com.jagrosh.jmusicbot.commands.v2.dj;
 
-import com.jagrosh.jdautilities.command.CommandEvent;
+import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.commands.v2.DJSlashCommand;
 import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
- *
- * @author John Grosh <john.a.grosh@gmail.com>
+ * DJ slash command to force skip the current song.
  */
-public class PauseCmd extends DJCommand
+public class ForceskipSlashCmd extends DJSlashCommand
 {
     private final MusicService musicService;
 
-    public PauseCmd(Bot bot)
+    public ForceskipSlashCmd(Bot bot)
     {
         super(bot);
         this.musicService = bot.getMusicService();
-        this.name = "pause";
-        this.help = "pauses the current song";
+        this.name = "forceskip";
+        this.help = "skips the current song";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.bePlaying = true;
     }
 
     @Override
-    public void doCommand(CommandEvent event)
+    public void doDJCommand(SlashCommandEvent event)
     {
-        if (musicService.isPaused(event.getGuild()))
+        MusicService.ForceSkipResult result = musicService.forceSkip(event.getGuild());
+        if (result != null)
         {
-            event.replyWarning("The player is already paused! Use `" + event.getClient().getPrefix() + "play` to unpause!");
-            return;
+            event.reply(event.getClient().getSuccess() + " Skipped **" + result.trackTitle + "** " + result.requesterInfo).queue();
         }
-
-        String trackTitle = musicService.setPaused(event.getGuild(), true);
-        event.replySuccess("Paused **" + trackTitle + "**. Type `" + event.getClient().getPrefix() + "play` to unpause!");
+        else
+        {
+            event.reply(event.getClient().getWarning() + " Nothing is currently playing!").setEphemeral(true).queue();
+        }
     }
 }

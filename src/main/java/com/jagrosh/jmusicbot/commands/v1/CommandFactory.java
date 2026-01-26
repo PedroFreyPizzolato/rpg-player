@@ -12,11 +12,30 @@ import com.jagrosh.jmusicbot.commands.v1.dj.*;
 import com.jagrosh.jmusicbot.commands.v1.general.SettingsCmd;
 import com.jagrosh.jmusicbot.commands.v1.music.*;
 import com.jagrosh.jmusicbot.commands.v1.owner.*;
+import com.jagrosh.jmusicbot.commands.v2.admin.PrefixSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.QueuetypeSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.SetdjSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.SettcSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.SetvcSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.SkipratioSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.ForceskipSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.ForceremoveSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.MovetrackSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.dj.PauseSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.PlaynextSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.RepeatSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.dj.SkiptoSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.dj.StopSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.dj.VolumeSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.NowPlayingSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.PlaySlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.PlaylistsSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.QueueSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.RemoveSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.SearchSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.SeekSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.ShuffleSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.SkipSlashCmd;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -80,11 +99,35 @@ public class CommandFactory {
                     new SetstatusCmd(bot),
                     new ShutdownCmd(bot)
             ).addSlashCommands(
-                    new PlaySlashCmd(bot),
+                    // Music commands
                     new NowPlayingSlashCmd(bot),
+                    new PlaySlashCmd(bot),
+                    new PlaylistsSlashCmd(bot),
+                    new QueueSlashCmd(bot),
+                    new RemoveSlashCmd(bot),
+                    new SearchSlashCmd(bot),
+                    new SeekSlashCmd(bot),
+                    new ShuffleSlashCmd(bot),
+                    new SkipSlashCmd(bot),
+
+                    // DJ commands
+                    new ForceremoveSlashCmd(bot),
+                    new ForceskipSlashCmd(bot),
+                    new MovetrackSlashCmd(bot),
                     new PauseSlashCmd(bot),
+                    new PlaynextSlashCmd(bot),
+                    new RepeatSlashCmd(bot),
+                    new SkiptoSlashCmd(bot),
                     new StopSlashCmd(bot),
-                    new VolumeSlashCmd(bot)
+                    new VolumeSlashCmd(bot),
+
+                    // Admin commands
+                    new PrefixSlashCmd(bot),
+                    new QueuetypeSlashCmd(bot),
+                    new SetdjSlashCmd(bot),
+                    new SettcSlashCmd(bot),
+                    new SetvcSlashCmd(bot),
+                    new SkipratioSlashCmd(bot)
             ).setManualUpsert(true);
 
         if (config.useEval())

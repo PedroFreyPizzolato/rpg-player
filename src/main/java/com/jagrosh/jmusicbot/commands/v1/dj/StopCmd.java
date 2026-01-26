@@ -17,18 +17,21 @@ package com.jagrosh.jmusicbot.commands.v1.dj;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
  *
  * @author John Grosh <john.a.grosh@gmail.com>
  */
-public class StopCmd extends DJCommand 
+public class StopCmd extends DJCommand
 {
+    private final MusicService musicService;
+
     public StopCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "stop";
         this.help = "stops the current song and clears the queue";
         this.aliases = bot.getConfig().getAliases(this.name);
@@ -36,11 +39,9 @@ public class StopCmd extends DJCommand
     }
 
     @Override
-    public void doCommand(CommandEvent event) 
+    public void doCommand(CommandEvent event)
     {
-        AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
-        handler.stopAndClear();
-        event.getGuild().getAudioManager().closeAudioConnection();
-        event.reply(event.getClient().getSuccess()+" The player has stopped and the queue has been cleared.");
+        musicService.stopAndClear(event.getGuild());
+        event.replySuccess("The player has stopped and the queue has been cleared.");
     }
 }

@@ -1,22 +1,21 @@
 package com.jagrosh.jmusicbot.commands.v1.dj;
 
-
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
-import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
-import com.jagrosh.jmusicbot.queue.AbstractQueue;
+import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
  * Command that provides users the ability to move a track in the playlist.
  */
 public class MoveTrackCmd extends DJCommand
 {
+    private final MusicService musicService;
 
     public MoveTrackCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "movetrack";
         this.help = "move a track in the current queue to a different position";
         this.arguments = "<from> <to>";
@@ -31,7 +30,7 @@ public class MoveTrackCmd extends DJCommand
         int to;
 
         String[] parts = event.getArgs().split("\\s+", 2);
-        if(parts.length < 2)
+        if (parts.length < 2)
         {
             event.replyError("Please include two valid indexes.");
             return;
@@ -39,7 +38,6 @@ public class MoveTrackCmd extends DJCommand
 
         try
         {
-            // Validate the args
             from = Integer.parseInt(parts[0]);
             to = Integer.parseInt(parts[1]);
         }
@@ -55,31 +53,21 @@ public class MoveTrackCmd extends DJCommand
             return;
         }
 
-        // Validate that from and to are available
-        AudioHandler handler = (AudioHandler) event.getGuild().getAudioManager().getSendingHandler();
-        AbstractQueue<QueuedTrack> queue = handler.getQueue();
-        if (isUnavailablePosition(queue, from))
+        if (!musicService.isValidQueuePosition(event.getGuild(), from))
         {
-            String reply = String.format("`%d` is not a valid position in the queue!", from);
-            event.replyError(reply);
+            event.replyError("`" + from + "` is not a valid position in the queue!");
             return;
         }
-        if (isUnavailablePosition(queue, to))
+        if (!musicService.isValidQueuePosition(event.getGuild(), to))
         {
-            String reply = String.format("`%d` is not a valid position in the queue!", to);
-            event.replyError(reply);
+            event.replyError("`" + to + "` is not a valid position in the queue!");
             return;
         }
 
-        // Move the track
-        QueuedTrack track = queue.moveItem(from - 1, to - 1);
-        String trackTitle = track.getTrack().getInfo().title;
-        String reply = String.format("Moved **%s** from position `%d` to `%d`.", trackTitle, from, to);
-        event.replySuccess(reply);
-    }
-
-    private static boolean isUnavailablePosition(AbstractQueue<QueuedTrack> queue, int position)
-    {
-        return (position < 1 || position > queue.size());
+        String trackTitle = musicService.moveTrackPosition(event.getGuild(), from, to);
+        if (trackTitle != null)
+        {
+            event.replySuccess("Moved **" + trackTitle + "** from position `" + from + "` to `" + to + "`.");
+        }
     }
 }

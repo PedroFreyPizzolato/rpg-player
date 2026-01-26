@@ -16,12 +16,16 @@
 
 A cross-platform Discord music bot with a clean interface, and that is easy to set up and run yourself!
 
-## ⚠️ Important Notice (Java 25)
+## ⚠️ Check your Java Version and other requirements
+
+This version of JMusicBot changes/updates various dependencies. To ensure your bot continues to function correctly, please note the following mandatory changes:
 
 *   **Java 25 Minimum:** The bot now requires **Java 25 or higher**. Please update your hosting environment (check `java -version`) before running the new JAR.
+*   **LibDave/udpqueue:** You **must** install the required native libraries for your operating system. If you are using Docker, this is already handled for you.
 *   **Privileged Gateway Intents:** You **must** enable the **Message Content Intent** in your [Discord Developer Portal](https://discord.com/developers/applications).
     *   *Navigate to: Your Application > Bot > Privileged Gateway Intents > Toggle "Message Content Intent" to ON.*
     *   *Without this, the bot will not see your commands.*
+
 
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://jmusicbot.com/setup)
 
@@ -62,6 +66,43 @@ JMusicBot supports all sources and formats supported by [lavaplayer](https://git
 
 ## Setup
 Please see the [Setup Page](https://jmusicbot.com/setup) to run this bot yourself!
+
+## Running Directly (Without Docker)
+
+When running JMusicBot directly (not in Docker), you need to use specific JVM flags for Java 22+.
+
+### Required JVM Flags
+
+Java 22 and later require the `--enable-native-access=ALL-UNNAMED` flag to load native libraries (JDave for Discord voice encryption, udpqueue for audio sending):
+
+```bash
+java -Dnogui=true --enable-native-access=ALL-UNNAMED -jar JMusicBot-0.6.2-All.jar
+```
+
+### Linux System Requirements
+
+On Debian/Ubuntu-based systems, you may need to install the following dependencies for native audio libraries:
+
+```bash
+# Install required native library dependencies
+sudo apt-get update
+sudo apt-get install -y libopus0 libsodium23
+```
+
+### Using the Run Script
+
+The included `scripts/run_jmusicbot.sh` script handles the JVM flags automatically:
+
+```bash
+chmod +x scripts/run_jmusicbot.sh
+./scripts/run_jmusicbot.sh
+```
+
+You can customize JVM options by setting the `JAVA_OPTS` environment variable:
+
+```bash
+JAVA_OPTS="--enable-native-access=ALL-UNNAMED -Xmx512m" ./scripts/run_jmusicbot.sh
+```
 
 ## Docker
 
@@ -122,6 +163,10 @@ services:
 ```
 
 Check the [Docker Compose Example](docker-compose.example.yml) for more details.
+
+The Dockerfile uses a multi-stage build:
+- **Stage 1:** Builds the application with Maven (Java 25) - copies `pom.xml` first for better layer caching, then builds the shaded jar
+- **Stage 2:** Creates a minimal runtime image with `eclipse-temurin:25-jre-noble` - copies the built jar as `/app/app.jar` and sets up the entrypoint script
 
 ### Important Notes
 

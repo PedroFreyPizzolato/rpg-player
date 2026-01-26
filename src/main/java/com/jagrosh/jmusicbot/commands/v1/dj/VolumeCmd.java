@@ -17,9 +17,8 @@ package com.jagrosh.jmusicbot.commands.v1.dj;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
-import com.jagrosh.jmusicbot.settings.Settings;
+import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
 
 /**
@@ -28,9 +27,12 @@ import com.jagrosh.jmusicbot.utils.FormatUtil;
  */
 public class VolumeCmd extends DJCommand
 {
+    private final MusicService musicService;
+
     public VolumeCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "volume";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.help = "sets or shows volume";
@@ -40,30 +42,33 @@ public class VolumeCmd extends DJCommand
     @Override
     public void doCommand(CommandEvent event)
     {
-        AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
-        Settings settings = event.getClient().getSettingsFor(event.getGuild());
-        int volume = handler.getPlayer().getVolume();
-        if(event.getArgs().isEmpty())
+        int currentVolume = musicService.getVolume(event.getGuild());
+
+        if (event.getArgs().isEmpty())
         {
-            event.reply(FormatUtil.volumeIcon(volume)+" Current volume is `"+volume+"`");
+            event.reply(FormatUtil.volumeIcon(currentVolume) + " Current volume is `" + currentVolume + "`");
         }
         else
         {
-            int nvolume;
-            try{
-                nvolume = Integer.parseInt(event.getArgs());
-            }catch(NumberFormatException e){
-                nvolume = -1;
+            int newVolume;
+            try
+            {
+                newVolume = Integer.parseInt(event.getArgs());
             }
-            if(nvolume<0 || nvolume>150)
-                event.reply(event.getClient().getError()+" Volume must be a valid integer between 0 and 150!");
+            catch (NumberFormatException e)
+            {
+                newVolume = -1;
+            }
+
+            MusicService.VolumeResult result = musicService.setVolume(event.getGuild(), newVolume);
+            if (result == null)
+            {
+                event.replyError("Volume must be a valid integer between 0 and 150!");
+            }
             else
             {
-                handler.getPlayer().setVolume(nvolume);
-                settings.setVolume(nvolume);
-                event.reply(FormatUtil.volumeIcon(nvolume)+" Volume changed from `"+volume+"` to `"+nvolume+"`");
+                event.reply(FormatUtil.volumeIcon(result.newVolume) + " Volume changed from `" + result.oldVolume + "` to `" + result.newVolume + "`");
             }
         }
     }
-    
 }

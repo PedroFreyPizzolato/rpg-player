@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 John Grosh <john.a.grosh@gmail.com>.
+ * Copyright 2026 Arif Banai (arif-banai)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,38 +13,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jagrosh.jmusicbot.commands.v1.music;
+package com.jagrosh.jmusicbot.commands.v2.music;
 
-import com.jagrosh.jdautilities.command.CommandEvent;
+import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.commands.v1.MusicCommand;
-import com.jagrosh.jmusicbot.commands.v1.TextOutputAdapters.SimpleOutputAdapter;
+import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
+import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.SlashEventOutputAdapter;
 import com.jagrosh.jmusicbot.service.MusicService;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+
+import java.util.Collections;
 
 /**
- *
- * @author John Grosh <john.a.grosh@gmail.com>
+ * Slash command to remove a track from the queue.
  */
-public class RemoveCmd extends MusicCommand
+public class RemoveSlashCmd extends MusicSlashCommand
 {
     private final MusicService musicService;
 
-    public RemoveCmd(Bot bot)
+    public RemoveSlashCmd(Bot bot)
     {
         super(bot);
         this.musicService = bot.getMusicService();
         this.name = "remove";
         this.help = "removes a song from the queue";
-        this.arguments = "<position|ALL>";
+        this.options = Collections.singletonList(
+                new OptionData(OptionType.STRING, "position", "queue position to remove, or 'all' to remove all your songs", true)
+        );
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
         this.bePlaying = true;
     }
 
     @Override
-    public void doCommand(CommandEvent event)
+    public void doCommand(SlashCommandEvent event)
     {
-        SimpleOutputAdapter output = new SimpleOutputAdapter(event);
+        String positionArg = event.getOption("position").getAsString();
+        SlashEventOutputAdapter output = new SlashEventOutputAdapter(event);
 
         if (musicService.isQueueEmpty(event.getGuild()))
         {
@@ -52,7 +58,7 @@ public class RemoveCmd extends MusicCommand
             return;
         }
 
-        if (event.getArgs().equalsIgnoreCase("all"))
+        if (positionArg.equalsIgnoreCase("all"))
         {
             musicService.removeAllTracks(event.getGuild(), event.getMember(), output);
             return;
@@ -61,11 +67,12 @@ public class RemoveCmd extends MusicCommand
         int pos;
         try
         {
-            pos = Integer.parseInt(event.getArgs());
+            pos = Integer.parseInt(positionArg);
         }
         catch (NumberFormatException e)
         {
-            pos = 0;
+            output.replyError("Please provide a valid position number or 'all'.");
+            return;
         }
 
         musicService.removeTrack(event.getGuild(), event.getMember(), pos, output);

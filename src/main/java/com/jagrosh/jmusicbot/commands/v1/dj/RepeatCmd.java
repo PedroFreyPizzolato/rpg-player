@@ -18,8 +18,8 @@ package com.jagrosh.jmusicbot.commands.v1.dj;
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
-import com.jagrosh.jmusicbot.settings.Settings;
 
 /**
  *
@@ -27,39 +27,40 @@ import com.jagrosh.jmusicbot.settings.Settings;
  */
 public class RepeatCmd extends DJCommand
 {
+    private final MusicService musicService;
+
     public RepeatCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "repeat";
         this.help = "re-adds music to the queue when finished";
         this.arguments = "[off|all|single]";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.guildOnly = true;
     }
-    
+
     // override musiccommand's execute because we don't actually care where this is used
     @Override
-    protected void execute(CommandEvent event) 
+    protected void execute(CommandEvent event)
     {
         String args = event.getArgs();
         RepeatMode value;
-        Settings settings = event.getClient().getSettingsFor(event.getGuild());
-        if(args.isEmpty())
+        RepeatMode currentMode = musicService.getRepeatMode(event.getGuild());
+
+        if (args.isEmpty())
         {
-            if(settings.getRepeatMode() == RepeatMode.OFF)
-                value = RepeatMode.ALL;
-            else
-                value = RepeatMode.OFF;
+            value = (currentMode == RepeatMode.OFF) ? RepeatMode.ALL : RepeatMode.OFF;
         }
-        else if(args.equalsIgnoreCase("false") || args.equalsIgnoreCase("off"))
+        else if (args.equalsIgnoreCase("false") || args.equalsIgnoreCase("off"))
         {
             value = RepeatMode.OFF;
         }
-        else if(args.equalsIgnoreCase("true") || args.equalsIgnoreCase("on") || args.equalsIgnoreCase("all"))
+        else if (args.equalsIgnoreCase("true") || args.equalsIgnoreCase("on") || args.equalsIgnoreCase("all"))
         {
             value = RepeatMode.ALL;
         }
-        else if(args.equalsIgnoreCase("one") || args.equalsIgnoreCase("single"))
+        else if (args.equalsIgnoreCase("one") || args.equalsIgnoreCase("single"))
         {
             value = RepeatMode.SINGLE;
         }
@@ -68,8 +69,9 @@ public class RepeatCmd extends DJCommand
             event.replyError("Valid options are `off`, `all` or `single` (or leave empty to toggle between `off` and `all`)");
             return;
         }
-        settings.setRepeatMode(value);
-        event.replySuccess("Repeat mode is now `"+value.getUserFriendlyName()+"`");
+
+        musicService.setRepeatMode(event.getGuild(), value);
+        event.replySuccess("Repeat mode is now `" + value.getUserFriendlyName() + "`");
     }
 
     @Override

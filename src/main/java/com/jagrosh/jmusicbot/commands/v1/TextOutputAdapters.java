@@ -30,6 +30,38 @@ public final class TextOutputAdapters
     private TextOutputAdapters() {} // Utility class
 
     /**
+     * Simple OutputAdapter for direct CommandEvent replies.
+     * Used for commands that need basic reply functionality.
+     */
+    public static class SimpleOutputAdapter extends BaseOutputAdapter
+    {
+        private final CommandEvent event;
+
+        public SimpleOutputAdapter(CommandEvent event)
+        {
+            this.event = event;
+        }
+
+        @Override
+        public void replySuccess(String content)
+        {
+            event.replySuccess(content);
+        }
+
+        @Override
+        public void replyError(String content)
+        {
+            event.replyError(content);
+        }
+
+        @Override
+        public void replyWarning(String content)
+        {
+            event.replyWarning(content);
+        }
+    }
+
+    /**
      * OutputAdapter for direct CommandEvent replies (before any loading message is sent).
      * Used when no args are provided and we need to show help or handle empty input.
      */

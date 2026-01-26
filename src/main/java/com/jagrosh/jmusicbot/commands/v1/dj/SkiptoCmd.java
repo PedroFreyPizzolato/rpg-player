@@ -17,18 +17,21 @@ package com.jagrosh.jmusicbot.commands.v1.dj;
 
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.service.MusicService;
 
 /**
  *
  * @author John Grosh <john.a.grosh@gmail.com>
  */
-public class SkiptoCmd extends DJCommand 
+public class SkiptoCmd extends DJCommand
 {
+    private final MusicService musicService;
+
     public SkiptoCmd(Bot bot)
     {
         super(bot);
+        this.musicService = bot.getMusicService();
         this.name = "skipto";
         this.help = "skips to the specified song";
         this.arguments = "<position>";
@@ -37,26 +40,30 @@ public class SkiptoCmd extends DJCommand
     }
 
     @Override
-    public void doCommand(CommandEvent event) 
+    public void doCommand(CommandEvent event)
     {
-        int index = 0;
+        int index;
         try
         {
             index = Integer.parseInt(event.getArgs());
         }
-        catch(NumberFormatException e)
+        catch (NumberFormatException e)
         {
-            event.reply(event.getClient().getError()+" `"+event.getArgs()+"` is not a valid integer!");
+            event.replyError("`" + event.getArgs() + "` is not a valid integer!");
             return;
         }
-        AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
-        if(index<1 || index>handler.getQueue().size())
+
+        int queueSize = musicService.getQueueSize(event.getGuild());
+        if (index < 1 || index > queueSize)
         {
-            event.reply(event.getClient().getError()+" Position must be a valid integer between 1 and "+handler.getQueue().size()+"!");
+            event.replyError("Position must be a valid integer between 1 and " + queueSize + "!");
             return;
         }
-        handler.getQueue().skip(index-1);
-        event.reply(event.getClient().getSuccess()+" Skipped to **"+handler.getQueue().get(0).getTrack().getInfo().title+"**");
-        handler.getPlayer().stopTrack();
+
+        String trackTitle = musicService.skipToPosition(event.getGuild(), index);
+        if (trackTitle != null)
+        {
+            event.replySuccess("Skipped to **" + trackTitle + "**");
+        }
     }
 }
