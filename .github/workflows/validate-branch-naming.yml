@@ -1,5 +1,7 @@
 name: Validate Branch Naming
 
+# Validates branch naming conventions for feature/fix/chore/deps/release branches
+# No checkout needed - we only need the branch name from GitHub context
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -12,11 +14,9 @@ jobs:
     name: Validate Branch Naming Convention
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Validate branch name
         run: |
+          # Extract branch name from GitHub context
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             BRANCH_NAME="${{ github.head_ref }}"
           else

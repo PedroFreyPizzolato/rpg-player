@@ -1,9 +1,13 @@
 name: Make Release
+
+# Manual workflow to create a GitHub release
+# This sets the version, builds the JAR, and creates a release with tag
+# The tag will trigger docker-publish.yml to build and push the Docker image
 on:
   workflow_dispatch:
     inputs:
       version_number:
-        description: 'Version Number'     
+        description: 'Version Number (e.g., 0.6.3)'
         required: true
         type: string
       info:
@@ -13,13 +17,15 @@ on:
 
 jobs:
   build_jar:
-    name: Build Jar
+    name: Build JAR
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Java Environment
         uses: ./.github/actions/setup-java
+
       - name: Set Version
         run: |
           mvn -B versions:set -DnewVersion=${{ github.event.inputs.version_number }}
@@ -29,26 +35,30 @@ jobs:
         run: |
           COMMIT_TIME=$(git log -1 --format=%cI)
           mvn --batch-mode --update-snapshots verify -Dproject.build.outputTimestamp=$COMMIT_TIME
-      - name: Rename jar
+
+      - name: Rename JAR
         run: mv target/*-All.jar JMusicBot-${{ github.event.inputs.version_number }}.jar
-      - name: Upload jar
+
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: jar
           path: JMusicBot-${{ github.event.inputs.version_number }}.jar
           if-no-files-found: error
+
   create_release:
-    name: Create Release
+    name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: build_jar
+    permissions:
+      contents: write  # Required to create releases and tags
     steps:
-      - name: Download a Build Artifact
+      - name: Download JAR artifact
         uses: actions/download-artifact@v4
         with:
           name: jar
           path: .
-      - name: Show Artifacts
-        run: ls -R
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:

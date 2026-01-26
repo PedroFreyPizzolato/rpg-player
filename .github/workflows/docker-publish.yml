@@ -1,0 +1,104 @@
+name: Publish Docker Image
+
+# Docker publishing workflow - gated by successful build-and-test completion
+# This ensures images are only published after tests pass on master
+on:
+  # Triggered after successful build-and-test on master
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
+    branches:
+      - master
+  # Also trigger on version tags (v*) for releases
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: arif-banai/musicbot
+
+jobs:
+  publish:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    # Only run if the triggering workflow succeeded (for workflow_run events)
+    # For tag pushes, always run
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    
+    permissions:
+      contents: read
+      packages: write  # Required for pushing to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        # For workflow_run events, checkout the commit that triggered the original workflow
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Extract Maven version
+        id: version
+        run: |
+          VERSION=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Extracted version: $VERSION"
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Determine Docker tags
+        id: tags
+        run: |
+          TAGS=""
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            # Version tag: use the tag version (strip 'v' prefix if present)
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG_VERSION"
+            echo "Tags: $TAGS (from git tag)"
+          else
+            # Master branch (workflow_run): use latest + commit SHA
+            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.sha }}"
+            # Also tag with Maven version if not SNAPSHOT
+            if [[ ! "${{ steps.version.outputs.version }}" =~ -SNAPSHOT$ ]]; then
+              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+            fi
+            echo "Tags: $TAGS (master branch)"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get commit timestamp
+        id: timestamp
+        run: echo "value=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_TIMESTAMP=${{ steps.timestamp.outputs.value }}
+
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

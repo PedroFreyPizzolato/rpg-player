@@ -1,0 +1,121 @@
+name: Publish Preview Image
+
+# Optional workflow for manually publishing preview Docker images from any branch/tag/SHA
+# This is separate from the main CI/CD pipeline and allows explicit preview builds
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build (branch name, tag, or SHA)'
+        required: true
+        type: string
+      tag:
+        description: 'Optional tag suffix override (if empty, derived from ref)'
+        required: false
+        type: string
+      run_tests:
+        description: 'Run Maven tests before building Docker image'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: arif-banai/musicbot
+
+jobs:
+  publish-preview:
+    name: Publish Preview Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # Required for pushing to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Get commit timestamp
+        id: timestamp
+        run: echo "value=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java Environment
+        # Run if run_tests is true (default) or explicitly set to true
+        if: ${{ github.event.inputs.run_tests != 'false' }}
+        uses: ./.github/actions/setup-java
+
+      - name: Run Maven tests
+        # Run if run_tests is true (default) or explicitly set to true
+        if: ${{ github.event.inputs.run_tests != 'false' }}
+        run: |
+          COMMIT_TIME=$(git log -1 --format=%cI)
+          mvn --batch-mode --update-snapshots verify -Dproject.build.outputTimestamp=$COMMIT_TIME
+
+      - name: Sanitize tag suffix
+        id: sanitize
+        run: |
+          # Determine the tag suffix: use input.tag if provided, otherwise derive from ref
+          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            TAG_SUFFIX="${{ github.event.inputs.tag }}"
+          else
+            # Derive from ref: strip refs/heads/, refs/tags/, refs/ prefixes
+            REF="${{ github.event.inputs.ref }}"
+            REF="${REF#refs/heads/}"
+            REF="${REF#refs/tags/}"
+            REF="${REF#refs/}"
+            TAG_SUFFIX="$REF"
+          fi
+          
+          # Sanitize: lowercase, replace '/' with '-', strip invalid chars to [a-z0-9._-]
+          SANITIZED=$(echo "$TAG_SUFFIX" | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr -cd '[:alnum:]._-')
+          
+          echo "suffix=$SANITIZED" >> "$GITHUB_OUTPUT"
+          echo "Sanitized tag suffix: $SANITIZED"
+
+      - name: Determine Docker tags
+        id: tags
+        run: |
+          # Always include immutable SHA tag
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.sha.outputs.sha }}"
+          
+          # Add preview tag with sanitized suffix
+          TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ steps.sanitize.outputs.suffix }}"
+          
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "Final Docker tags: $TAGS"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_TIMESTAMP=${{ steps.timestamp.outputs.value }}
+
+      - name: Print final tags
+        run: |
+          echo "✅ Successfully published preview Docker image"
+          echo "Tags: ${{ steps.tags.outputs.tags }}"
+          echo "Image digest: ${{ steps.build.outputs.digest }}"
