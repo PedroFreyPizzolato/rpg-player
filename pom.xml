@@ -80,15 +80,6 @@
             <url>https://maven.lavalink.dev/releases</url>
         </repository>
         <repository>
-            <id>arbjergDevSnapshots</id>
-            <name>Lavalink Repository Snapshots</name>
-            <url>https://maven.lavalink.dev/snapshots</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-        <repository>
             <id>chew</id>
             <name>m2-chew</name>
             <url>https://m2.chew.pro/releases</url>
@@ -286,14 +277,10 @@
             <artifactId>lavaplayer</artifactId>
             <version>${lavaplayer.version}</version>
         </dependency>
-        <!-- Using youtube-source with PR #195 fix (merged Jan 26, 2026) -->
-        <!-- Using snapshot version since fix is merged but not yet released -->
-        <!-- PR: https://github.com/lavalink-devs/youtube-source/pull/195 -->
-        <!-- Merge commit: 453cbc1afed2ec15561a79ad7c30535642fe37c0 -->
         <dependency>
             <groupId>dev.lavalink.youtube</groupId>
             <artifactId>common</artifactId>
-            <version>453cbc1afed2ec15561a79ad7c30535642fe37c0-SNAPSHOT</version>
+            <version>1.17.0</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
