@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.arifbanai</groupId>
     <artifactId>JMusicBot</artifactId>
-    <version>0.6.1</version>
+    <version>0.6.2-yt-source-fix</version>
     <packaging>jar</packaging>
 
     <name>JMusicBot</name>
@@ -277,11 +277,13 @@
             <artifactId>lavaplayer</artifactId>
             <version>${lavaplayer.version}</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/dev.lavalink.youtube/common -->
+        <!-- Using youtube-source from PR #195 fork to fix OAuth EMBEDDER_IDENTITY_DENIED errors -->
+        <!-- Original: dev.lavalink.youtube:common:${youtube-source.version} -->
+        <!-- PR: https://github.com/lavalink-devs/youtube-source/pull/195 -->
         <dependency>
-            <groupId>dev.lavalink.youtube</groupId>
+            <groupId>com.github.SylveonDeko.youtube-source</groupId>
             <artifactId>common</artifactId>
-            <version>${youtube-source.version}</version>
+            <version>a438e4f686</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
