@@ -18,7 +18,7 @@ A cross-platform Discord music bot with a clean interface, and that is easy to s
 
 ## ⚠️ Important Notice (Java 25)
 
-This version of JMusicBot major dependency changes.To ensure your bot continues to function correctly, please note the following mandatory changes:
+This version of JMusicBot includes a major infrastructure update to **JDA 6.2.0** and **Lavaplayer 2.2.6**. To ensure your bot continues to function correctly, please note the following mandatory changes:
 
 *   **Java 25 Minimum:** The bot now requires **Java 25 or higher**. Please update your hosting environment (check `java -version`) before running the new JAR.
 *   **Privileged Gateway Intents:** You **must** enable the **Message Content Intent** in your [Discord Developer Portal](https://discord.com/developers/applications).
