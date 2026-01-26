@@ -26,6 +26,7 @@ import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.audio.AudioSendHandler;
@@ -173,6 +174,14 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) 
     {
+        // Log track end with details for debugging
+        if (endReason != AudioTrackEndReason.FINISHED) {
+            LOGGER.debug("Track {} ended with reason: {} (Track: {})", 
+                    track != null ? track.getIdentifier() : "null",
+                    endReason.name(),
+                    track != null && track.getInfo() != null ? track.getInfo().title : "N/A");
+        }
+        
         RepeatMode repeatMode = manager.getBot().getSettingsManager().getSettings(guildId).getRepeatMode();
         // if the track ended normally, and we're in repeat mode, re-add it to the queue
         if(endReason==AudioTrackEndReason.FINISHED && repeatMode != RepeatMode.OFF)
@@ -205,6 +214,47 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
 
     @Override
     public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
+        // Build detailed error message with track information
+        StringBuilder errorDetails = new StringBuilder();
+        errorDetails.append("Track exception occurred:\n");
+        errorDetails.append("  Track ID: ").append(track.getIdentifier()).append("\n");
+        
+        AudioTrackInfo info = track.getInfo();
+        if (info != null) {
+            errorDetails.append("  Title: ").append(info.title != null ? info.title : "N/A").append("\n");
+            errorDetails.append("  URI: ").append(info.uri != null ? info.uri : "N/A").append("\n");
+            errorDetails.append("  Author: ").append(info.author != null ? info.author : "N/A").append("\n");
+            errorDetails.append("  Duration: ").append(info.length > 0 ? info.length + "ms" : "Unknown").append("\n");
+            errorDetails.append("  Source: ").append(track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown").append("\n");
+        }
+        
+        errorDetails.append("  Exception Severity: ").append(exception.severity != null ? exception.severity.name() : "UNKNOWN").append("\n");
+        errorDetails.append("  Exception Message: ").append(exception.getMessage() != null ? exception.getMessage() : "N/A").append("\n");
+        
+        // Log request metadata if available
+        RequestMetadata rm = track.getUserData(RequestMetadata.class);
+        if (rm != null && rm.user != null) {
+            errorDetails.append("  Requested by: ").append(rm.user.username).append(" (ID: ").append(rm.user.id).append(")\n");
+        }
+        if (rm != null && rm.requestInfo != null) {
+            errorDetails.append("  Original query: ").append(rm.requestInfo.query != null ? rm.requestInfo.query : "N/A").append("\n");
+        }
+        
+        // Log root cause if available
+        Throwable cause = exception.getCause();
+        if (cause != null) {
+            errorDetails.append("  Root Cause: ").append(cause.getClass().getSimpleName()).append(" - ").append(cause.getMessage()).append("\n");
+            // Log specific error details for common issues
+            if (cause instanceof IllegalStateException) {
+                errorDetails.append("  IllegalStateException details: ").append(cause.getMessage()).append("\n");
+            } else if (cause instanceof com.fasterxml.jackson.core.JsonParseException) {
+                com.fasterxml.jackson.core.JsonParseException jsonEx = (com.fasterxml.jackson.core.JsonParseException) cause;
+                errorDetails.append("  JSON Parse Error at line ").append(jsonEx.getLocation().getLineNr())
+                           .append(", column ").append(jsonEx.getLocation().getColumnNr()).append("\n");
+            }
+        }
+        
+        // Special handling for YouTube OAuth errors
         if (exception.getMessage().equals("Sign in to confirm you're not a bot")
             || exception.getMessage().equals("Please sign in")
             || exception.getMessage().equals("This video requires login."))
@@ -212,19 +262,31 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             LOGGER.error(
                     "Track {} has failed to play: {}. "
                             + "You will need to sign in to Google to play YouTube tracks. "
-                            + "More info: https://jmusicbot.com/youtube-oauth2",
+                            + "More info: https://jmusicbot.com/youtube-oauth2\n{}",
                     track.getIdentifier(),
-                    exception.getMessage()
+                    exception.getMessage(),
+                    errorDetails.toString()
             );
         }
-        else
-            LOGGER.error("Track {} has failed to play", track.getIdentifier(), exception);
+        else {
+            LOGGER.error("Track {} has failed to play\n{}", track.getIdentifier(), errorDetails.toString(), exception);
+        }
     }
 
     @Override
     public void onTrackStart(AudioPlayer player, AudioTrack track) 
     {
         votes.clear();
+        
+        // Log track start with details for debugging
+        if (track != null && track.getInfo() != null) {
+            LOGGER.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
+                    track.getInfo().title,
+                    track.getIdentifier(),
+                    track.getInfo().uri,
+                    track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown");
+        }
+        
         manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, track);
     }
 
