@@ -9,6 +9,15 @@ on:
   push:
     branches:
       - master  # Direct pushes to master
+    paths-ignore:
+      - '.github/**'  # Ignore GitHub config changes (workflows, actions, templates, etc.)
+      - 'README.md'
+      - 'LICENSE'
+      - 'CNAME'
+      - 'docs/**'
+      - '*.example.yml'
+      - '*.example.yaml'
+      - '.circleci/**'  # If not using CircleCI, ignore its config
 
 # Cancel in-progress runs for the same workflow and branch
 concurrency:
