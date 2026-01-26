@@ -175,10 +175,24 @@ public class OtherUtil
     
     public static String getLatestVersion()
     {
+        return getLatestVersion("https://api.github.com/repos/arif-banai/MusicBot");
+    }
+    
+    /**
+     * Gets the latest non-prerelease version from GitHub releases API.
+     * This method is public to allow testing with mock servers.
+     * 
+     * @param baseUrl the base URL for the GitHub API (e.g., "https://api.github.com/repos/arif-banai/MusicBot")
+     * @return the latest non-prerelease version tag (without 'v' prefix), or null if not found
+     */
+    public static String getLatestVersion(String baseUrl)
+    {
         try
         {
-            Response response = new OkHttpClient.Builder().build()
-                    .newCall(new Request.Builder().get().url("https://api.github.com/repos/arif-banai/MusicBot/releases/latest").build())
+            OkHttpClient client = new OkHttpClient.Builder().build();
+            // First, try to get the latest release
+            Response response = client.newCall(new Request.Builder().get()
+                    .url(baseUrl + "/releases/latest").build())
                     .execute();
             ResponseBody body = response.body();
             if(body != null)
@@ -189,15 +203,58 @@ public class OtherUtil
                     JsonNode obj = objectMapper.readTree(reader);
                     if(obj != null && obj.has("tag_name"))
                     {
-                        String tag = obj.get("tag_name").asText();
-                        if(tag.startsWith("v"))
-                            tag = tag.substring(1);
-                        return tag;
+                        // Check if this is a pre-release
+                        boolean isPrerelease = obj.has("prerelease") && obj.get("prerelease").asBoolean();
+                        
+                        if(!isPrerelease)
+                        {
+                            // Not a pre-release, use it
+                            String tag = obj.get("tag_name").asText();
+                            if(tag.startsWith("v"))
+                                tag = tag.substring(1);
+                            return tag;
+                        }
                     }
                 }
                 finally
                 {
                     response.close();
+                }
+            }
+            
+            // If the latest release was a pre-release, fetch recent releases and find the latest non-prerelease
+            // Limit to first 10 releases (sorted by date, newest first) - should be more than enough
+            Response allReleasesResponse = client.newCall(new Request.Builder().get()
+                    .url(baseUrl + "/releases?per_page=10").build())
+                    .execute();
+            ResponseBody allReleasesBody = allReleasesResponse.body();
+            if(allReleasesBody != null)
+            {
+                try(Reader reader = allReleasesBody.charStream())
+                {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode releases = objectMapper.readTree(reader);
+                    if(releases != null && releases.isArray())
+                    {
+                        // Find the first non-prerelease release
+                        for(JsonNode release : releases)
+                        {
+                            if(release.has("prerelease") && release.get("prerelease").asBoolean())
+                                continue; // Skip pre-releases
+                            
+                            if(release.has("tag_name"))
+                            {
+                                String tag = release.get("tag_name").asText();
+                                if(tag.startsWith("v"))
+                                    tag = tag.substring(1);
+                                return tag;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    allReleasesResponse.close();
                 }
             }
             return null;
