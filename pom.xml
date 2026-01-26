@@ -80,6 +80,15 @@
             <url>https://maven.lavalink.dev/releases</url>
         </repository>
         <repository>
+            <id>arbjergDevSnapshots</id>
+            <name>Lavalink Repository Snapshots</name>
+            <url>https://maven.lavalink.dev/snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+        <repository>
             <id>chew</id>
             <name>m2-chew</name>
             <url>https://m2.chew.pro/releases</url>
@@ -277,13 +286,14 @@
             <artifactId>lavaplayer</artifactId>
             <version>${lavaplayer.version}</version>
         </dependency>
-        <!-- Using youtube-source from PR #195 fork to fix OAuth EMBEDDER_IDENTITY_DENIED errors -->
-        <!-- Original: dev.lavalink.youtube:common:${youtube-source.version} -->
+        <!-- Using youtube-source with PR #195 fix (merged Jan 26, 2026) -->
+        <!-- Using snapshot version since fix is merged but not yet released -->
         <!-- PR: https://github.com/lavalink-devs/youtube-source/pull/195 -->
+        <!-- Merge commit: 453cbc1afed2ec15561a79ad7c30535642fe37c0 -->
         <dependency>
-            <groupId>com.github.SylveonDeko.youtube-source</groupId>
+            <groupId>dev.lavalink.youtube</groupId>
             <artifactId>common</artifactId>
-            <version>a438e4f686</version>
+            <version>453cbc1afed2ec15561a79ad7c30535642fe37c0-SNAPSHOT</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
