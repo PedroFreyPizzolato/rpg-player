@@ -5,19 +5,25 @@ target/
 .git/
 .gitignore
 .github/
+.circleci/
 
 # IDE files
 .idea/
 *.iml
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~
+.classpath
+.project
+.settings/
 
 # Test files (not needed for build)
 src/test/
 
 # Documentation (not needed in image)
+docs/
 README.md
 LICENSE
 *.md
@@ -48,6 +54,17 @@ dependency-reduced-pom.xml
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.cache
+
+# Environment files
+.env
+.env.*
 
 # Misc
 CNAME

@@ -4,15 +4,8 @@ set -eu
 JAR="/app/app.jar"
 
 if [ ! -f "$JAR" ]; then
-  # Last resort: find any jar if app.jar is missing
-  FOUND_JAR=$(find /app -maxdepth 1 -name "*.jar" -type f | head -n 1 || true)
-  if [ -n "$FOUND_JAR" ]; then
-    JAR="$FOUND_JAR"
-    echo "[WARN] /app/app.jar not found; using $JAR"
-  else
-    echo "[ERROR] No jar file found in /app (expected /app/app.jar)."
-    exit 1
-  fi
+  echo "[ERROR] JAR file not found at /app/app.jar"
+  exit 1
 fi
 
 echo "[INFO] ========================================"

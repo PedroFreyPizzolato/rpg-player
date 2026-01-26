@@ -113,6 +113,16 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             BUILD_TIMESTAMP=${{ steps.timestamp.outputs.value }}
+          # OCI annotations for multi-arch manifest (required for GHCR to display metadata)
+          annotations: |
+            org.opencontainers.image.title=JMusicBot
+            org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
+            org.opencontainers.image.url=https://jmusicbot.com
+            org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
+            org.opencontainers.image.vendor=JMusicBot
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.timestamp.outputs.value }}
 
       - name: Print final tags
         run: |

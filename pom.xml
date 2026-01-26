@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.arifbanai</groupId>
     <artifactId>JMusicBot</artifactId>
-    <version>0.6.1-support-dave-protocol</version>
+    <version>0.6.1</version>
     <packaging>jar</packaging>
 
     <name>JMusicBot</name>
@@ -718,6 +718,90 @@
                                         <include>**/e2e/**/*Tests.java</include>
                                         <include>**/e2e/**/*IT.java</include>
                                     </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Docker build profile - excludes unnecessary platform-specific dependencies -->
+        <!-- Docker only needs linux-x86-64 and linux-aarch64 for amd64/arm64 platforms -->
+        <profile>
+            <id>docker</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>default</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>shade</goal>
+                                </goals>
+                                <configuration>
+                                    <shadedArtifactAttached>true</shadedArtifactAttached>
+                                    <shadedClassifierName>All</shadedClassifierName>
+                                    <artifactSet>
+                                        <includes>
+                                            <include>*:*</include>
+                                        </includes>
+                                        <!-- Exclude platform-specific dependencies not needed for Docker -->
+                                        <excludes>
+                                            <!-- jdave: exclude Windows and macOS -->
+                                            <exclude>club.minnced:jdave-native-win-x86-64</exclude>
+                                            <exclude>club.minnced:jdave-native-darwin</exclude>
+                                            <!-- udpqueue: exclude Windows, macOS, and unnecessary Linux variants -->
+                                            <exclude>club.minnced:udpqueue-native-win-x86-64</exclude>
+                                            <exclude>club.minnced:udpqueue-native-win-x86</exclude>
+                                            <exclude>club.minnced:udpqueue-native-win-aarch64</exclude>
+                                            <exclude>club.minnced:udpqueue-native-darwin</exclude>
+                                            <exclude>club.minnced:udpqueue-native-linux-x86</exclude>
+                                            <exclude>club.minnced:udpqueue-native-linux-arm</exclude>
+                                            <exclude>club.minnced:udpqueue-native-linux-musl-x86-64</exclude>
+                                            <exclude>club.minnced:udpqueue-native-linux-musl-aarch64</exclude>
+                                        </excludes>
+                                    </artifactSet>
+                                    <filters>
+                                        <!-- Keep native libraries intact -->
+                                        <filter>
+                                            <artifact>club.minnced:*</artifact>
+                                            <includes>
+                                                <include>**</include>
+                                            </includes>
+                                        </filter>
+                                        <!-- Keep classes that may be loaded via reflection -->
+                                        <filter>
+                                            <artifact>ch.qos.logback:*</artifact>
+                                            <includes>
+                                                <include>**</include>
+                                            </includes>
+                                        </filter>
+                                        <filter>
+                                            <artifact>org.slf4j:*</artifact>
+                                            <includes>
+                                                <include>**</include>
+                                            </includes>
+                                        </filter>
+                                    </filters>
+                                    <transformers>
+                                        <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                                            <resource>reference.conf</resource>
+                                        </transformer>
+                                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                            <manifestEntries>
+                                                <Main-Class>com.jagrosh.jmusicbot.JMusicBot</Main-Class>
+                                                <Specification-Title>${project.artifactId}</Specification-Title>
+                                                <Specification-Version>${project.version}</Specification-Version>
+                                                <Implementation-Title>${project.artifactId}</Implementation-Title>
+                                                <Implementation-Version>${project.version}</Implementation-Version>
+                                                <Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
+                                            </manifestEntries>
+                                        </transformer>
+                                    </transformers>
                                 </configuration>
                             </execution>
                         </executions>
