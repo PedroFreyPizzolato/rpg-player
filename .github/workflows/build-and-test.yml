@@ -2,10 +2,15 @@ name: Build and Test
 on:
   push:
     branches:
-    - master
+      - master  # Trunk branch
+      - 'feature/**'  # Feature branches
+      - 'fix/**'      # Bug fix branches
+      - 'chore/**'    # Maintenance branches
+      - 'deps/**'     # Dependency experiment branches
+      - 'release/**'  # Release stabilization branches
   pull_request:
     branches:
-    - master
+      - master  # PRs targeting trunk
 
 jobs:
   build:

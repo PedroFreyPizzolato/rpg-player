@@ -3,7 +3,12 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - master
+      - master  # Trunk branch - always releasable
+      - 'feature/**'  # Feature branches (e.g., feature/new-player-ui)
+      - 'fix/**'      # Bug fix branches (e.g., fix/youtube-oauth)
+      - 'chore/**'    # Maintenance branches (e.g., chore/update-deps)
+      - 'deps/**'     # Dependency experiment branches (e.g., deps/youtube-source-pr195)
+      - 'release/**'  # Release stabilization branches (e.g., release/0.6.3)
     tags:
       - 'v*'  # Triggers on version tags like v0.3.9
   workflow_dispatch:  # Allow manual triggering
@@ -69,7 +74,7 @@ jobs:
             TAG_VERSION="${GITHUB_REF#refs/tags/v}"
             TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG_VERSION"
             echo "Tags: $TAGS (from git tag)"
-          else
+          elif [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             # Default branch build: tag as latest
             TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             
@@ -78,6 +83,13 @@ jobs:
               TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$POM_VERSION"
             fi
             echo "Tags: $TAGS (default branch)"
+          else
+            # Short-lived branch: tag with sanitized branch name
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            # Replace slashes and other invalid chars with dashes
+            SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-' | tr -cd '[:alnum:]-._')
+            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$SAFE_BRANCH"
+            echo "Tags: $TAGS (branch: $BRANCH_NAME)"
           fi
           
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
