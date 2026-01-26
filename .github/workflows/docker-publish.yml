@@ -77,7 +77,7 @@ jobs:
           else
             # Master branch (workflow_run): use latest + commit SHA
             TAG_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.metadata.outputs.sha }}"
+            TAG_SHA="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.metadata.outputs.sha }}"
             TAGS_CSV="$TAG_LATEST,$TAG_SHA"
             # Also tag with Maven version if not SNAPSHOT
             if [[ ! "${{ steps.metadata.outputs.version }}" =~ -SNAPSHOT$ ]]; then
@@ -124,6 +124,8 @@ jobs:
             org.opencontainers.image.created=${{ steps.metadata.outputs.timestamp }}
         env:
           # Set annotations at index level for multi-arch images (required for GHCR to display description)
+          # Note: This is safe because we always build for multiple platforms (linux/amd64,linux/arm64),
+          # which produces an image index. Single-platform builds would only produce a manifest.
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Build and push Docker image

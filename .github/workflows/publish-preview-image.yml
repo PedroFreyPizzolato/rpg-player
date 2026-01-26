@@ -47,11 +47,14 @@ jobs:
       - name: Extract metadata
         id: metadata
         run: |
+          # Extract project version (first <version> tag, which is the project version)
+          VERSION=$(grep -m 1 '<version>' pom.xml | sed 's/.*<version>\([^<]*\)<\/version>.*/\1/' | tr -d ' ')
           SHA=$(git rev-parse --short HEAD)
           TIMESTAMP=$(git log -1 --format=%cI)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
-          echo "Extracted SHA: $SHA"
+          echo "Extracted version: $VERSION, SHA: $SHA"
 
       - name: Set up Java Environment
         # Run if run_tests is true (default) or explicitly set to true
@@ -67,7 +70,7 @@ jobs:
         if: ${{ github.event.inputs.run_tests != 'false' }}
         run: |
           COMMIT_TIME=$(git log -1 --format=%cI)
-          mvn --batch-mode --update-snapshots verify -Dproject.build.outputTimestamp=$COMMIT_TIME
+          mvn --batch-mode --update-snapshots verify -Pdocker -Dproject.build.outputTimestamp=$COMMIT_TIME
 
       - name: Sanitize tag suffix
         id: sanitize
@@ -94,20 +97,61 @@ jobs:
         id: tags
         run: |
           # Always include immutable SHA tag
-          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.metadata.outputs.sha }}"
+          TAGS_CSV="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ steps.metadata.outputs.sha }}"
           
           # Add preview tag with sanitized suffix
-          TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ steps.sanitize.outputs.suffix }}"
+          TAGS_CSV="$TAGS_CSV,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ steps.sanitize.outputs.suffix }}"
           
-          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
-          echo "Final Docker tags: $TAGS"
+          echo "tags=$TAGS_CSV" >> "$GITHUB_OUTPUT"
+          echo "Final Docker tags: $TAGS_CSV"
+
+      - name: Format tags for metadata-action
+        id: format-tags
+        run: |
+          # Convert comma-separated tags to multiline format for metadata-action
+          IFS=',' read -ra TAG_ARRAY <<< "${{ steps.tags.outputs.tags }}"
+          {
+            echo 'tags<<EOF'
+            echo 'type=raw'
+            for tag in "${TAG_ARRAY[@]}"; do
+              echo "value=$tag"
+            done
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: ${{ steps.format-tags.outputs.tags }}
+          # Disable automatic tag generation (we use custom tags)
+          flavor: |
+            suffix=
+          # Custom labels/annotations
+          labels: |
+            org.opencontainers.image.title=JMusicBot
+            org.opencontainers.image.description=A cross-platform Discord music bot with a clean interface
+            org.opencontainers.image.url=https://jmusicbot.com
+            org.opencontainers.image.source=https://github.com/arif-banai/MusicBot
+            org.opencontainers.image.vendor=JMusicBot
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.metadata.outputs.timestamp }}
+        env:
+          # Set annotations at index level for multi-arch images (required for GHCR to display description)
+          # Note: This is safe because we always build for multiple platforms (linux/amd64,linux/arm64),
+          # which produces an image index. Single-platform builds would only produce a manifest.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Build and push Docker image
         id: build
         uses: ./.github/actions/docker-build
         with:
-          tags: ${{ steps.tags.outputs.tags }}
-          version: 'preview'
+          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          version: ${{ steps.metadata.outputs.version }}
           sha: ${{ steps.metadata.outputs.sha }}
           timestamp: ${{ steps.metadata.outputs.timestamp }}
           registry: ${{ env.REGISTRY }}
@@ -117,5 +161,5 @@ jobs:
       - name: Print final tags
         run: |
           echo "✅ Successfully published preview Docker image"
-          echo "Tags: ${{ steps.tags.outputs.tags }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
           echo "Image digest: ${{ steps.build.outputs.digest }}"
