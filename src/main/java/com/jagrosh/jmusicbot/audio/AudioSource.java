@@ -36,8 +36,11 @@ import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.YoutubeSourceOptions;
 import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.ClientOptions;
+import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Embedded;
+import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.skeleton.Client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -264,15 +267,42 @@ public enum AudioSource
     
     /**
      * Builds the appropriate YouTube clients based on OAuth setting.
+     * 
+     * <p>When OAuth is enabled, we use a combination of clients:
+     * <ul>
+     *   <li><b>Web (metadata-only)</b> - Primary client for loading video metadata (direct URLs,
+     *       search, playlists). Configured with {@code playback = false} so it won't be used
+     *       for streaming. Being non-embedded, it can handle videos that reject embedded context
+     *       with "video unavailable" errors.</li>
+     *   <li><b>TvHtml5Embedded</b> - OAuth-compatible fallback for loading, primary for streaming.
+     *       Uses embedded player context which works for most videos.</li>
+     *   <li><b>Tv</b> - OAuth-compatible streaming-only client. Used as fallback for loading
+     *       audio stream formats during playback.</li>
+     * </ul>
+     * 
+     * <p>The key insight: OAuth is only required for streaming (getting playback URLs), not for
+     * loading metadata. So we can use the non-OAuth Web client for metadata loading (with
+     * playback disabled) and OAuth clients for streaming.
      */
     private static Client[] buildYoutubeClients(boolean useOauth)
     {
         if (useOauth)
         {
-            return new Client[] { new TvHtml5Embedded(), new Tv() };
+            // Clients configured for metadata loading only (no playback/streaming)
+            // This handles direct URLs without embedded player restrictions
+            ClientOptions metadataOnly = new ClientOptions();
+            metadataOnly.setPlayback(false);
+            
+            return new Client[] { 
+                new AndroidVr(metadataOnly), // metadata loading (non-embedded, non-OAuth)
+                new MWeb(metadataOnly),      // metadata loading (non-embedded, non-OAuth)
+                new Web(metadataOnly),       // metadata loading (non-embedded, non-OAuth)
+                new TvHtml5Embedded(),       // Fallback: loading + primary streaming (OAuth)
+                new Tv()                     // Fallback: streaming only (OAuth)
+            };
         }
         // Clients are required even without OAuth to properly handle YouTube URLs
-        return new Client[] { new AndroidVr() };
+        return new Client[] { new AndroidVr(), new MWeb(), new Web() };
     }
     
     /**
