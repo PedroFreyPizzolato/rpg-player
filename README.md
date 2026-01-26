@@ -80,11 +80,11 @@ If you already have a directory with your `config.txt`, `Playlists/` folder, and
 ```bash
 docker run --rm -it \
   --name jmusicbot \
-  -v "$(pwd):/config" \
+  -v "$(pwd):/musicbot" \
   ghcr.io/arif-banai/musicbot:latest
 ```
 
-This mounts your current directory as the config volume, so the bot will use your existing configuration and playlists.
+This mounts your current directory as the musicbot volume, so the bot will use your existing configuration and playlists.
 
 #### For New Users
 
@@ -94,13 +94,13 @@ This mounts your current directory as the config volume, so the bot will use you
    
    docker run --rm -it \
      --name jmusicbot \
-     -v "/path/to/jmusicbot:/config" \
+     -v "/path/to/musicbot:/musicbot" \
      ghcr.io/arif-banai/musicbot:latest
    ```
 
 2. **First Run:**
    - On first run, if the mounted directory is empty, the bot will automatically generate a default `config.txt` file.
-   - Edit `/path/to/jmusicbot/config.txt` on your host and add your Discord bot token.
+   - Edit `/path/to/musicbot/config.txt` on your host and add your Discord bot token.
    - Run the container again.
 
 #### Using Docker Compose (Optional)
@@ -121,7 +121,7 @@ services:
     image: ghcr.io/arif-banai/musicbot:latest
     container_name: jmusicbot
     volumes:
-      - /path/to/jmusicbot:/config
+      - /path/to/musicbot:/musicbot
     restart: unless-stopped
 ```
 
