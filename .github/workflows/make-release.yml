@@ -14,6 +14,11 @@ on:
         description: 'Description of this Release'
         required: true
         type: string
+      is_prerelease:
+        description: 'Mark this as a pre-release (for testing)'
+        required: false
+        type: boolean
+        default: false
 
 # Prevent concurrent releases
 concurrency:
@@ -28,7 +33,7 @@ jobs:
     permissions:
       contents: write  # Required to push version commit
     outputs:
-      release_sha: ${{ steps.commit-version.outputs.sha }}
+      release_sha: ${{ steps.set-release-sha.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -42,12 +47,18 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Get initial SHA (for pre-releases)
+        id: get-initial-sha
+        if: ${{ github.event.inputs.is_prerelease == 'true' }}
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set Version
         run: |
           mvn -B versions:set -DnewVersion=${{ github.event.inputs.version_number }}
           mvn -B versions:commit
 
       - name: Commit version bump
+        if: ${{ github.event.inputs.is_prerelease != 'true' }}
         id: commit-version
         run: |
           git config user.name "github-actions[bot]"
@@ -55,7 +66,15 @@ jobs:
           git add pom.xml
           git commit -m "chore: bump version to ${{ github.event.inputs.version_number }}"
           git push
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set release SHA output
+        id: set-release-sha
+        run: |
+          if [ "${{ github.event.inputs.is_prerelease }}" == "true" ]; then
+            echo "sha=${{ steps.get-initial-sha.outputs.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build with Maven
         run: |
@@ -94,7 +113,7 @@ jobs:
           commit: ${{ needs.build_jar.outputs.release_sha }}
           name: v${{ github.event.inputs.version_number }}
           draft: true
-          prerelease: false
+          prerelease: ${{ github.event.inputs.is_prerelease }}
           artifacts: "*.jar"
           body: |
             ${{ github.event.inputs.info }}
