@@ -19,6 +19,11 @@ on:
         required: false
         type: boolean
         default: false
+      ref:
+        description: 'Branch, tag, or SHA to build from (defaults to the branch this workflow is run from)'
+        required: false
+        type: string
+        default: ''
 
 # Prevent concurrent releases
 concurrency:
@@ -38,7 +43,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
           fetch-depth: 0  # Full history needed for git commands
+
+      - name: Validate branch for regular releases
+        if: ${{ github.event.inputs.is_prerelease != 'true' }}
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH" != "master" ]; then
+            echo "❌ Error: Regular releases can only be created from the 'master' branch."
+            echo "   Current branch: $BRANCH"
+            echo "   To create a pre-release from this branch, check the 'Mark this as a pre-release' option."
+            exit 1
+          fi
+          echo "✓ Branch validation passed: $BRANCH"
 
       - name: Set up Java Environment
         uses: actions/setup-java@v5
