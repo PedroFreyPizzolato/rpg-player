@@ -79,7 +79,6 @@ public class OtherUtilTest
     }
 
     @Test
-<<<<<<< HEAD
     @DisplayName("getLatestVersion returns latest non-prerelease version when latest is not a pre-release")
     void testGetLatestVersion_NonPrerelease() throws IOException
     {
