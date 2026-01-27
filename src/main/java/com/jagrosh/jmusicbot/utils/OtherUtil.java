@@ -31,6 +31,7 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.*;
+import java.util.concurrent.TimeUnit;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -189,7 +190,11 @@ public class OtherUtil
     {
         try
         {
-            OkHttpClient client = new OkHttpClient.Builder().build();
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(5, TimeUnit.SECONDS)
+                    .writeTimeout(5, TimeUnit.SECONDS)
+                    .build();
             // First, try to get the latest release
             Response response = client.newCall(new Request.Builder().get()
                     .url(baseUrl + "/releases/latest").build())
