@@ -15,6 +15,10 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -29,10 +33,21 @@ import java.util.regex.Pattern;
  */
 public class RequestMetadata
 {
-    public static final RequestMetadata EMPTY = new RequestMetadata(null, null);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    
+    public static final RequestMetadata EMPTY = new RequestMetadata((UserInfo) null, (RequestInfo) null);
     
     public final UserInfo user;
     public final RequestInfo requestInfo;
+    
+    @JsonCreator
+    public RequestMetadata(
+        @JsonProperty("user") UserInfo user,
+        @JsonProperty("requestInfo") RequestInfo requestInfo)
+    {
+        this.user = user;
+        this.requestInfo = requestInfo;
+    }
     
     public RequestMetadata(User user, RequestInfo requestInfo)
     {
@@ -46,6 +61,25 @@ public class RequestMetadata
     {
         return user == null ? 0L : user.id;
     }
+    
+    /**
+     * Returns JSON representation of this object.
+     * This ensures compatibility with YouTube source extensions that expect JSON userData.
+     */
+    @Override
+    public String toString()
+    {
+        try
+        {
+            return objectMapper.writeValueAsString(this);
+        }
+        catch (JsonProcessingException e)
+        {
+            // Fallback to a simple JSON-like representation if serialization fails
+            return "{\"user\":" + (user != null ? user.toString() : "null") + 
+                   ",\"requestInfo\":" + (requestInfo != null ? requestInfo.toString() : "null") + "}";
+        }
+    }
 
     public static RequestMetadata fromResultHandler(AudioTrack track, CommandEvent event)
     {
@@ -57,16 +91,43 @@ public class RequestMetadata
         public final String query, url;
         public final long startTimestamp;
 
-        public RequestInfo(String query, String url)
-        {
-            this(query, url, tryGetTimestamp(query));
-        }
-
-        private RequestInfo(String query, String url, long startTimestamp)
+        @JsonCreator
+        public RequestInfo(
+            @JsonProperty("query") String query,
+            @JsonProperty("url") String url,
+            @JsonProperty("startTimestamp") Long startTimestamp)
         {
             this.url = url;
             this.query = query;
-            this.startTimestamp = startTimestamp;
+            // If startTimestamp is null or 0 and we have a query, try to extract it from the query
+            if (startTimestamp == null || startTimestamp == 0)
+            {
+                this.startTimestamp = query != null ? tryGetTimestamp(query) : 0;
+            }
+            else
+            {
+                this.startTimestamp = startTimestamp;
+            }
+        }
+
+        public RequestInfo(String query, String url)
+        {
+            this(query, url, null);
+        }
+        
+        @Override
+        public String toString()
+        {
+            try
+            {
+                return objectMapper.writeValueAsString(this);
+            }
+            catch (JsonProcessingException e)
+            {
+                return "{\"query\":\"" + (query != null ? query.replace("\"", "\\\"") : "") + 
+                       "\",\"url\":\"" + (url != null ? url.replace("\"", "\\\"") : "") + 
+                       "\",\"startTimestamp\":" + startTimestamp + "}";
+            }
         }
 
         private static final Pattern youtubeTimestampPattern = Pattern.compile("youtu(?:\\.be|be\\..+)/.*\\?.*(?!.*list=)t=([\\dhms]+)");
@@ -82,12 +143,33 @@ public class RequestMetadata
         public final long id;
         public final String username, discrim, avatar;
         
-        private UserInfo(long id, String username, String discrim, String avatar)
+        @JsonCreator
+        public UserInfo(
+            @JsonProperty("id") long id,
+            @JsonProperty("username") String username,
+            @JsonProperty("discrim") String discrim,
+            @JsonProperty("avatar") String avatar)
         {
             this.id = id;
             this.username = username;
             this.discrim = discrim;
             this.avatar = avatar;
+        }
+        
+        @Override
+        public String toString()
+        {
+            try
+            {
+                return objectMapper.writeValueAsString(this);
+            }
+            catch (JsonProcessingException e)
+            {
+                return "{\"id\":" + id + 
+                       ",\"username\":\"" + (username != null ? username.replace("\"", "\\\"") : "") + 
+                       "\",\"discrim\":\"" + (discrim != null ? discrim.replace("\"", "\\\"") : "") + 
+                       "\",\"avatar\":\"" + (avatar != null ? avatar.replace("\"", "\\\"") : "") + "\"}";
+            }
         }
     }
 }
