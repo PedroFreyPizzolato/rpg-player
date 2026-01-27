@@ -81,9 +81,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage whatever the version plugin changed
           git add pom.xml
+
+          # If nothing is staged, don't fail the workflow
+          if git diff --cached --quiet; then
+            echo "No version changes to commit (pom.xml already at ${{ github.event.inputs.version_number }})."
+            exit 0
+          fi
+
           git commit -m "chore: bump version to ${{ github.event.inputs.version_number }}"
           git push
+
 
       - name: Set release SHA output
         id: set-release-sha
