@@ -22,8 +22,7 @@ This version of JMusicBot changes/updates various dependencies. To ensure your b
 
 *   **Java 25 Minimum:** The bot now requires **Java 25 or higher**. 
 
-*   **LibDave/udpqueue:** You **must** have glibc >= 2.38. **If you are using Docker, this is already handled for you.**
-
+*   **LibDave/udpqueue:** You **must** have **glibc >= 2.38**. *If you are using Docker, this is already handled for you.*
 *   **Privileged Gateway Intents:** You **must** enable the **Message Content Intent** in your [Discord Developer Portal](https://discord.com/developers/applications).
     *   *Navigate to: Your Application > Bot > Privileged Gateway Intents > Toggle "Message Content Intent" to ON.*
     *   *Without this, the bot will not see your commands.*
@@ -44,7 +43,7 @@ This version of JMusicBot changes/updates various dependencies. To ensure your b
   * Playlist support (both web/youtube, and local)
 
 ## Supported sources and formats
-JMusicBot supports all sources and formats supported by [lavaplayer](https://github.com/sedmelluq/lavaplayer#supported-formats):
+JMusicBot supports all sources and formats supported by [lavaplayer](https://github.com/lavalink-devs/lavaplayer#supported-formats):
 ### Sources
   * YouTube
   * SoundCloud
