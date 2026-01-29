@@ -21,7 +21,7 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.BotConfig;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
-import com.jagrosh.jmusicbot.gui.GUI;
+import javax.swing.JFrame;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Activity;
@@ -63,7 +63,7 @@ public class BotTest
     private JDA jda;
     
     @Mock
-    private GUI gui;
+    private JFrame gui;
     
     @Mock
     private CommandClient commandClient;

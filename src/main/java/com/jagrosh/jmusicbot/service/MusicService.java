@@ -19,6 +19,7 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
+import com.jagrosh.jmusicbot.audio.TrackLoadingMonitor;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
 import com.jagrosh.jmusicbot.queue.AbstractQueue;
 import com.jagrosh.jmusicbot.settings.QueueType;
@@ -246,7 +247,7 @@ public class MusicService
                 guild.getId(), member.getUser().getName(), args);
 
         bot.getPlayerManager().loadItemOrdered(guild, args,
-                new AudioLoadResultHandlers.PlayNextResultHandler(this, bot, output, guild, member, args, false, channel));
+                TrackLoadingMonitor.wrap(args, new AudioLoadResultHandlers.PlayNextResultHandler(this, bot, output, guild, member, args, false, channel)));
     }
 
     public void play(Guild guild, Member member, String args, TextChannel channel, OutputAdapter output)
@@ -284,7 +285,7 @@ public class MusicService
                 guild.getId(), member.getUser().getName(), args);
 
         bot.getPlayerManager().loadItemOrdered(guild, args,
-                new AudioLoadResultHandlers.PlayResultHandler(this, bot, output, guild, member, args, false, channel));
+                TrackLoadingMonitor.wrap(args, new AudioLoadResultHandlers.PlayResultHandler(this, bot, output, guild, member, args, false, channel)));
     }
 
     public void previous(Guild guild, Member member, OutputAdapter output)

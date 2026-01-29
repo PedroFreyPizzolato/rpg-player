@@ -58,6 +58,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     private final PlayerManager manager;
     private final AudioPlayer audioPlayer;
     private final long guildId;
+    private final PerformanceMetrics performanceMetrics;
 
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
@@ -68,6 +69,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         this.manager = manager;
         this.audioPlayer = player;
         this.guildId = guild.getIdLong();
+        this.performanceMetrics = new PerformanceMetrics(guildId);
 
         this.setQueueType(manager.getBot().getSettingsManager().getSettings(guildId).getQueueType());
         // Set history size from config
@@ -197,12 +199,21 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) 
     {
+        // Record track end for timeline
+        String trackTitle = null;
+        String trackUri = null;
+        if (track != null && track.getInfo() != null) {
+            trackTitle = track.getInfo().title;
+            trackUri = track.getInfo().uri;
+        }
+        performanceMetrics.recordTrackEnd(trackTitle, trackUri);
+        
         // Log track end with details for debugging
         if (endReason != AudioTrackEndReason.FINISHED) {
             LOGGER.debug("Track {} ended with reason: {} (Track: {})", 
                     track != null ? track.getIdentifier() : "null",
                     endReason.name(),
-                    track != null && track.getInfo() != null ? track.getInfo().title : "N/A");
+                    trackTitle != null ? trackTitle : "N/A");
         }
         else if (track != null && track.getInfo() != null) {
             LOGGER.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
@@ -256,6 +267,15 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
 
     @Override
     public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
+        // Record exception for timeline
+        String trackTitle = null;
+        String trackUri = null;
+        if (track != null && track.getInfo() != null) {
+            trackTitle = track.getInfo().title;
+            trackUri = track.getInfo().uri;
+        }
+        performanceMetrics.recordTrackException(trackTitle, trackUri);
+        
         // Build detailed error message with track information
         StringBuilder errorDetails = new StringBuilder();
         errorDetails.append("Track exception occurred:\n");
@@ -332,20 +352,72 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         LOGGER.debug(" - Player Vol: {}", player.getVolume());
         LOGGER.debug(" - Is Paused:  {}", player.isPaused());
         votes.clear();
+        performanceMetrics.resetSession(); // Reset metrics for new track
         
-        // Log track start with details for debugging
+        // Record track start for timeline and time-to-first-frame tracking
+        String trackTitle = null;
+        String trackUri = null;
         if (track != null && track.getInfo() != null) {
+            trackTitle = track.getInfo().title;
+            trackUri = track.getInfo().uri;
+            
             LOGGER.debug("Starting track: {} (ID: {}, URI: {}, Source: {})",
-                    track.getInfo().title,
+                    trackTitle,
                     track.getIdentifier(),
-                    track.getInfo().uri,
+                    trackUri,
                     track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown");
         }
+        performanceMetrics.recordTrackStart(trackTitle, trackUri);
 
         if (lastReason == null)
             lastReason = "Playing next song.";
 
         manager.getBot().getNowplayingHandler().onTrackUpdate(guildId, track);
+    }
+    
+    @Override
+    public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs)
+    {
+        // Record the stuck event in performance metrics
+        String trackTitle = null;
+        String trackUri = null;
+        
+        if (track != null && track.getInfo() != null) {
+            trackTitle = track.getInfo().title;
+            trackUri = track.getInfo().uri;
+        }
+        
+        performanceMetrics.recordStuckEvent(thresholdMs, trackTitle, trackUri);
+        
+        // Build detailed log message
+        StringBuilder details = new StringBuilder();
+        details.append("Track stuck detected (decoder/stream stall):\n");
+        details.append("  Threshold exceeded: ").append(thresholdMs).append("ms\n");
+        
+        if (track != null) {
+            details.append("  Track ID: ").append(track.getIdentifier()).append("\n");
+            AudioTrackInfo info = track.getInfo();
+            if (info != null) {
+                details.append("  Title: ").append(info.title != null ? info.title : "N/A").append("\n");
+                details.append("  URI: ").append(info.uri != null ? info.uri : "N/A").append("\n");
+                details.append("  Position: ").append(track.getPosition()).append("ms / ")
+                       .append(info.length).append("ms\n");
+                details.append("  Source: ").append(track.getSourceManager() != null 
+                    ? track.getSourceManager().getSourceName() : "Unknown").append("\n");
+            }
+        }
+        
+        // Log request metadata if available
+        RequestMetadata rm = track != null ? track.getUserData(RequestMetadata.class) : null;
+        if (rm != null && rm.user != null) {
+            details.append("  Requested by: ").append(rm.user.username)
+                   .append(" (ID: ").append(rm.user.id).append(")\n");
+        }
+        
+        LOGGER.warn("Track {} is stuck after {}ms\n{}", 
+            track != null ? track.getIdentifier() : "null", 
+            thresholdMs, 
+            details.toString());
     }
 
     //
@@ -383,8 +455,23 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     @Override
     public boolean canProvide() 
     {
+        long startNanos = System.nanoTime();
         lastFrame = audioPlayer.provide();
-        return lastFrame != null;
+        long latencyNanos = System.nanoTime() - startNanos;
+        
+        boolean frameAvailable = lastFrame != null;
+        performanceMetrics.recordFrame(frameAvailable, latencyNanos);
+        
+        return frameAvailable;
+    }
+    
+    /**
+     * Gets the performance metrics for this audio handler.
+     *
+     * @return the performance metrics instance
+     */
+    public PerformanceMetrics getPerformanceMetrics() {
+        return performanceMetrics;
     }
 
     @Override

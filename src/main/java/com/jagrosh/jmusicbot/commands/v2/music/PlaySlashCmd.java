@@ -2,6 +2,7 @@ package com.jagrosh.jmusicbot.commands.v2.music;
 
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.audio.TrackLoadingMonitor;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.InteractionHookOutputAdapter;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.SlashEventOutputAdapter;
@@ -70,7 +71,8 @@ public class PlaySlashCmd extends MusicSlashCommand
             return;
         }
 
-        bot.getPlayerManager().loadItemOrdered(event.getGuild(), "ytsearch:" + input, new AudioLoadResultHandler()
+        bot.getPlayerManager().loadItemOrdered(event.getGuild(), "ytsearch:" + input,
+                TrackLoadingMonitor.wrap("ytsearch:" + input, new AudioLoadResultHandler()
         {
             @Override
             public void trackLoaded(AudioTrack track)
@@ -95,7 +97,7 @@ public class PlaySlashCmd extends MusicSlashCommand
             {
                 event.replyChoices().queue();
             }
-        });
+        }));
     }
 
     /**
