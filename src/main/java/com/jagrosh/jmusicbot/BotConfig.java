@@ -62,7 +62,7 @@ public class BotConfig {
             evalEngine, guiTheme;
     private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
     private long owner, maxSeconds, aloneTimeUntilStop;
-    private int maxYTPlaylistPages, guiFontSize;
+    private int maxYTPlaylistPages, guiFontSize, nasBufferMs, frameBufferMs;
     private double skipratio;
     private OnlineStatus status;
     private Activity game;
@@ -275,6 +275,10 @@ public class BotConfig {
         // GUI options
         guiTheme = GUI_THEME.getString(config);
         guiFontSize = GUI_FONT_SIZE.getInt(config);
+        
+        // Performance options
+        nasBufferMs = NAS_BUFFER_MS.getInt(config);
+        frameBufferMs = FRAME_BUFFER_MS.getInt(config);
     }
     
     /**
@@ -505,5 +509,13 @@ public class BotConfig {
 
     public int getGuiFontSize() {
         return guiFontSize;
+    }
+    
+    public int getNasBufferMs() {
+        return nasBufferMs;
+    }
+    
+    public int getFrameBufferMs() {
+        return frameBufferMs;
     }
 }

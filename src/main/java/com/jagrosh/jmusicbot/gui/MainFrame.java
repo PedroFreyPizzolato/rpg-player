@@ -16,10 +16,16 @@
 package com.jagrosh.jmusicbot.gui;
 
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.audio.GCMonitor;
+import com.jagrosh.jmusicbot.audio.SystemHealthMonitor;
 import com.jagrosh.jmusicbot.gui.components.StatusBar;
 import com.jagrosh.jmusicbot.gui.model.BotStatusData;
+import com.jagrosh.jmusicbot.gui.panels.ConfigPanel;
+import com.jagrosh.jmusicbot.gui.panels.PerformancePanel;
 import com.jagrosh.jmusicbot.gui.panels.SettingsPanel;
+import com.jagrosh.jmusicbot.gui.panels.SourceHealthPanel;
 import com.jagrosh.jmusicbot.gui.panels.StatusPanel;
+import com.jagrosh.jmusicbot.gui.panels.SystemHealthPanel;
 import com.jagrosh.jmusicbot.gui.theme.ThemeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +53,11 @@ public class MainFrame extends JFrame {
     private final JTabbedPane tabbedPane;
     private final ConsolePanel consolePanel;
     private final StatusPanel statusPanel;
+    private final PerformancePanel performancePanel;
+    private final SystemHealthPanel systemHealthPanel;
+    private final SourceHealthPanel sourceHealthPanel;
     private final SettingsPanel settingsPanel;
+    private final ConfigPanel configPanel;
     private final StatusBar statusBar;
     private final Instant startTime;
     private Timer statusUpdateTimer;
@@ -65,7 +75,11 @@ public class MainFrame extends JFrame {
         // Initialize panels
         this.consolePanel = new ConsolePanel();
         this.statusPanel = new StatusPanel(bot);
+        this.performancePanel = new PerformancePanel(bot);
+        this.systemHealthPanel = new SystemHealthPanel();
+        this.sourceHealthPanel = new SourceHealthPanel();
         this.settingsPanel = new SettingsPanel();
+        this.configPanel = new ConfigPanel(bot);
         this.statusBar = new StatusBar();
         this.tabbedPane = new JTabbedPane();
         
@@ -113,6 +127,12 @@ public class MainFrame extends JFrame {
         // Start status bar update timer
         startStatusBarUpdates();
         
+        // Start GC monitoring for performance visualization
+        GCMonitor.getInstance().start();
+        
+        // Start system health monitoring (CPU, memory, threads)
+        SystemHealthMonitor.getInstance().start();
+        
         LOG.info("JMusicBot GUI initialized");
     }
     
@@ -134,9 +154,19 @@ public class MainFrame extends JFrame {
         // Fetch data once (includes uptime calculation)
         BotStatusData statusData = BotStatusData.fromBot(bot, startTime);
         
-        // Distribute to both components
+        // Distribute to components
         statusBar.updateStatus(statusData, statusData.uptimeString());
         statusPanel.updateStatus(statusData);
+        
+        // Update performance metrics if performance/system/sources tab is visible
+        int selectedTab = tabbedPane.getSelectedIndex();
+        if (selectedTab == 2) {
+            performancePanel.updateMetrics();
+        } else if (selectedTab == 3) {
+            systemHealthPanel.updateMetrics();
+        } else if (selectedTab == 4) {
+            sourceHealthPanel.refreshMetrics();
+        }
     }
     
     /**
@@ -182,9 +212,25 @@ public class MainFrame extends JFrame {
         statusTab.addActionListener(e -> tabbedPane.setSelectedIndex(1));
         viewMenu.add(statusTab);
         
+        JMenuItem performanceTab = new JMenuItem("Performance");
+        performanceTab.addActionListener(e -> tabbedPane.setSelectedIndex(2));
+        viewMenu.add(performanceTab);
+        
+        JMenuItem systemTab = new JMenuItem("System Health");
+        systemTab.addActionListener(e -> tabbedPane.setSelectedIndex(3));
+        viewMenu.add(systemTab);
+        
+        JMenuItem sourcesTab = new JMenuItem("Sources");
+        sourcesTab.addActionListener(e -> tabbedPane.setSelectedIndex(4));
+        viewMenu.add(sourcesTab);
+        
         JMenuItem settingsTab = new JMenuItem("Settings");
-        settingsTab.addActionListener(e -> tabbedPane.setSelectedIndex(2));
+        settingsTab.addActionListener(e -> tabbedPane.setSelectedIndex(5));
         viewMenu.add(settingsTab);
+        
+        JMenuItem configTab = new JMenuItem("Config");
+        configTab.addActionListener(e -> tabbedPane.setSelectedIndex(6));
+        viewMenu.add(configTab);
         
         // Help menu
         JMenu helpMenu = new JMenu("Help");
@@ -210,7 +256,23 @@ public class MainFrame extends JFrame {
         // Add tabs with tooltips
         tabbedPane.addTab("Console", null, consolePanel, "View application logs and output");
         tabbedPane.addTab("Status", null, statusPanel, "View bot status and connected guilds");
+        tabbedPane.addTab("Performance", null, performancePanel, "Monitor audio processing performance");
+        tabbedPane.addTab("System", null, systemHealthPanel, "Monitor system health (CPU, memory, GC)");
+        tabbedPane.addTab("Sources", null, sourceHealthPanel, "Monitor track loading health by source");
         tabbedPane.addTab("Settings", null, settingsPanel, "Configure GUI settings");
+        tabbedPane.addTab("Config", null, configPanel, "Edit bot configuration");
+        
+        // Refresh panels when selected
+        tabbedPane.addChangeListener(e -> {
+            int selectedTab = tabbedPane.getSelectedIndex();
+            if (selectedTab == 2) {
+                performancePanel.refreshGuildList();
+            } else if (selectedTab == 3) {
+                systemHealthPanel.refreshMetrics();
+            } else if (selectedTab == 4) {
+                sourceHealthPanel.refreshMetrics();
+            }
+        });
     }
     
     /**
