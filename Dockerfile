@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.12
 
 # Multi-stage build for JMusicBot
 # Stage 1: Build the application
-FROM maven:3.9-eclipse-temurin-25 AS builder
+FROM maven:3.9.12-eclipse-temurin-25-alpine AS builder
 
 ARG BUILD_TIMESTAMP
 ENV BUILD_TIMESTAMP=$BUILD_TIMESTAMP
@@ -10,7 +10,7 @@ ENV BUILD_TIMESTAMP=$BUILD_TIMESTAMP
 WORKDIR /build
 
 # Copy pom.xml first for better layer caching
-COPY pom.xml .
+COPY --link pom.xml .
 
 # Download dependencies with BuildKit cache mount for Maven repository
 # This significantly speeds up builds by persisting dependencies between builds
@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     mvn dependency:go-offline -B -Pdocker
 
 # Copy source code
-COPY src ./src
+COPY --link src ./src
 
 # Build the application with BuildKit cache mount
 RUN --mount=type=cache,target=/root/.m2/repository \
@@ -29,9 +29,32 @@ RUN --mount=type=cache,target=/root/.m2/repository \
     fi
 
 
-# Stage 2: Runtime image
-# Using Ubuntu Noble (24.04) for libraries required by jdave/udpqueue native libraries
-FROM eclipse-temurin:25-jre-noble
+# Stage 2: Create custom minimal JRE using jlink
+# Using noble (Ubuntu 24.04) for glibc 2.39 compatibility with native libraries
+FROM eclipse-temurin:25-jdk-noble AS jre-builder
+
+# Create a minimal JRE with only the modules JMusicBot needs
+# Modules required:
+#   java.base       - Core Java classes
+#   java.logging    - SLF4J/Logback logging
+#   java.naming     - JNDI (required by Logback)
+#   java.desktop    - GUI support (Swing/AWT, even for headless mode)
+#   java.scripting  - ScriptEngine for EvalCmd (Rhino)
+#   jdk.crypto.ec   - Elliptic curve crypto for TLS/SSL (Discord API)
+#   jdk.unsupported - Native library access (jdave, udpqueue)
+RUN $JAVA_HOME/bin/jlink \
+    --add-modules java.base,java.logging,java.naming,java.management,java.desktop,java.scripting,jdk.crypto.ec,jdk.unsupported \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=zip-6 \
+    --output /javaruntime
+
+
+# Stage 3: Runtime image
+# Using Bitnami minideb:trixie (Debian 13) for minimal size with glibc 2.41
+# Required for jdave/udpqueue native libraries which need glibc >= 2.38
+FROM bitnami/minideb:trixie
 
 # OCI image labels for better traceability and management
 LABEL org.opencontainers.image.title="JMusicBot" \
@@ -41,18 +64,21 @@ LABEL org.opencontainers.image.title="JMusicBot" \
       org.opencontainers.image.vendor="JMusicBot" \
       org.opencontainers.image.licenses="Apache-2.0"
 
-# Create non-root user for security
-RUN groupadd --gid 10001 jmusicbot && \
-    useradd --uid 10001 --gid 10001 --shell /bin/false jmusicbot
+# Copy custom JRE from jre-builder stage
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+COPY --from=jre-builder /javaruntime $JAVA_HOME
 
-# Create application directories
-RUN mkdir -p /app /musicbot && \
+# Create non-root user and application directories in single layer
+RUN groupadd --gid 10001 jmusicbot && \
+    useradd --uid 10001 --gid 10001 --shell /bin/false jmusicbot && \
+    mkdir -p /app /musicbot && \
     chown -R jmusicbot:jmusicbot /app /musicbot
 
 # Copy the built JAR from builder stage
 COPY --from=builder --chown=jmusicbot:jmusicbot /build/target/JMusicBot-*-All.jar /app/app.jar
 
-# Copy and set permissions for entrypoint script in a single layer
+# Copy and set permissions for entrypoint script
 COPY --chown=jmusicbot:jmusicbot --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 WORKDIR /musicbot
