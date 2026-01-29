@@ -21,6 +21,7 @@ import com.jagrosh.jmusicbot.audio.AloneInVoiceHandler;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
@@ -54,6 +55,7 @@ public class Bot
     private final MusicService musicService;
     private final SearchService searchService;
     private final YoutubeOauth2TokenHandler youTubeOauth2TokenHandler;
+    private final UserInteraction userInteraction;
     private final Instant startTime;
     
     private boolean shuttingDown = false;
@@ -61,11 +63,12 @@ public class Bot
     private GUI gui;
     private CommandClient commandClient;
     
-    public Bot(EventWaiter waiter, BotConfig config, SettingsManager settings)
+    public Bot(EventWaiter waiter, BotConfig config, SettingsManager settings, UserInteraction userInteraction)
     {
         this.waiter = waiter;
         this.config = config;
         this.settings = settings;
+        this.userInteraction = userInteraction;
         this.playlists = new PlaylistLoader(config);
         this.threadpool = Executors.newSingleThreadScheduledExecutor();
         this.startTime = Instant.now();
@@ -130,6 +133,11 @@ public class Bot
     public SearchService getSearchService()
     {
         return searchService;
+    }
+
+    public UserInteraction getUserInteraction()
+    {
+        return userInteraction;
     }
 
     public JDA getJDA()

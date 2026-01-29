@@ -16,7 +16,6 @@
 package com.jagrosh.jmusicbot.testutil.service;
 
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
-import com.jagrosh.jmusicbot.testutil.TestConstants;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Role;
 

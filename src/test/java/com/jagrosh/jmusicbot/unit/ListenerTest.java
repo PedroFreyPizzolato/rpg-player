@@ -16,8 +16,10 @@
 package com.jagrosh.jmusicbot.unit;
 
 import com.jagrosh.jmusicbot.Listener;
+import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.listener.ListenerTestFixture;
+import net.dv8tion.jda.api.requests.CloseCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -341,6 +343,80 @@ public class ListenerTest
 
             // Then
             verify(fixture.getAloneInVoiceHandler()).onVoiceUpdate(fixture.getGuildVoiceUpdateEvent());
+        }
+    }
+
+    // ==================== onSessionDisconnect Tests ====================
+
+    @Nested
+    @DisplayName("onSessionDisconnect")
+    class OnSessionDisconnectTests
+    {
+        @Test
+        @DisplayName("onSessionDisconnect() shows error alert when close code is DISALLOWED_INTENTS")
+        void onSessionDisconnect_showsAlertForDisallowedIntents()
+        {
+            // Given
+            fixture.withCloseCode(CloseCode.DISALLOWED_INTENTS);
+
+            // When
+            listener.onSessionDisconnect(fixture.getSessionDisconnectEvent());
+
+            // Then
+            verify(fixture.getUserInteraction()).alert(
+                    eq(Level.ERROR),
+                    eq("JMusicBot"),
+                    contains("missing required Discord intents")
+            );
+        }
+
+        @Test
+        @DisplayName("onSessionDisconnect() does not show alert for null close code")
+        void onSessionDisconnect_doesNothingForNullCloseCode()
+        {
+            // Given - default fixture has null close code
+
+            // When
+            listener.onSessionDisconnect(fixture.getSessionDisconnectEvent());
+
+            // Then
+            verify(fixture.getUserInteraction(), never()).alert(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("onSessionDisconnect() does not show alert for other close codes")
+        void onSessionDisconnect_doesNothingForOtherCloseCodes()
+        {
+            // Given
+            fixture.withCloseCode(CloseCode.GRACEFUL_CLOSE);
+
+            // When
+            listener.onSessionDisconnect(fixture.getSessionDisconnectEvent());
+
+            // Then
+            verify(fixture.getUserInteraction(), never()).alert(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("onSessionDisconnect() error message includes instructions for enabling intents")
+        void onSessionDisconnect_messageIncludesInstructions()
+        {
+            // Given
+            fixture.withCloseCode(CloseCode.DISALLOWED_INTENTS);
+
+            // When
+            listener.onSessionDisconnect(fixture.getSessionDisconnectEvent());
+
+            // Then
+            verify(fixture.getUserInteraction()).alert(
+                    eq(Level.ERROR),
+                    eq("JMusicBot"),
+                    argThat(message -> 
+                        message.contains("discord.com/developers/applications") &&
+                        message.contains("MESSAGE CONTENT INTENT") &&
+                        message.contains("Privileged Gateway Intents")
+                    )
+            );
         }
     }
 

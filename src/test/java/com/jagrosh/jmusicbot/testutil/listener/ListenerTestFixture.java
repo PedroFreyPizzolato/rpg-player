@@ -22,6 +22,7 @@ import com.jagrosh.jmusicbot.audio.AloneInVoiceHandler;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
@@ -44,7 +45,9 @@ import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
+import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
+import net.dv8tion.jda.api.requests.CloseCode;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
@@ -53,7 +56,6 @@ import net.dv8tion.jda.api.utils.cache.SnowflakeCacheView;
 import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -75,6 +77,7 @@ public class ListenerTestFixture
     private final CommandClient commandClient;
     private final ScheduledExecutorService threadpool;
     private final YoutubeOauth2TokenHandler youtubeOauth2TokenHandler;
+    private final UserInteraction userInteraction;
 
     // JDA mocks
     private final JDA jda;
@@ -96,6 +99,7 @@ public class ListenerTestFixture
     // Event mocks
     private final ReadyEvent readyEvent;
     private final ShutdownEvent shutdownEvent;
+    private final SessionDisconnectEvent sessionDisconnectEvent;
     private final MessageDeleteEvent messageDeleteEvent;
     private final ButtonInteractionEvent buttonInteractionEvent;
     private final GuildVoiceUpdateEvent guildVoiceUpdateEvent;
@@ -137,6 +141,7 @@ public class ListenerTestFixture
         commandClient = mock(CommandClient.class);
         threadpool = mock(ScheduledExecutorService.class);
         youtubeOauth2TokenHandler = mock(YoutubeOauth2TokenHandler.class);
+        userInteraction = mock(UserInteraction.class);
 
         // JDA mocks
         jda = mock(JDA.class);
@@ -156,6 +161,7 @@ public class ListenerTestFixture
         // Event mocks
         readyEvent = mock(ReadyEvent.class);
         shutdownEvent = mock(ShutdownEvent.class);
+        sessionDisconnectEvent = mock(SessionDisconnectEvent.class);
         messageDeleteEvent = mock(MessageDeleteEvent.class);
         buttonInteractionEvent = mock(ButtonInteractionEvent.class);
         guildVoiceUpdateEvent = mock(GuildVoiceUpdateEvent.class);
@@ -189,6 +195,7 @@ public class ListenerTestFixture
         when(bot.getThreadpool()).thenReturn(threadpool);
         when(bot.getJDA()).thenReturn(jda);
         when(bot.getYouTubeOauth2Handler()).thenReturn(youtubeOauth2TokenHandler);
+        when(bot.getUserInteraction()).thenReturn(userInteraction);
 
         // Settings relationships
         when(settingsManager.getSettings(anyLong())).thenReturn(settings);
@@ -264,6 +271,10 @@ public class ListenerTestFixture
 
         // ShutdownEvent defaults
         when(shutdownEvent.getJDA()).thenReturn(jda);
+
+        // SessionDisconnectEvent defaults
+        when(sessionDisconnectEvent.getJDA()).thenReturn(jda);
+        when(sessionDisconnectEvent.getCloseCode()).thenReturn(null);
 
         // TextChannel defaults
         when(textChannel.getIdLong()).thenReturn(CHANNEL_ID);
@@ -369,6 +380,15 @@ public class ListenerTestFixture
     public ListenerTestFixture withNoAudioHandler()
     {
         when(audioManager.getSendingHandler()).thenReturn(null);
+        return this;
+    }
+
+    /**
+     * Configures the SessionDisconnectEvent with a specific close code.
+     */
+    public ListenerTestFixture withCloseCode(CloseCode closeCode)
+    {
+        when(sessionDisconnectEvent.getCloseCode()).thenReturn(closeCode);
         return this;
     }
 
@@ -487,6 +507,16 @@ public class ListenerTestFixture
     public ShutdownEvent getShutdownEvent()
     {
         return shutdownEvent;
+    }
+
+    public SessionDisconnectEvent getSessionDisconnectEvent()
+    {
+        return sessionDisconnectEvent;
+    }
+
+    public UserInteraction getUserInteraction()
+    {
+        return userInteraction;
     }
 
     public MessageDeleteEvent getMessageDeleteEvent()

@@ -20,6 +20,7 @@ import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.BotConfig;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.gui.GUI;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import net.dv8tion.jda.api.JDA;
@@ -35,7 +36,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.Instant;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -55,6 +55,9 @@ public class BotTest
     
     @Mock
     private SettingsManager settingsManager;
+    
+    @Mock
+    private UserInteraction userInteraction;
     
     @Mock
     private JDA jda;
@@ -89,7 +92,7 @@ public class BotTest
         when(config.getMaxHistorySize()).thenReturn(10);
         
         // Create bot instance
-        bot = new Bot(waiter, config, settingsManager);
+        bot = new Bot(waiter, config, settingsManager, userInteraction);
     }
 
     // ==================== Constructor and Initialization Tests ====================
@@ -124,7 +127,7 @@ public class BotTest
             Instant before = Instant.now();
             
             // When
-            Bot newBot = new Bot(waiter, config, settingsManager);
+            Bot newBot = new Bot(waiter, config, settingsManager, userInteraction);
             
             // Then
             Instant after = Instant.now();
@@ -173,6 +176,13 @@ public class BotTest
         void getCommandClient_returnsNullInitially()
         {
             assertNull(bot.getCommandClient());
+        }
+
+        @Test
+        @DisplayName("getUserInteraction() returns UserInteraction")
+        void getUserInteraction_returnsUserInteraction()
+        {
+            assertEquals(userInteraction, bot.getUserInteraction());
         }
     }
 

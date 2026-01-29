@@ -37,8 +37,8 @@ import com.jagrosh.jmusicbot.config.validation.ConfigValidator.ValidationResult;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigration;
 import com.jagrosh.jmusicbot.config.migration.ConfigMigrationException;
 import com.jagrosh.jmusicbot.config.model.ConfigUpdateType;
-import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
+import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import org.slf4j.Logger;
@@ -95,11 +95,11 @@ public class BotConfig {
 
             valid = true;
         } catch (ConfigException ex) {
-            userInteraction.alert(Prompt.Level.ERROR, "Config",
+            userInteraction.alert(Level.ERROR, "Config",
                     ex + ": " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
         } catch (ConfigMigrationException ex) {
             LOGGER.error("Config migration failed: {}", ex.getMessage());
-            userInteraction.alert(Prompt.Level.ERROR, "Config Migration",
+            userInteraction.alert(Level.ERROR, "Config Migration",
                     "Failed to migrate configuration: " + ex.getMessage() + "\n\nConfig Location: " + path.toAbsolutePath().toString());
         }
     }
@@ -325,22 +325,26 @@ public class BotConfig {
                     .trim();
             ConfigIO.writeConfigFile(path, content);
         } catch (Exception ex) {
-            userInteraction.alert(Prompt.Level.WARNING, "Config", "Failed to write new config options to config.txt: " + ex
+            userInteraction.alert(Level.WARNING, "Config", "Failed to write new config options to config.txt: " + ex
                     + "\nPlease make sure that the files are not on your desktop or some other restricted area.\n\nConfig Location: "
                     + path.toAbsolutePath().toString());
         }
     }
 
-    public static void writeDefaultConfig() {
-        Prompt prompt = new Prompt(null, null, true, true);
-        prompt.alert(Prompt.Level.INFO, "JMusicBot Config", "Generating default config file");
+    /**
+     * Generates a default configuration file.
+     * 
+     * @param userInteraction The user interaction handler for displaying progress and errors
+     */
+    public static void writeDefaultConfig(UserInteraction userInteraction) {
+        userInteraction.alert(Level.INFO, "JMusicBot Config", "Generating default config file");
         Path path = ConfigIO.getConfigPath();
         try {
-            prompt.alert(Prompt.Level.INFO, "JMusicBot Config",
+            userInteraction.alert(Level.INFO, "JMusicBot Config",
                     "Writing default config file to " + path.toAbsolutePath().toString());
             ConfigIO.writeConfigFile(path, ConfigIO.loadDefaultConfig());
         } catch (Exception ex) {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot Config",
+            userInteraction.alert(Level.ERROR, "JMusicBot Config",
                     "An error occurred writing the default config file: " + ex.getMessage());
         }
     }

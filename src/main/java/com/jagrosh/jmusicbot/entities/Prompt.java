@@ -78,13 +78,13 @@ public class Prompt implements UserInteraction
         try {
             return JOptionPane.showInputDialog(null, content, title, JOptionPane.QUESTION_MESSAGE);
         } catch (Exception e) {
-            alert(Level.WARNING, title, noguiMessage);
+            alert(UserInteraction.Level.WARNING, title, noguiMessage);
             return promptCli(content); // preserves your original “retry via CLI” behavior
         }
     }
 
     @Override
-    public void alert(Level level, String context, String message) {
+    public void alert(UserInteraction.Level level, String context, String message) {
         if (nogui) {
             logAlert(level, context, message);
             return;
@@ -99,12 +99,12 @@ public class Prompt implements UserInteraction
             );
         } catch (Exception e) {
             nogui = true;
-            alert(Level.WARNING, context, noguiMessage);
+            alert(UserInteraction.Level.WARNING, context, noguiMessage);
             alert(level, context, message);
         }
     }
 
-    private void logAlert(Level level, String context, String message) {
+    private void logAlert(UserInteraction.Level level, String context, String message) {
         var log = LoggerFactory.getLogger(context);
         switch (level) {
             case WARNING -> log.warn(message);
@@ -113,7 +113,7 @@ public class Prompt implements UserInteraction
         }
     }
 
-    private int optionFor(Level level) {
+    private int optionFor(UserInteraction.Level level) {
         return switch (level) {
             case INFO    -> JOptionPane.INFORMATION_MESSAGE;
             case WARNING -> JOptionPane.WARNING_MESSAGE;
@@ -138,14 +138,22 @@ public class Prompt implements UserInteraction
                 ? scanner.nextLine()
                 : null;
         } catch (Exception e) {
-            alert(Level.ERROR, title, "Unable to read input from command line.");
+            alert(UserInteraction.Level.ERROR, title, "Unable to read input from command line.");
             e.printStackTrace();
             return null;
         }
     }
 
-    public enum Level
-    {
-        INFO, WARNING, ERROR;
+    /**
+     * @deprecated Use {@link UserInteraction.Level} instead.
+     *             This alias is kept for backward compatibility.
+     */
+    @Deprecated(since = "0.5.0", forRemoval = true)
+    public static class Level {
+        public static final UserInteraction.Level INFO = UserInteraction.Level.INFO;
+        public static final UserInteraction.Level WARNING = UserInteraction.Level.WARNING;
+        public static final UserInteraction.Level ERROR = UserInteraction.Level.ERROR;
+        
+        private Level() {} // Prevent instantiation
     }
 }

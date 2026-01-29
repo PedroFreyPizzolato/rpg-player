@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 
 import com.jagrosh.jmusicbot.commands.SlashCommandRegistry;
+import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
 import net.dv8tion.jda.api.JDA;
@@ -30,8 +31,10 @@ import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
+import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
 import net.dv8tion.jda.api.events.session.ShutdownEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.CloseCode;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import com.jagrosh.jmusicbot.service.MusicService;
 import org.jetbrains.annotations.NotNull;
@@ -60,8 +63,11 @@ public class Listener extends ListenerAdapter
         if(event.getJDA().getGuildCache().isEmpty())
         {
             Logger log = LoggerFactory.getLogger("MusicBot");
+            String inviteUrl = event.getJDA().getInviteUrl(JMusicBot.RECOMMENDED_PERMS);
             log.warn("This bot is not on any guilds! Use the following link to add the bot to your guilds!");
-            log.warn(event.getJDA().getInviteUrl(JMusicBot.RECOMMENDED_PERMS));
+            log.warn(inviteUrl);
+            bot.getUserInteraction().alert(Level.WARNING, "Setup",
+                    "This bot is not on any guilds!\n\nUse this link to add the bot to your server:\n" + inviteUrl);
         }
         
         // Register slash commands if they have changed
@@ -233,6 +239,26 @@ public class Listener extends ListenerAdapter
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event)
     {
         bot.getAloneInVoiceHandler().onVoiceUpdate(event);
+    }
+
+    @Override
+    public void onSessionDisconnect(@NotNull SessionDisconnectEvent event)
+    {
+        CloseCode closeCode = event.getCloseCode();
+        if (closeCode == CloseCode.DISALLOWED_INTENTS)
+        {
+            bot.getUserInteraction().alert(
+                Level.ERROR,
+                "JMusicBot",
+                "Your bot is missing required Discord intents!\n\n" +
+                "To fix this:\n" +
+                "1. Go to https://discord.com/developers/applications\n" +
+                "2. Select your bot application\n" +
+                "3. Go to 'Bot' settings\n" +
+                "4. Enable 'MESSAGE CONTENT INTENT' under Privileged Gateway Intents\n" +
+                "5. Save changes and restart JMusicBot"
+            );
+        }
     }
 
     @Override
