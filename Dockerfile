@@ -34,16 +34,22 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 FROM eclipse-temurin:25-jdk-noble AS jre-builder
 
 # Create a minimal JRE with only the modules JMusicBot needs
-# Modules required:
-#   java.base       - Core Java classes
-#   java.logging    - SLF4J/Logback logging
-#   java.naming     - JNDI (required by Logback)
-#   java.desktop    - GUI support (Swing/AWT, even for headless mode)
-#   java.scripting  - ScriptEngine for EvalCmd (Rhino)
-#   jdk.crypto.ec   - Elliptic curve crypto for TLS/SSL (Discord API)
-#   jdk.unsupported - Native library access (jdave, udpqueue)
+# Modules determined by: jdeps --print-module-deps --ignore-missing-deps <jar>
+# Plus runtime-loaded modules that jdeps can't detect:
+#   java.base         - Core Java classes
+#   java.compiler     - Annotation processing (used by some libraries)
+#   java.desktop      - GUI support (Swing/AWT, even for headless mode)
+#   java.logging      - SLF4J/Logback logging
+#   java.naming       - JNDI (required by Logback)
+#   java.net.http     - HTTP client API
+#   java.scripting    - ScriptEngine for EvalCmd (Rhino)
+#   java.security.jgss - Kerberos/GSS-API security
+#   java.sql          - JDBC (used by some dependencies)
+#   jdk.crypto.ec     - Elliptic curve crypto for TLS/SSL (Discord API) - runtime loaded
+#   jdk.management    - JMX management extensions
+#   jdk.unsupported   - Native library access (jdave, udpqueue)
 RUN $JAVA_HOME/bin/jlink \
-    --add-modules java.base,java.logging,java.naming,java.management,java.desktop,java.scripting,jdk.crypto.ec,jdk.unsupported \
+    --add-modules java.base,java.compiler,java.desktop,java.logging,java.naming,java.net.http,java.scripting,java.security.jgss,java.sql,jdk.crypto.ec,jdk.management,jdk.unsupported \
     --strip-debug \
     --no-man-pages \
     --no-header-files \
