@@ -11,7 +11,7 @@ services:
     environment:
       # JVM options for audio performance. Defaults to ZGC with 512MB heap.
       # Override to adjust memory or use different GC:
-      # - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+      # - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+AlwaysPreTouch
       {}
     volumes:
       # Mount your config directory. Ensure UID 10001 has read/write access:

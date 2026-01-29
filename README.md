@@ -181,7 +181,7 @@ The bot works best with ZGC (Z Garbage Collector) which provides sub-millisecond
 
 ```bash
 java -Xms512m -Xmx512m \
-     -XX:+UseZGC -XX:+ZGenerational \
+     -XX:+UseZGC \
      -XX:+AlwaysPreTouch \
      -Dnogui=true \
      --enable-native-access=ALL-UNNAMED \
@@ -190,13 +190,13 @@ java -Xms512m -Xmx512m \
 
 **Flag explanations:**
 - `-Xms512m -Xmx512m`: Fixed heap size prevents resizing pauses
-- `-XX:+UseZGC -XX:+ZGenerational`: Sub-millisecond GC pauses (requires Java 21+)
+- `-XX:+UseZGC`: Sub-millisecond GC pauses (generational mode is default in JDK 24+)
 - `-XX:+AlwaysPreTouch`: Pre-allocates memory at startup to avoid page faults
 
 The Docker image uses these flags by default. To override, set `JAVA_OPTS`:
 ```yaml
 environment:
-  - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+  - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+AlwaysPreTouch
 ```
 
 ### Audio Buffer Configuration

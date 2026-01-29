@@ -53,11 +53,11 @@ download() {
 run() {
     # JVM flags for optimal audio performance:
     # -Xms512m -Xmx512m: Fixed heap size prevents resizing pauses
-    # -XX:+UseZGC -XX:+ZGenerational: Sub-millisecond GC pauses (Java 21+)
+    # -XX:+UseZGC: Sub-millisecond GC pauses (generational mode is default in JDK 24+)
     # -XX:+AlwaysPreTouch: Pre-allocate memory at startup to avoid page faults
     # shellcheck disable=SC2086
     java -Xms512m -Xmx512m \
-         -XX:+UseZGC -XX:+ZGenerational \
+         -XX:+UseZGC \
          -XX:+AlwaysPreTouch \
          -Dnogui=true \
          $JAVA_OPTS \

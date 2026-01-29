@@ -22,7 +22,7 @@ echo "[INFO] ========================================"
 
 # Default JVM options for optimal audio performance (ZGC with sub-ms pauses)
 # Users can override by setting JAVA_OPTS environment variable
-: "${JAVA_OPTS:=-Xms512m -Xmx512m -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch}"
+: "${JAVA_OPTS:=-Xms512m -Xmx512m -XX:+UseZGC -XX:+AlwaysPreTouch}"
 
 # Build argv
 set -- java -Dnogui=true --enable-native-access=ALL-UNNAMED
