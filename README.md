@@ -166,7 +166,7 @@ Check the [Docker Compose Example](docker-compose.example.yml) for more details.
   - Use `ghcr.io/arif-banai/musicbot:latest` for the latest build from the master branch
   - Use `ghcr.io/arif-banai/musicbot:0.6.1` (replace with actual version) to pin a specific release version
   - **Recommendation:** For production, pin your image tag rather than using `latest`
-- **JAVA_OPTS:** The container uses optimized JVM flags by default (ZGC, 512MB heap). Override with `JAVA_OPTS` if needed. See [Performance Tuning](#performance-tuning) for details.
+- **JAVA_OPTS:** The container uses ZGC and AlwaysPreTouch by default. Set `JAVA_OPTS` to add heap limits (e.g. `-Xms256m -Xmx512m`) or other flags. See [Performance Tuning](#performance-tuning) for details.
 
 
 To view published images, visit: `https://github.com/arif-banai/MusicBot/pkgs/container/musicbot`
@@ -180,8 +180,7 @@ For optimal audio quality with minimal stuttering, the following JVM and configu
 The bot works best with ZGC (Z Garbage Collector) which provides sub-millisecond pause times:
 
 ```bash
-java -Xms512m -Xmx512m \
-     -XX:+UseZGC \
+java -XX:+UseZGC \
      -XX:+AlwaysPreTouch \
      -Dnogui=true \
      --enable-native-access=ALL-UNNAMED \
@@ -189,14 +188,14 @@ java -Xms512m -Xmx512m \
 ```
 
 **Flag explanations:**
-- `-Xms512m -Xmx512m`: Fixed heap size prevents resizing pauses
 - `-XX:+UseZGC`: Sub-millisecond GC pauses (generational mode is default in JDK 24+)
 - `-XX:+AlwaysPreTouch`: Pre-allocates memory at startup to avoid page faults
+- `-Xms` / `-Xmx`: Optional; set heap size if you want to limit or fix memory (e.g. `-Xms256m -Xmx512m`)
 
-The Docker image uses these flags by default. To override, set `JAVA_OPTS`:
+The Docker image uses ZGC and AlwaysPreTouch by default. Set `JAVA_OPTS` to add heap limits or override:
 ```yaml
 environment:
-  - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+AlwaysPreTouch
+  - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseZGC -XX:+AlwaysPreTouch
 ```
 
 ### Audio Buffer Configuration

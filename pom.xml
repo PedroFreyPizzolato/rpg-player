@@ -280,9 +280,9 @@
         </dependency>
         <!-- YouTube Source Fork Dependency -->
         <dependency>
-            <groupId>com.github.arif-banai.youtube-source</groupId>
-            <artifactId>common</artifactId>
-            <version>5512253</version>
+            <groupId>com.github.arif-banai</groupId>
+            <artifactId>youtube-source</artifactId>
+            <version>feature~enhanced-debug-logging-SNAPSHOT</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>

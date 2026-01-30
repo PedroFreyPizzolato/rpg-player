@@ -9,9 +9,8 @@ services:
     # or uncomment the user line below to run as your host user.
     # user: "${UID:-10001}:${GID:-10001}"
     environment:
-      # JVM options for audio performance. Defaults to ZGC with 512MB heap.
-      # Override to adjust memory or use different GC:
-      # - JAVA_OPTS=-Xms1g -Xmx1g -XX:+UseZGC -XX:+AlwaysPreTouch
+      # JVM options. Image defaults to ZGC + AlwaysPreTouch; set JAVA_OPTS for heap or other flags:
+      # - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseZGC -XX:+AlwaysPreTouch
       {}
     volumes:
       # Mount your config directory. Ensure UID 10001 has read/write access:
