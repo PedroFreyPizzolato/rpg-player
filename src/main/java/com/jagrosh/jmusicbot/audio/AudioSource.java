@@ -36,6 +36,7 @@ import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.YoutubeSourceOptions;
 import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.AndroidVrWithThumbnail;
 import dev.lavalink.youtube.clients.ClientOptions;
 import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Tv;
@@ -305,7 +306,7 @@ public enum AudioSource
             };
         }
         // Clients are required even without OAuth to properly handle YouTube URLs
-        return new Client[] { new AndroidVr(), new MWeb(), new Web() };
+        return new Client[] { new AndroidVrWithThumbnail(), new MWeb(), new Web() };
     }
     
     /**
