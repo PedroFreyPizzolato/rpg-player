@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author Arif Banai (arif-banai)
  */
-public class PerformanceMetrics {
+public class PerformanceMetrics implements AudioMetricsListener {
     
     /** Maximum number of frames to retain (2 minutes at 50fps) */
     private static final int MAX_HISTORY_SIZE = 6000;
@@ -125,9 +125,10 @@ public class PerformanceMetrics {
      * O(1) time complexity, no allocations in steady state.
      *
      * @param provided true if audio frame was available, false if missed
-     * @param provisionLatencyNanos time taken to get frame from Lavaplayer in nanoseconds
+     * @param latencyNanos time taken to get frame from Lavaplayer in nanoseconds
      */
-    public void recordFrame(boolean provided, long provisionLatencyNanos) {
+    @Override
+    public void onFrameProvided(boolean provided, long latencyNanos) {
         long currentTimeMs = System.currentTimeMillis();
         
         // Calculate cadence delta (deviation from expected 20ms interval)
@@ -156,7 +157,7 @@ public class PerformanceMetrics {
         
         if (provided) {
             totalFramesProvided.incrementAndGet();
-            totalLatencyNanos.addAndGet(provisionLatencyNanos);
+            totalLatencyNanos.addAndGet(latencyNanos);
             consecutiveSuccess++;
             
             // Track time-to-first-frame
@@ -182,7 +183,7 @@ public class PerformanceMetrics {
         int index = ringHead.getAndUpdate(i -> (i + 1) % MAX_HISTORY_SIZE);
         timestamps[index] = currentTimeMs;
         frameProvided[index] = provided;
-        latencyMs[index] = provisionLatencyNanos / 1_000_000.0f;
+        latencyMs[index] = latencyNanos / 1_000_000.0f;
         // Clamp cadence delta to short range to save memory
         cadenceDeltaMs[index] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, cadenceDelta));
         
@@ -212,21 +213,22 @@ public class PerformanceMetrics {
      * Called when Lavaplayer's decoder/stream stalls and can't provide audio.
      *
      * @param thresholdMs the threshold (in ms) that was exceeded before the stuck event triggered
-     * @param trackTitle the title of the stuck track (may be null)
-     * @param trackUri the URI of the stuck track (may be null)
+     * @param title the title of the stuck track (may be null)
+     * @param uri the URI of the stuck track (may be null)
      */
-    public void recordStuckEvent(long thresholdMs, String trackTitle, String trackUri) {
+    @Override
+    public void onTrackStuck(long thresholdMs, String title, String uri) {
         stuckCount.incrementAndGet();
         long timestamp = System.currentTimeMillis();
         
-        stuckEvents.addLast(new StuckEvent(timestamp, thresholdMs, trackTitle, trackUri));
+        stuckEvents.addLast(new StuckEvent(timestamp, thresholdMs, title, uri));
         
         while (stuckEvents.size() > MAX_STUCK_EVENTS) {
             stuckEvents.pollFirst();
         }
         
         // Also record as a track event for timeline
-        recordTrackEvent(TrackEventType.STUCK, trackTitle, trackUri);
+        recordTrackEvent(TrackEventType.STUCK, title, uri);
     }
     
     /**
@@ -248,36 +250,39 @@ public class PerformanceMetrics {
     /**
      * Records a track start event and begins time-to-first-frame tracking.
      *
-     * @param trackTitle the track title
-     * @param trackUri the track URI
+     * @param title the track title
+     * @param uri the track URI
      */
-    public void recordTrackStart(String trackTitle, String trackUri) {
+    @Override
+    public void onTrackStart(String title, String uri) {
         trackStartTime = System.currentTimeMillis();
         firstFrameTime = 0;
         waitingForFirstFrame = true;
-        recordTrackEvent(TrackEventType.STARTED, trackTitle, trackUri);
+        recordTrackEvent(TrackEventType.STARTED, title, uri);
     }
     
     /**
      * Records a track end event.
      *
-     * @param trackTitle the track title
-     * @param trackUri the track URI
+     * @param title the track title
+     * @param uri the track URI
      */
-    public void recordTrackEnd(String trackTitle, String trackUri) {
+    @Override
+    public void onTrackEnd(String title, String uri) {
         waitingForFirstFrame = false;
-        recordTrackEvent(TrackEventType.ENDED, trackTitle, trackUri);
+        recordTrackEvent(TrackEventType.ENDED, title, uri);
     }
     
     /**
      * Records a track exception event.
      *
-     * @param trackTitle the track title
-     * @param trackUri the track URI
+     * @param title the track title
+     * @param uri the track URI
      */
-    public void recordTrackException(String trackTitle, String trackUri) {
+    @Override
+    public void onTrackException(String title, String uri) {
         waitingForFirstFrame = false;
-        recordTrackEvent(TrackEventType.EXCEPTION, trackTitle, trackUri);
+        recordTrackEvent(TrackEventType.EXCEPTION, title, uri);
     }
     
     /**
@@ -325,7 +330,8 @@ public class PerformanceMetrics {
     /**
      * Resets session counters (called when track starts).
      */
-    public void resetSession() {
+    @Override
+    public void onSessionReset() {
         totalFramesRequested.set(0);
         totalFramesProvided.set(0);
         totalFramesMissed.set(0);

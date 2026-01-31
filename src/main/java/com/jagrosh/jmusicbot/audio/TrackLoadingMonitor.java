@@ -40,9 +40,13 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>Error messages for failures</li>
  * </ul>
  *
+ * <p>Implements {@link AudioLoadWrapper} for use with dependency injection.
+ * When GUI is disabled, {@link AudioLoadWrapper#NO_OP} should be used instead
+ * of this class to avoid allocating monitoring resources.
+ *
  * @author Arif Banai (arif-banai)
  */
-public final class TrackLoadingMonitor {
+public final class TrackLoadingMonitor implements AudioLoadWrapper {
     
     private static final Logger LOG = LoggerFactory.getLogger(TrackLoadingMonitor.class);
     private static final int MAX_LOAD_EVENTS = 500;
@@ -82,13 +86,15 @@ public final class TrackLoadingMonitor {
     
     /**
      * Wraps an AudioLoadResultHandler to monitor loading performance.
+     * Implements the {@link AudioLoadWrapper} interface.
      *
      * @param query the search query or URL
      * @param delegate the original handler to delegate to
      * @return a wrapped handler that records metrics
      */
-    public static AudioLoadResultHandler wrap(String query, AudioLoadResultHandler delegate) {
-        return getInstance().createWrapper(query, delegate);
+    @Override
+    public AudioLoadResultHandler wrap(String query, AudioLoadResultHandler delegate) {
+        return createWrapper(query, delegate);
     }
     
     private AudioLoadResultHandler createWrapper(String query, AudioLoadResultHandler delegate) {
