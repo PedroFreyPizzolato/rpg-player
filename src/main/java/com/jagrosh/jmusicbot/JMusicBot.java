@@ -17,6 +17,7 @@ package com.jagrosh.jmusicbot;
 
 import com.jagrosh.jdautilities.command.CommandClient;
 import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
+import com.jagrosh.jmusicbot.audio.VoiceConnectionMonitor;
 import com.jagrosh.jmusicbot.commands.v1.CommandFactory;
 import com.jagrosh.jmusicbot.entities.Prompt;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
@@ -26,6 +27,9 @@ import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.ConsoleUtil;
 import com.jagrosh.jmusicbot.utils.InstanceLock;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
+import com.jagrosh.jmusicbot.utils.TeeOutputStream;
+
+import java.io.PrintStream;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
@@ -80,37 +84,23 @@ public class JMusicBot
     
     private static void startBot()
     {
-        // create user interaction handler for startup
+        // Create user interaction handler for startup
         UserInteraction userInteraction = new Prompt("JMusicBot");
         
-        // Initialize FlatLaf theme BEFORE any Swing components are created
-        // This must happen before ConsoleUtil.redirectSystemStreams() which creates JTextArea
-        if(!userInteraction.isNoGUI())
-        {
-            try 
-            {
-                // Initialize with default dark theme - will be updated after config loads
-                ThemeManager.initialize("dark", 12);
-                LOG.info("FlatLaf theme initialized");
-            }
-            catch(Exception e)
-            {
-                LOG.warn("Could not initialize FlatLaf theme, using system Look and Feel: {}", e.getMessage());
-            }
-        }
+        // Buffer early output when GUI might be used.
+        // We don't know if config has gui.enabled=true yet, so buffer when -Dnogui is not set.
+        // If GUI ends up disabled by config, we restore original streams; otherwise we replay buffer into GUI.
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        TeeOutputStream teeOut = null;
+        TeeOutputStream teeErr = null;
         
-        // Redirect System.out/err to GUI console early (before config loading)
-        // so that all logs, including those from config loading, appear in GUI
-        if(!userInteraction.isNoGUI())
+        if (!userInteraction.isNoGUI())
         {
-            try 
-            {
-                ConsoleUtil.redirectSystemStreams();
-            }
-            catch(Exception e)
-            {
-                LOG.warn("Could not redirect console streams to GUI. Logs may not appear in GUI console.");
-            }
+            teeOut = new TeeOutputStream(originalOut);
+            teeErr = new TeeOutputStream(originalErr);
+            System.setOut(new PrintStream(teeOut, true));
+            System.setErr(new PrintStream(teeErr, true));
         }
         
         // Check for another running instance
@@ -122,49 +112,97 @@ public class JMusicBot
             System.exit(1);
         }
         
-        // startup checks
+        // Startup checks
         OtherUtil.checkVersion(userInteraction);
         OtherUtil.checkJavaVersion(userInteraction);
         
-        // load config
+        // Load config
         BotConfig config = new BotConfig(userInteraction);
         config.load();
-        if(!config.isValid())
+        if (!config.isValid())
+        {
+            // Restore original streams before exiting
+            if (teeOut != null)
+            {
+                System.setOut(originalOut);
+                System.setErr(originalErr);
+            }
             return;
+        }
         LOG.info("Loaded config from {}", config.getConfigLocation());
 
-        // set log level from config
+        // Set log level from config
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(
                 ch.qos.logback.classic.Level.toLevel(config.getLogLevel(), ch.qos.logback.classic.Level.INFO));
         
-        // set up the listener
-        EventWaiter waiter = new EventWaiter();
-        SettingsManager settings = new SettingsManager();
-        Bot bot = new Bot(waiter, config, settings, userInteraction);
+        // Single source of truth for GUI: combines -Dnogui and config gui.enabled.
+        // This matches the logic in Bot.isNoGUI().
+        boolean guiEnabled = !userInteraction.isNoGUI() && config.getGuiEnabled();
         
-        // Apply theme from config (updates from default if different)
-        if(!userInteraction.isNoGUI())
+        // Get buffered early output before we change streams again
+        String earlyOutput = null;
+        if (teeOut != null)
         {
+            earlyOutput = teeOut.getBufferedContent();
+            teeOut.clearBuffer();
+            if (teeErr != null)
+            {
+                teeErr.clearBuffer();
+            }
+        }
+        
+        if (guiEnabled)
+        {
+            // Initialize theme before creating any Swing components
             try
             {
                 ThemeManager.initialize(config.getGuiTheme(), config.getGuiFontSize());
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 LOG.warn("Could not apply theme from config: {}", e.getMessage());
             }
+            
+            // Redirect streams to GUI console, replaying buffered early output
+            try
+            {
+                ConsoleUtil.redirectSystemStreamsWithReplay(earlyOutput);
+            }
+            catch (Exception e)
+            {
+                LOG.warn("Could not redirect console streams to GUI. Logs may not appear in GUI console.");
+                // Restore original streams on failure
+                System.setOut(originalOut);
+                System.setErr(originalErr);
+            }
+        }
+        else
+        {
+            // GUI disabled: restore original streams (discard buffer)
+            if (teeOut != null)
+            {
+                System.setOut(originalOut);
+                System.setErr(originalErr);
+            }
         }
         
-        // Initialize GUI (ConsolePanel will reuse the already-redirected streams)
-        if(!userInteraction.isNoGUI())
+        // Set up the listener
+        EventWaiter waiter = new EventWaiter();
+        SettingsManager settings = new SettingsManager();
+        Bot bot = new Bot(waiter, config, settings, userInteraction);
+
+        // TrackLoadingMonitor is configured via Bot.getAudioLoadWrapper() (DI pattern).
+        VoiceConnectionMonitor.setEnabled(guiEnabled);
+
+        if (guiEnabled)
         {
-            try 
+            try
             {
                 MainFrame mainFrame = new MainFrame(bot);
                 bot.setGUI(mainFrame);
                 mainFrame.init();
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 LOG.error("Could not start GUI. Use -Dnogui=true for server environments.", e);
                 userInteraction.alert(UserInteraction.Level.ERROR, "JMusicBot",

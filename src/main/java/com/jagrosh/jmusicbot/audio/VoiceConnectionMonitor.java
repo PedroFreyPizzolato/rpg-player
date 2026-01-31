@@ -47,6 +47,9 @@ public final class VoiceConnectionMonitor extends ListenerAdapter {
     
     private static volatile VoiceConnectionMonitor instance;
     
+    /** Whether monitoring is enabled (disabled in no-GUI mode). Set at startup, must not be changed later. */
+    private static volatile boolean enabled = true;
+    
     // Per-guild event tracking
     private final ConcurrentMap<Long, ConcurrentLinkedDeque<VoiceEvent>> guildEvents = new ConcurrentHashMap<>();
     
@@ -77,11 +80,29 @@ public final class VoiceConnectionMonitor extends ListenerAdapter {
     }
     
     /**
+     * Sets whether voice connection monitoring is enabled.
+     * Should be called once at startup before any monitoring occurs.
+     *
+     * @param isEnabled true to enable monitoring, false to disable (no-GUI mode)
+     */
+    public static void setEnabled(boolean isEnabled) {
+        enabled = isEnabled;
+        if (!enabled) {
+            LOG.debug("Voice Connection Monitor disabled (no GUI mode)");
+        }
+    }
+    
+    /**
      * Registers this monitor with JDA.
+     * Does nothing if monitoring is disabled (no-GUI mode).
      *
      * @param jda the JDA instance
      */
     public void register(JDA jda) {
+        if (!enabled) {
+            LOG.debug("Voice Connection Monitor not registered (no GUI mode)");
+            return;
+        }
         this.jda = jda;
         jda.addEventListener(this);
         LOG.info("Voice Connection Monitor registered");
