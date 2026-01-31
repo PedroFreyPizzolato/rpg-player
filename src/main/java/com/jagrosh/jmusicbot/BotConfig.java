@@ -16,6 +16,7 @@
 package com.jagrosh.jmusicbot;
 
 import static com.jagrosh.jmusicbot.config.model.ConfigOption.*;
+import static com.jagrosh.jmusicbot.config.model.ConfigOption.GUI_ENABLED;
 import static com.jagrosh.jmusicbot.config.model.ConfigOption.GUI_THEME;
 import static com.jagrosh.jmusicbot.config.model.ConfigOption.GUI_FONT_SIZE;
 
@@ -60,7 +61,7 @@ public class BotConfig {
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
             evalEngine, guiTheme;
-    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth;
+    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs;
     private double skipratio;
@@ -274,6 +275,7 @@ public class BotConfig {
         dbots = owner == 113156185389092864L;
         
         // GUI options
+        guiEnabled = GUI_ENABLED.hasValue(config) ? GUI_ENABLED.getBoolean(config) : true;
         guiTheme = GUI_THEME.getString(config);
         guiFontSize = GUI_FONT_SIZE.getInt(config);
         
@@ -510,6 +512,10 @@ public class BotConfig {
         if (enabledAudioSources.isEmpty())
             return false;
         return enabledAudioSources.contains(source);
+    }
+
+    public boolean getGuiEnabled() {
+        return guiEnabled;
     }
 
     public String getGuiTheme() {
