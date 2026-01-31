@@ -58,7 +58,8 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     private final PlayerManager manager;
     private final AudioPlayer audioPlayer;
     private final long guildId;
-    private final PerformanceMetrics performanceMetrics;
+    /** Listener for audio metrics events. Uses NO_OP implementation in no-GUI mode. */
+    private final AudioMetricsListener metricsListener;
 
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
@@ -69,7 +70,10 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         this.manager = manager;
         this.audioPlayer = player;
         this.guildId = guild.getIdLong();
-        this.performanceMetrics = new PerformanceMetrics(guildId);
+        // Use NO_OP listener in no-GUI mode to avoid memory allocation
+        this.metricsListener = manager.getBot().isNoGUI() 
+            ? AudioMetricsListener.NO_OP 
+            : new PerformanceMetrics(guildId);
 
         this.setQueueType(manager.getBot().getSettingsManager().getSettings(guildId).getQueueType());
         // Set history size from config
@@ -206,7 +210,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             trackTitle = track.getInfo().title;
             trackUri = track.getInfo().uri;
         }
-        performanceMetrics.recordTrackEnd(trackTitle, trackUri);
+        metricsListener.onTrackEnd(trackTitle, trackUri);
         
         // Log track end with details for debugging
         if (endReason != AudioTrackEndReason.FINISHED) {
@@ -274,7 +278,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             trackTitle = track.getInfo().title;
             trackUri = track.getInfo().uri;
         }
-        performanceMetrics.recordTrackException(trackTitle, trackUri);
+        metricsListener.onTrackException(trackTitle, trackUri);
         
         // Build detailed error message with track information
         StringBuilder errorDetails = new StringBuilder();
@@ -352,7 +356,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         LOGGER.debug(" - Player Vol: {}", player.getVolume());
         LOGGER.debug(" - Is Paused:  {}", player.isPaused());
         votes.clear();
-        performanceMetrics.resetSession(); // Reset metrics for new track
+        metricsListener.onSessionReset(); // Reset metrics for new track
         
         // Record track start for timeline and time-to-first-frame tracking
         String trackTitle = null;
@@ -367,7 +371,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
                     trackUri,
                     track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown");
         }
-        performanceMetrics.recordTrackStart(trackTitle, trackUri);
+        metricsListener.onTrackStart(trackTitle, trackUri);
 
         if (lastReason == null)
             lastReason = "Playing next song.";
@@ -387,7 +391,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             trackUri = track.getInfo().uri;
         }
         
-        performanceMetrics.recordStuckEvent(thresholdMs, trackTitle, trackUri);
+        metricsListener.onTrackStuck(thresholdMs, trackTitle, trackUri);
         
         // Build detailed log message
         StringBuilder details = new StringBuilder();
@@ -460,7 +464,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         long latencyNanos = System.nanoTime() - startNanos;
         
         boolean frameAvailable = lastFrame != null;
-        performanceMetrics.recordFrame(frameAvailable, latencyNanos);
+        metricsListener.onFrameProvided(frameAvailable, latencyNanos);
         
         return frameAvailable;
     }
@@ -468,10 +472,12 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     /**
      * Gets the performance metrics for this audio handler.
      *
-     * @return the performance metrics instance
+     * @return the performance metrics instance, or null if running in no-GUI mode
      */
     public PerformanceMetrics getPerformanceMetrics() {
-        return performanceMetrics;
+        return metricsListener instanceof PerformanceMetrics 
+            ? (PerformanceMetrics) metricsListener 
+            : null;
     }
 
     @Override
