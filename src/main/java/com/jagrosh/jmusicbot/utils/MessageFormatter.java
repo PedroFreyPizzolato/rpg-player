@@ -40,6 +40,19 @@ public class MessageFormatter {
         }
 
         StringBuilder description = new StringBuilder();
+        
+        // Add progress bar if enabled
+        if (bot.getConfig().updateNpProgressBar()) {
+            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
+            description.append(statusEmoji)
+                    .append(" ").append(FormatUtil.progressBar(progress))
+                    .append(" `[").append(TimeUtil.formatTime(info.position))
+                    .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
+                    .append(FormatUtil.volumeIcon(info.volume))
+                    .append("\n\n");
+        }
+        
         description.append("**Playing from:** ").append(info.track.getSourceManager().getSourceName());
         eb.setDescription(description.toString());
 
@@ -99,11 +112,19 @@ public class MessageFormatter {
     }
 
     public static MessageCreateData buildNoMusicPlayingMessage(Bot bot, NowPlayingInfo info) {
+        String descriptionText;
+        if (bot.getConfig().updateNpProgressBar()) {
+            // Show progress bar in "no music" state (all segments empty)
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume);
+        } else {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
+        }
+        
         return new MessageCreateBuilder()
                 .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**"))
                 .setEmbeds(new EmbedBuilder()
                         .setTitle("No music playing")
-                        .setDescription(AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume))
+                        .setDescription(descriptionText)
                         .setColor(info.guild.getSelfMember().getColors().getPrimary())
                         .build()).build();
     }

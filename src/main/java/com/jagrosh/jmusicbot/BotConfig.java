@@ -61,7 +61,7 @@ public class BotConfig {
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
             evalEngine, guiTheme, youtubeDebugSaveResponsesDirectory;
-    private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
+    private boolean stayInChannel, songInGame, npImages, updateNpProgressBar, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs;
     private double skipratio;
@@ -255,6 +255,7 @@ public class BotConfig {
         stayInChannel = STAY_IN_CHANNEL.getBoolean(config);
         songInGame = SONG_IN_GAME.getBoolean(config);
         npImages = NP_IMAGES.getBoolean(config);
+        updateNpProgressBar = NP_UPDATE_PROGRESS_BAR.getBoolean(config);
         updatealerts = UPDATE_ALERTS.getBoolean(config);
         logLevel = LOG_LEVEL.getString(config);
         useEval = USE_EVAL.getBoolean(config);
@@ -461,6 +462,10 @@ public class BotConfig {
 
     public boolean useNPImages() {
         return npImages;
+    }
+
+    public boolean updateNpProgressBar() {
+        return updateNpProgressBar;
     }
 
     public long getMaxSeconds() {

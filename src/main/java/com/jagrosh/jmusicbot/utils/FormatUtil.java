@@ -63,6 +63,26 @@ public class FormatUtil {
             return "\uD83D\uDD09"; // 🔉
         return "\uD83D\uDD0A";     // 🔊
     }
+
+    /**
+     * Generates a 12-segment progress bar for track playback.
+     * 
+     * @param percent The progress as a value between 0.0 and 1.0. 
+     *                Use negative values (e.g., -1) for "no music" state (all segments empty).
+     * @return A string representing the progress bar with 🔘 at the current position and ▬ for other segments.
+     */
+    public static String progressBar(double percent)
+    {
+        StringBuilder str = new StringBuilder();
+        for(int i = 0; i < 12; i++)
+        {
+            if(i == (int)(percent * 12))
+                str.append("\uD83D\uDD18"); // 🔘
+            else
+                str.append("▬");
+        }
+        return str.toString();
+    }
     
     public static String listOfTChannels(List<TextChannel> list, String query)
     {
