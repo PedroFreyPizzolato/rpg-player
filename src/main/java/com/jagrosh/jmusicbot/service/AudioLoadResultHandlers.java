@@ -19,7 +19,6 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
-import com.jagrosh.jmusicbot.audio.TrackLoadingMonitor;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -103,7 +102,7 @@ public final class AudioLoadResultHandlers
                 LOG.debug("{} falling back to YouTube search: guild={}, query=\"{}\"",
                         getHandlerName(), guild.getId(), args);
                 bot.getPlayerManager().loadItemOrdered(guild, "ytsearch:" + args,
-                        TrackLoadingMonitor.wrap("ytsearch:" + args, createFallbackHandler()));
+                        bot.getAudioLoadWrapper().wrap("ytsearch:" + args, createFallbackHandler()));
             }
         }
 

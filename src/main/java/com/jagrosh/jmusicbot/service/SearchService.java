@@ -16,7 +16,6 @@
 package com.jagrosh.jmusicbot.service;
 
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.TrackLoadingMonitor;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -74,7 +73,7 @@ public class SearchService
                 guild.getId(), member.getUser().getName(), query);
 
         bot.getPlayerManager().loadItemOrdered(guild, searchPrefix + query,
-                TrackLoadingMonitor.wrap(searchPrefix + query, new SearchResultHandler(guild, member, query, channel, callback)));
+                bot.getAudioLoadWrapper().wrap(searchPrefix + query, new SearchResultHandler(guild, member, query, channel, callback)));
     }
 
     /**
