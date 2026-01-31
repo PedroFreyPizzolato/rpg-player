@@ -71,11 +71,12 @@ public class NowPlayingHandlerTest
     class InitializationTests
     {
         @Test
-        @DisplayName("init() schedules update task when not using NP images")
-        void init_schedulesUpdateTask_whenNotUsingNPImages()
+        @DisplayName("init() schedules update task when not using NP images and progress bar is enabled")
+        void init_schedulesUpdateTask_whenNotUsingNPImagesAndProgressBarEnabled()
         {
-            // Given
+            // Given - images off and progress bar on (both conditions required)
             when(fixture.getConfig().useNPImages()).thenReturn(false);
+            when(fixture.getConfig().updateNpProgressBar()).thenReturn(true);
 
             // When
             nowPlayingHandler.init();
@@ -88,8 +89,39 @@ public class NowPlayingHandlerTest
         @DisplayName("init() does not schedule task when using NP images")
         void init_doesNotScheduleTask_whenUsingNPImages()
         {
-            // Given
+            // Given - images on (progress bar setting doesn't matter)
             when(fixture.getConfig().useNPImages()).thenReturn(true);
+            when(fixture.getConfig().updateNpProgressBar()).thenReturn(true);
+
+            // When
+            nowPlayingHandler.init();
+
+            // Then
+            verify(fixture.getThreadpool(), never()).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("init() does not schedule task when progress bar is disabled")
+        void init_doesNotScheduleTask_whenProgressBarDisabled()
+        {
+            // Given - images off but progress bar disabled
+            when(fixture.getConfig().useNPImages()).thenReturn(false);
+            when(fixture.getConfig().updateNpProgressBar()).thenReturn(false);
+
+            // When
+            nowPlayingHandler.init();
+
+            // Then
+            verify(fixture.getThreadpool(), never()).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("init() does not schedule task when both NP images and progress bar are disabled")
+        void init_doesNotScheduleTask_whenBothDisabled()
+        {
+            // Given - both conditions fail
+            when(fixture.getConfig().useNPImages()).thenReturn(true);
+            when(fixture.getConfig().updateNpProgressBar()).thenReturn(false);
 
             // When
             nowPlayingHandler.init();

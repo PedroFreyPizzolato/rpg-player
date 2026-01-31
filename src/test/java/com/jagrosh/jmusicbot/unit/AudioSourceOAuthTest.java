@@ -265,8 +265,8 @@ class AudioSourceOAuthTest {
             assertEquals(3, nonOauthClients.length, "Non-OAuth mode should use 3 clients (AndroidVr, MWeb, Web)");
             
             // Verify client types
-            assertEquals("AndroidVr", nonOauthClients[0].getClass().getSimpleName(),
-                "First non-OAuth client should be AndroidVr");
+            assertEquals("AndroidVrWithThumbnail", nonOauthClients[0].getClass().getSimpleName(),
+                "First non-OAuth client should be AndroidVrWithThumbnail");
             assertEquals("MWeb", nonOauthClients[1].getClass().getSimpleName(),
                 "Second non-OAuth client should be MWeb");
             assertEquals("Web", nonOauthClients[2].getClass().getSimpleName(),
