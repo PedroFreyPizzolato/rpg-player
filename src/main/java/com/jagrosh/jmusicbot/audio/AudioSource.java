@@ -39,7 +39,6 @@ import dev.lavalink.youtube.clients.AndroidVr;
 import dev.lavalink.youtube.clients.ClientOptions;
 import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Tv;
-import dev.lavalink.youtube.clients.TvHtml5Embedded;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.skeleton.Client;
 import org.slf4j.Logger;
@@ -73,10 +72,7 @@ public enum AudioSource
         "YouTube videos and playlists",
         10,
         (manager, config) -> {
-            YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(
-                config.useYouTubeOauth(),
-                config.getMaxYTPlaylistPages()
-            );
+            YoutubeAudioSourceManager yt = setupYoutubeAudioSourceManager(config);
             manager.registerSourceManager(yt);
         }
     ),
@@ -227,19 +223,19 @@ public enum AudioSource
     /**
      * Sets up and configures a YouTube audio source manager.
      * 
-     * @param useOauth whether to use OAuth2 authentication
-     * @param maxYTPlaylistPages maximum number of playlist pages to load
+     * @param config the bot configuration
      * @return the configured YouTube audio source manager
      */
-    private static YoutubeAudioSourceManager setupYoutubeAudioSourceManager(boolean useOauth, int maxYTPlaylistPages)
+    private static YoutubeAudioSourceManager setupYoutubeAudioSourceManager(BotConfig config)
     {
         final Logger logger = LoggerFactory.getLogger(AudioSource.class);
         
-        YoutubeSourceOptions options = buildYoutubeOptions(useOauth);
+        boolean useOauth = config.useYouTubeOauth();
+        YoutubeSourceOptions options = buildYoutubeOptions(config);
         Client[] clients = buildYoutubeClients(useOauth);
 
         YoutubeAudioSourceManager yt = new YoutubeAudioSourceManager(options, clients);
-        yt.setPlaylistPageCount(maxYTPlaylistPages);
+        yt.setPlaylistPageCount(config.getMaxYTPlaylistPages());
 
         if (useOauth)
         {
@@ -251,17 +247,24 @@ public enum AudioSource
     /**
      * Builds YouTube source options.
      */
-    private static YoutubeSourceOptions buildYoutubeOptions(boolean useOauth)
+    private static YoutubeSourceOptions buildYoutubeOptions(BotConfig config)
     {
         YoutubeSourceOptions options = new YoutubeSourceOptions()
                 .setAllowSearch(true)
                 .setAllowDirectVideoIds(true)
                 .setAllowDirectPlaylistIds(true);
         
-        if (useOauth)
+        if (config.useYouTubeOauth())
         {
             options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
         }
+        
+        String debugDir = config.getYoutubeDebugSaveResponsesDirectory();
+        if (debugDir != null && !debugDir.isBlank())
+        {
+            options.setDebugSaveResponsesDirectory(debugDir);
+        }
+        
         return options;
     }
     
@@ -297,8 +300,8 @@ public enum AudioSource
                 new AndroidVr(metadataOnly), // metadata loading (non-embedded, non-OAuth)
                 new MWeb(metadataOnly),      // metadata loading (non-embedded, non-OAuth)
                 new Web(metadataOnly),       // metadata loading (non-embedded, non-OAuth)
-                new TvHtml5Embedded(metadataOnly), // issues with playback, but works for metadata loading
-                new Tv()                     // streaming only (OAuth)
+                new Tv(), 
+                // new TvHtml5Embedded(metadataOnly), // issues with playback, but works for metadata loading
             };
         }
         // Clients are required even without OAuth to properly handle YouTube URLs

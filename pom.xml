@@ -282,8 +282,9 @@
         <dependency>
             <groupId>com.github.arif-banai</groupId>
             <artifactId>youtube-source</artifactId>
-            <version>feature~enhanced-debug-logging-SNAPSHOT</version>
+            <version>484f634653</version>
         </dependency>
+
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
             <groupId>com.github.jagrosh</groupId>

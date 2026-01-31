@@ -60,7 +60,7 @@ public class BotConfig {
     private Path path = null;
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
-            evalEngine, guiTheme;
+            evalEngine, guiTheme, youtubeDebugSaveResponsesDirectory;
     private boolean stayInChannel, songInGame, npImages, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs;
@@ -263,6 +263,8 @@ public class BotConfig {
         maxYTPlaylistPages = MAX_YT_PLAYLIST_PAGES.getInt(config);
         maxHistorySize = MAX_HISTORY_SIZE.getInt(config);
         useYouTubeOauth = USE_YOUTUBE_OAUTH.getBoolean(config);
+        youtubeDebugSaveResponsesDirectory = YOUTUBE_DEBUG_SAVE_RESPONSES_DIRECTORY.hasValue(config) 
+                ? YOUTUBE_DEBUG_SAVE_RESPONSES_DIRECTORY.getString(config) : null;
         aloneTimeUntilStop = ALONE_TIME_UNTIL_STOP.getLong(config);
         playlistsFolder = PLAYLISTS_FOLDER.getString(config);
         aliases = ALIASES.getConfig(config);
@@ -475,6 +477,10 @@ public class BotConfig {
 
     public boolean useYouTubeOauth() {
         return useYouTubeOauth;
+    }
+
+    public String getYoutubeDebugSaveResponsesDirectory() {
+        return youtubeDebugSaveResponsesDirectory;
     }
 
     public String getMaxTime() {
