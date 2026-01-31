@@ -63,7 +63,9 @@ public class BotConfig {
             evalEngine, guiTheme, youtubeDebugSaveResponsesDirectory;
     private boolean stayInChannel, songInGame, npImages, updateNpProgressBar, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
-    private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs;
+    private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs, proxyPort;
+    private String proxyHost;
+    private boolean proxyLavaplayer, proxyJda, proxyGithub;
     private double skipratio;
     private OnlineStatus status;
     private Activity game;
@@ -285,6 +287,21 @@ public class BotConfig {
         // Performance options
         nasBufferMs = NAS_BUFFER_MS.getInt(config);
         frameBufferMs = FRAME_BUFFER_MS.getInt(config);
+        
+        // Proxy options
+        proxyHost = PROXY_HOST.hasValue(config) ? PROXY_HOST.getString(config) : "";
+        proxyPort = PROXY_PORT.hasValue(config) ? PROXY_PORT.getInt(config) : 0;
+        proxyLavaplayer = PROXY_LAVAPLAYER.hasValue(config) && PROXY_LAVAPLAYER.getBoolean(config);
+        proxyJda = PROXY_JDA.hasValue(config) && PROXY_JDA.getBoolean(config);
+        proxyGithub = PROXY_GITHUB.hasValue(config) && PROXY_GITHUB.getBoolean(config);
+        
+        // Log proxy configuration if enabled
+        if (hasProxy()) {
+            if (proxyLavaplayer || proxyJda || proxyGithub) {
+                LOGGER.info("Proxy configured: {}:{} [lavaplayer={}, jda={}, github={}]",
+                        proxyHost, proxyPort, proxyLavaplayer, proxyJda, proxyGithub);
+            }
+        }
     }
     
     /**
@@ -543,5 +560,34 @@ public class BotConfig {
     
     public int getFrameBufferMs() {
         return frameBufferMs;
+    }
+    
+    // Proxy getters
+    
+    /**
+     * Returns true if a valid proxy is configured (non-empty host and port > 0).
+     */
+    public boolean hasProxy() {
+        return proxyHost != null && !proxyHost.isEmpty() && proxyPort > 0;
+    }
+    
+    public String getProxyHost() {
+        return proxyHost;
+    }
+    
+    public int getProxyPort() {
+        return proxyPort;
+    }
+    
+    public boolean proxyLavaplayer() {
+        return proxyLavaplayer;
+    }
+    
+    public boolean proxyJda() {
+        return proxyJda;
+    }
+    
+    public boolean proxyGithub() {
+        return proxyGithub;
     }
 }

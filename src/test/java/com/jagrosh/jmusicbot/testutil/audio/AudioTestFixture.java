@@ -218,6 +218,14 @@ public class AudioTestFixture
         when(config.updateNpProgressBar()).thenReturn(true);
         when(config.getSongInStatus()).thenReturn(false);
         when(config.getMaxHistorySize()).thenReturn(10);
+        
+        // Proxy defaults (disabled by default)
+        when(config.hasProxy()).thenReturn(false);
+        when(config.getProxyHost()).thenReturn("");
+        when(config.getProxyPort()).thenReturn(0);
+        when(config.proxyLavaplayer()).thenReturn(false);
+        when(config.proxyJda()).thenReturn(false);
+        when(config.proxyGithub()).thenReturn(false);
 
         // Settings defaults
         when(settings.getRepeatMode()).thenReturn(RepeatMode.OFF);
@@ -458,6 +466,55 @@ public class AudioTestFixture
         when(selfVoiceState.getChannel()).thenReturn(null);
         when(selfVoiceState.inAudioChannel()).thenReturn(false);
         return this;
+    }
+
+    // ==================== Proxy Configuration ====================
+    
+    /**
+     * Configures a proxy with the given host and port.
+     * Does not enable any component proxying by default.
+     */
+    public AudioTestFixture withProxy(String host, int port)
+    {
+        when(config.hasProxy()).thenReturn(true);
+        when(config.getProxyHost()).thenReturn(host);
+        when(config.getProxyPort()).thenReturn(port);
+        return this;
+    }
+    
+    /**
+     * Enables Lavaplayer proxying (requires proxy to be configured).
+     */
+    public AudioTestFixture withProxyLavaplayer()
+    {
+        when(config.proxyLavaplayer()).thenReturn(true);
+        return this;
+    }
+    
+    /**
+     * Enables JDA proxying (requires proxy to be configured).
+     */
+    public AudioTestFixture withProxyJda()
+    {
+        when(config.proxyJda()).thenReturn(true);
+        return this;
+    }
+    
+    /**
+     * Enables GitHub proxying (requires proxy to be configured).
+     */
+    public AudioTestFixture withProxyGithub()
+    {
+        when(config.proxyGithub()).thenReturn(true);
+        return this;
+    }
+    
+    /**
+     * Configures a full Lavaplayer proxy setup (common use case).
+     */
+    public AudioTestFixture withLavaplayerProxy(String host, int port)
+    {
+        return withProxy(host, port).withProxyLavaplayer();
     }
 
     // ==================== Getters ====================

@@ -214,6 +214,57 @@ performance {
 
 Higher values provide more protection against stuttering but add latency. The defaults (800ms NAS, 2000ms frame buffer) should work well for most setups.
 
+## Proxy Configuration
+
+JMusicBot supports granular proxy configuration, allowing you to route specific components through a proxy while letting others connect directly. This is useful when you need to proxy audio traffic (e.g., to bypass regional restrictions) without affecting Discord API communication.
+
+### Configuration
+
+Add the following to your `config.txt`:
+
+```hocon
+proxy {
+  # Proxy server hostname and port
+  host = "127.0.0.1"
+  port = 8080
+  
+  # Enable proxy for specific components
+  lavaplayer = true   # Audio source requests (YouTube, SoundCloud, etc.)
+  jda = false         # Discord API traffic
+  github = false      # Version check requests
+}
+```
+
+### Common Use Cases
+
+**Route only audio traffic through proxy** (most common):
+```hocon
+proxy {
+  host = "127.0.0.1"
+  port = 18080
+  lavaplayer = true
+  jda = false
+  github = false
+}
+```
+
+**Route all traffic through proxy**:
+```hocon
+proxy {
+  host = "proxy.example.com"
+  port = 8080
+  lavaplayer = true
+  jda = true
+  github = true
+}
+```
+
+### Notes
+
+- Leave `host` empty or `port` as 0 to disable proxy entirely
+- Each component can be independently enabled/disabled
+- HTTP proxies are supported (SOCKS proxies are not currently supported)
+
 ## Development Workflow
 
 This project follows a **trunk-based development** workflow. The `master` branch is always releasable, and all work happens in short-lived branches:

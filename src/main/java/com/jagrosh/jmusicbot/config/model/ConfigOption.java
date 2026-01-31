@@ -76,7 +76,14 @@ public enum ConfigOption {
     
     // Performance options
     NAS_BUFFER_MS("performance.nasBufferMs", ConfigType.INT, false, "NAS buffer duration in ms (protects against GC pauses)"),
-    FRAME_BUFFER_MS("performance.frameBufferMs", ConfigType.INT, false, "Lavaplayer frame buffer duration in ms");
+    FRAME_BUFFER_MS("performance.frameBufferMs", ConfigType.INT, false, "Lavaplayer frame buffer duration in ms"),
+    
+    // Proxy options
+    PROXY_HOST("proxy.host", ConfigType.STRING, false, "Proxy server hostname"),
+    PROXY_PORT("proxy.port", ConfigType.INT, false, "Proxy server port"),
+    PROXY_LAVAPLAYER("proxy.lavaplayer", ConfigType.BOOLEAN, false, "Route Lavaplayer audio requests through proxy"),
+    PROXY_JDA("proxy.jda", ConfigType.BOOLEAN, false, "Route JDA Discord API traffic through proxy"),
+    PROXY_GITHUB("proxy.github", ConfigType.BOOLEAN, false, "Route GitHub version checks through proxy");
     
     private final String key;
     private final ConfigType type;

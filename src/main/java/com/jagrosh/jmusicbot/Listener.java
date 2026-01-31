@@ -98,7 +98,8 @@ public class Listener extends ListenerAdapter
                 {
                     User owner = bot.getJDA().retrieveUserById(bot.getConfig().getOwnerId()).complete();
                     String currentVersion = OtherUtil.getCurrentVersion();
-                    String latestVersion = OtherUtil.getLatestVersion();
+                    // Use proxy-aware version check if proxy is configured for GitHub
+                    String latestVersion = OtherUtil.getLatestVersion(bot.getConfig());
                     if(latestVersion != null && OtherUtil.isNewerVersion(currentVersion, latestVersion))
                     {
                         String msg = String.format(OtherUtil.NEW_VERSION_AVAILABLE, currentVersion, latestVersion);
