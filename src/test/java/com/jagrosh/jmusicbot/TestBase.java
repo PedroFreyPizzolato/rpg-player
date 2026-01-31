@@ -1,6 +1,7 @@
 package com.jagrosh.jmusicbot;
 
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.AudioLoadWrapper;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
@@ -69,6 +70,7 @@ public abstract class TestBase {
         when(bot.getSettingsManager()).thenReturn(settingsManager);
         when(bot.getThreadpool()).thenReturn(threadpool);
         when(bot.getJDA()).thenReturn(jda);
+        when(bot.getAudioLoadWrapper()).thenReturn(AudioLoadWrapper.NO_OP);
 
         // PlayerManager relationships
         when(playerManager.getBot()).thenReturn(bot);

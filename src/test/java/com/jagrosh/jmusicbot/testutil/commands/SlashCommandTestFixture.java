@@ -21,6 +21,7 @@ import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.BotConfig;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.audio.AudioLoadWrapper;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.service.MusicService;
@@ -178,6 +179,7 @@ public class SlashCommandTestFixture
         when(bot.getSearchService()).thenReturn(searchService);
         when(bot.getNowplayingHandler()).thenReturn(nowPlayingHandler);
         when(bot.getWaiter()).thenReturn(eventWaiter);
+        when(bot.getAudioLoadWrapper()).thenReturn(AudioLoadWrapper.NO_OP);
 
         // Settings relationships
         when(settingsManager.getSettings(anyLong())).thenReturn(settings);
