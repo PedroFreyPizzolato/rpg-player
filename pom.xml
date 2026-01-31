@@ -282,8 +282,8 @@
         <dependency>
             <groupId>com.github.arif-banai</groupId>
             <artifactId>youtube-source</artifactId>
-            <version>484f634653</version>
-        </dependency>
+            <version>db5ab50a84</version>
+	    </dependency>
 
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
