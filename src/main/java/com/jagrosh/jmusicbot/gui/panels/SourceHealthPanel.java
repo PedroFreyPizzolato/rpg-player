@@ -61,6 +61,7 @@ public class SourceHealthPanel extends JPanel {
     private final LoadTimeChartPanel loadTimeChart;
     private final SuccessPiePanel successPie;
     
+    private final TrackLoadingMonitor monitor;
     private LoadingSnapshot currentSnapshot;
     private int selectedWindowSeconds = 60;
     
@@ -84,8 +85,14 @@ public class SourceHealthPanel extends JPanel {
         public String toString() { return display; }
     }
     
-    public SourceHealthPanel() {
+    /**
+     * Creates a new SourceHealthPanel.
+     *
+     * @param monitor the TrackLoadingMonitor instance to display data from
+     */
+    public SourceHealthPanel(TrackLoadingMonitor monitor) {
         super(new BorderLayout(4, 4));
+        this.monitor = monitor;
         setBorder(new EmptyBorder(4, 4, 4, 4));
         
         // === TOP: Controls and Summary Stats ===
@@ -238,7 +245,11 @@ public class SourceHealthPanel extends JPanel {
      * Refreshes metrics from TrackLoadingMonitor.
      */
     public void refreshMetrics() {
-        currentSnapshot = TrackLoadingMonitor.getInstance().getSnapshot(selectedWindowSeconds);
+        if (monitor == null) {
+            currentSnapshot = null;
+        } else {
+            currentSnapshot = monitor.getSnapshot(selectedWindowSeconds);
+        }
         updateDisplay();
     }
     
@@ -282,7 +293,7 @@ public class SourceHealthPanel extends JPanel {
         sourceTableModel.setRowCount(0);
         
         for (String source : currentSnapshot.trackedSources()) {
-            SourceStats stats = TrackLoadingMonitor.getInstance().getSourceStats(source);
+            SourceStats stats = monitor.getSourceStats(source);
             if (stats == null) continue;
             
             sourceTableModel.addRow(new Object[]{
@@ -361,7 +372,7 @@ public class SourceHealthPanel extends JPanel {
             // Find max duration for scaling
             double maxDuration = 100;
             for (String source : sources) {
-                SourceStats stats = TrackLoadingMonitor.getInstance().getSourceStats(source);
+                SourceStats stats = monitor.getSourceStats(source);
                 if (stats != null) {
                     maxDuration = Math.max(maxDuration, stats.getP95DurationMs());
                 }
@@ -377,7 +388,7 @@ public class SourceHealthPanel extends JPanel {
             // Draw bars
             for (int i = 0; i < sources.length; i++) {
                 String source = sources[i];
-                SourceStats stats = TrackLoadingMonitor.getInstance().getSourceStats(source);
+                SourceStats stats = monitor.getSourceStats(source);
                 if (stats == null) continue;
                 
                 int x = margin + 5 + i * (barWidth + 10);

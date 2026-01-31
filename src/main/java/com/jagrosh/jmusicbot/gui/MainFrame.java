@@ -77,7 +77,7 @@ public class MainFrame extends JFrame {
         this.statusPanel = new StatusPanel(bot);
         this.performancePanel = new PerformancePanel(bot);
         this.systemHealthPanel = new SystemHealthPanel();
-        this.sourceHealthPanel = new SourceHealthPanel();
+        this.sourceHealthPanel = new SourceHealthPanel(bot.getTrackLoadingMonitor());
         this.settingsPanel = new SettingsPanel();
         this.configPanel = new ConfigPanel(bot);
         this.statusBar = new StatusBar();
