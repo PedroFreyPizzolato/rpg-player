@@ -297,8 +297,8 @@ public enum AudioSource
                 new AndroidVr(metadataOnly), // metadata loading (non-embedded, non-OAuth)
                 new MWeb(metadataOnly),      // metadata loading (non-embedded, non-OAuth)
                 new Web(metadataOnly),       // metadata loading (non-embedded, non-OAuth)
-                new TvHtml5Embedded(),       // Fallback: loading + primary streaming (OAuth)
-                new Tv()                     // Fallback: streaming only (OAuth)
+                new TvHtml5Embedded(metadataOnly), // issues with playback, but works for metadata loading
+                new Tv()                     // streaming only (OAuth)
             };
         }
         // Clients are required even without OAuth to properly handle YouTube URLs
