@@ -1,42 +1,50 @@
 package com.jagrosh.jmusicbot.queue;
 
-import java.util.LinkedList;
+import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * A bounded LIFO (Last In, First Out) queue for tracking playback history.
+ * A bounded LIFO buffer for tracking playback history.
  * Most recently played tracks are stored at the front (index 0) and are the first to be removed.
+ * <p>
+ * Backed by an {@link ArrayDeque} for O(1) add and remove operations.
  * 
  * @author Arif Banai
  * @param <T> The type of items to store in history
  */
-public class HistoryQueue<T> {
-    private final LinkedList<T> history;
+public class PlaybackHistory<T> {
+    private final ArrayDeque<T> history;
     private int maxSize;
 
     /**
-     * Creates a new HistoryQueue.
-     * The max size must be set via setMaxSize() before use.
+     * Creates a new PlaybackHistory with the specified maximum size.
+     * 
+     * @param maxSize The maximum number of items to keep in history (must be > 0)
+     * @throws IllegalArgumentException if maxSize is not positive
      */
-    public HistoryQueue() {
-        this.history = new LinkedList<>();
+    public PlaybackHistory(int maxSize) {
+        if (maxSize <= 0) {
+            throw new IllegalArgumentException("Max size must be positive, got: " + maxSize);
+        }
+        this.maxSize = maxSize;
+        this.history = new ArrayDeque<>(maxSize);
     }
 
     /**
      * Adds an item to the history. The item is added at the front (most recent).
-     * If the history is at max size, the oldest item is removed.
+     * If the history is at max size, the oldest item is removed first to avoid resize.
      * 
      * @param item The item to add to history
+     * @throws NullPointerException if item is null
      */
     public void add(T item) {
-        if (item == null) {
-            return;
-        }
-        history.addFirst(item);
-        // Remove oldest items if we exceed max size
-        while (history.size() > maxSize) {
+        // Remove oldest first to avoid triggering ArrayDeque resize
+        if (history.size() >= maxSize) {
             history.removeLast();
         }
+        
+        history.addFirst(item);
     }
 
     /**
@@ -46,23 +54,22 @@ public class HistoryQueue<T> {
      * @return The most recently added item, or null if history is empty
      */
     public T removeFirst() {
-        if (history.isEmpty()) {
-            return null;
-        }
-        return history.removeFirst();
+        return history.pollFirst();
     }
 
     /**
      * Sets the maximum number of items to keep in history.
      * If the current history size exceeds the new max size, oldest items are removed.
      * 
-     * @param size The maximum number of items to keep (must be >= 0)
+     * @param size The maximum number of items to keep (must be > 0)
+     * @throws IllegalArgumentException if size is not positive
      */
     public void setMaxSize(int size) {
-        if (size < 0) {
-            throw new IllegalArgumentException("Max size cannot be negative");
+        if (size <= 0) {
+            throw new IllegalArgumentException("Max size must be positive, got: " + size);
         }
         this.maxSize = size;
+        
         // Remove oldest items if current size exceeds new max
         while (history.size() > maxSize) {
             history.removeLast();
@@ -122,6 +129,15 @@ public class HistoryQueue<T> {
      * @throws IndexOutOfBoundsException if index is out of range
      */
     public T get(int index) {
-        return history.get(index);
+        if (index < 0 || index >= history.size()) {
+            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + history.size());
+        }
+        
+        // ArrayDeque doesn't support random access, so we iterate
+        Iterator<T> iterator = history.iterator();
+        for (int i = 0; i < index; i++) {
+            iterator.next();
+        }
+        return iterator.next();
     }
 }

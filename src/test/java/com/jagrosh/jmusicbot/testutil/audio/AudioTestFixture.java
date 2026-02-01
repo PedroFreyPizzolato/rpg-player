@@ -22,7 +22,7 @@ import com.jagrosh.jmusicbot.audio.PlayerManager;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.queue.AbstractQueue;
-import com.jagrosh.jmusicbot.queue.HistoryQueue;
+import com.jagrosh.jmusicbot.queue.PlaybackHistory;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.settings.Settings;
@@ -95,7 +95,7 @@ public class AudioTestFixture
 
     // Queue mock
     private AbstractQueue<QueuedTrack> queue;
-    private HistoryQueue<QueuedTrack> history;
+    private PlaybackHistory<QueuedTrack> history;
 
     // Message mocks
     private final Message message;
@@ -148,7 +148,7 @@ public class AudioTestFixture
 
         // Queue mocks
         queue = mock(AbstractQueue.class);
-        history = mock(HistoryQueue.class);
+        history = mock(PlaybackHistory.class);
 
         // Message mocks
         message = mock(Message.class);
@@ -619,7 +619,7 @@ public class AudioTestFixture
         return queue;
     }
 
-    public HistoryQueue<QueuedTrack> getHistory()
+    public PlaybackHistory<QueuedTrack> getHistory()
     {
         return history;
     }

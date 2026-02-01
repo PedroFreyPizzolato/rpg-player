@@ -75,16 +75,16 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             ? AudioMetricsListener.NO_OP 
             : new PerformanceMetrics(guildId);
 
-        this.setQueueType(manager.getBot().getSettingsManager().getSettings(guildId).getQueueType());
-        // Set history size from config
-        this.queue.setMaxHistorySize(manager.getBot().getConfig().getMaxHistorySize());
+        int maxHistorySize = manager.getBot().getConfig().getMaxHistorySize();
+        QueueType queueType = manager.getBot().getSettingsManager().getSettings(guildId).getQueueType();
+        this.queue = queueType.createInstance(null, maxHistorySize);
     }
 
     public void setQueueType(QueueType type)
     {
-        queue = type.createInstance(queue);
-        // History and its max size are preserved when changing queue types
-        // If this is a new queue (first initialization), max size will be set in constructor
+        // History is preserved when switching queue types
+        int maxHistorySize = manager.getBot().getConfig().getMaxHistorySize();
+        queue = type.createInstance(queue, maxHistorySize);
     }
 
     public void setLastReason(String reason)

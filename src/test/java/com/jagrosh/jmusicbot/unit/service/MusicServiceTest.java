@@ -17,7 +17,7 @@ package com.jagrosh.jmusicbot.unit.service;
 
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
-import com.jagrosh.jmusicbot.queue.HistoryQueue;
+import com.jagrosh.jmusicbot.queue.PlaybackHistory;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.testutil.service.MusicServiceScenarioBuilder;
@@ -264,7 +264,7 @@ public class MusicServiceTest
             when(fixture.getAudioHandler().getRequestMetadata()).thenReturn(metadata);
             
             // Setup history with a previous track
-            HistoryQueue<QueuedTrack> history = mock(HistoryQueue.class);
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
             when(history.isEmpty()).thenReturn(false);
             when(fixture.getQueue().getHistory()).thenReturn(history);
             
@@ -299,7 +299,7 @@ public class MusicServiceTest
             when(fixture.getAudioHandler().getRequestMetadata()).thenReturn(metadata);
             
             // Empty history
-            HistoryQueue<QueuedTrack> history = mock(HistoryQueue.class);
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
             when(history.isEmpty()).thenReturn(true);
             when(fixture.getQueue().getHistory()).thenReturn(history);
 

@@ -170,7 +170,7 @@ public class QueueStateBuilder
         }
 
         // History mock
-        com.jagrosh.jmusicbot.queue.HistoryQueue<QueuedTrack> historyMock = mock(com.jagrosh.jmusicbot.queue.HistoryQueue.class);
+        com.jagrosh.jmusicbot.queue.PlaybackHistory<QueuedTrack> historyMock = mock(com.jagrosh.jmusicbot.queue.PlaybackHistory.class);
         when(historyMock.getList()).thenReturn(new ArrayList<>(history));
         when(historyMock.isEmpty()).thenReturn(history.isEmpty());
         when(historyMock.size()).thenReturn(history.size());

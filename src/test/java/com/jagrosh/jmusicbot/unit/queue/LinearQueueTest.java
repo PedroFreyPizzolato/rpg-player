@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class LinearQueueTest {
 
+    private static final int DEFAULT_HISTORY_SIZE = 10;
+
     @Test
     public void testAddAndPull() {
-        LinearQueue<Q> queue = new LinearQueue<>(null);
+        LinearQueue<Q> queue = new LinearQueue<>(null, DEFAULT_HISTORY_SIZE);
         Q q1 = new Q(1);
         Q q2 = new Q(2);
 
@@ -25,8 +27,7 @@ public class LinearQueueTest {
 
     @Test
     public void testRewind() {
-        LinearQueue<Q> queue = new LinearQueue<>(null);
-        queue.setMaxHistorySize(10);
+        LinearQueue<Q> queue = new LinearQueue<>(null, DEFAULT_HISTORY_SIZE);
         Q q1 = new Q(1);
         Q q2 = new Q(2);
         
@@ -40,7 +41,7 @@ public class LinearQueueTest {
 
     @Test
     public void testMoveItem() {
-        LinearQueue<Q> queue = new LinearQueue<>(null);
+        LinearQueue<Q> queue = new LinearQueue<>(null, DEFAULT_HISTORY_SIZE);
         Q q1 = new Q(1);
         Q q2 = new Q(2);
         Q q3 = new Q(3);
@@ -57,7 +58,7 @@ public class LinearQueueTest {
 
     @Test
     public void testRemoveAll() {
-        LinearQueue<Q> queue = new LinearQueue<>(null);
+        LinearQueue<Q> queue = new LinearQueue<>(null, DEFAULT_HISTORY_SIZE);
         queue.add(new Q(1));
         queue.add(new Q(2));
         queue.add(new Q(1));

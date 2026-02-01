@@ -16,7 +16,6 @@
 package com.jagrosh.jmusicbot.queue;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -26,14 +25,23 @@ import java.util.List;
  */
 public abstract class AbstractQueue<T extends Queueable>
 {
-    protected AbstractQueue(AbstractQueue<T> queue)
+    /**
+     * Creates a new queue, optionally copying state from an existing queue.
+     * 
+     * @param queue The previous queue to copy state from, or null for initial creation
+     * @param maxHistorySize The maximum history size (only used when queue is null)
+     */
+    protected AbstractQueue(AbstractQueue<T> queue, int maxHistorySize)
     {
-        this.list = queue != null ? queue.getList() : new LinkedList<>();
-        this.history = queue != null ? queue.getHistory() : new HistoryQueue<>();
+        // Use ArrayList for O(1) random access (display, shuffle, etc.)
+        // Copy the list when switching queue types to avoid shared mutable state
+        this.list = queue != null ? new ArrayList<>(queue.getList()) : new ArrayList<>();
+        // Reuse history when switching queue types, create new one for initial creation
+        this.history = queue != null ? queue.getHistory() : new PlaybackHistory<>(maxHistorySize);
     }
 
     protected final List<T> list;
-    protected final HistoryQueue<T> history;
+    protected final PlaybackHistory<T> history;
 
     public abstract int add(T item);
 
@@ -96,7 +104,7 @@ public abstract class AbstractQueue<T extends Queueable>
         return list;
     }
 
-    public HistoryQueue<T> getHistory()
+    public PlaybackHistory<T> getHistory()
     {
         return history;
     }

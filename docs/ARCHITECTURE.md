@@ -159,7 +159,7 @@ classDiagram
     class AbstractQueue~T~ {
         <<abstract>>
         -list: List~T~
-        -history: HistoryQueue~T~
+        -history: PlaybackHistory~T~
         +add(T item)* int
         +pull() T
         +shuffle(int startIndex)
@@ -174,11 +174,11 @@ classDiagram
         +add(T item) int
     }
     
-    class HistoryQueue~T~ {
-        -history: LinkedList~T~
+    class PlaybackHistory~T~ {
+        -history: ArrayDeque~T~
         -maxSize: int
         +add(T item)
-        +pop() T
+        +removeFirst() T
     }
     
     class QueuedTrack {
@@ -190,7 +190,7 @@ classDiagram
     Queueable <|.. QueuedTrack
     AbstractQueue <|-- LinearQueue
     AbstractQueue <|-- FairQueue
-    AbstractQueue o-- HistoryQueue
+    AbstractQueue o-- PlaybackHistory
     AbstractQueue o-- Queueable
 ```
 

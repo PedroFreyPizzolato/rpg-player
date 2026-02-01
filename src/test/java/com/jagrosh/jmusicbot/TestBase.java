@@ -89,6 +89,7 @@ public abstract class TestBase {
         
         // Config defaults
         when(config.getOwnerId()).thenReturn(OWNER_ID);
+        when(config.getMaxHistorySize()).thenReturn(10);
         
         // Settings defaults
         when(settingsManager.getSettings(GUILD_ID)).thenReturn(settings);
