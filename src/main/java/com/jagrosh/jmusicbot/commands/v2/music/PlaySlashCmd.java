@@ -6,6 +6,7 @@ import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.InteractionHookOutputAdapter;
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters.SlashEventOutputAdapter;
 import com.jagrosh.jmusicbot.service.MusicService;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
@@ -76,7 +77,8 @@ public class PlaySlashCmd extends MusicSlashCommand
             @Override
             public void trackLoaded(AudioTrack track)
             {
-                event.replyChoices(new Command.Choice(track.getInfo().title, track.getInfo().uri)).queue();
+                String title = FormatUtil.fixMojibakeUtf8AsLatin1(track.getInfo().title);
+                event.replyChoices(new Command.Choice(truncateTitle(title), track.getInfo().uri)).queue();
             }
 
             @Override
@@ -119,8 +121,8 @@ public class PlaySlashCmd extends MusicSlashCommand
         for(int i = 0; i < limit; i++)
         {
             AudioTrack track = playlist.getTracks().get(i);
-            String title = truncateTitle(track.getInfo().title);
-            choices.add(new Command.Choice(title, track.getInfo().uri));
+            String title = FormatUtil.fixMojibakeUtf8AsLatin1(track.getInfo().title);
+            choices.add(new Command.Choice(truncateTitle(title), track.getInfo().uri));
         }
         return choices;
     }

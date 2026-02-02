@@ -23,6 +23,7 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -122,8 +123,36 @@ public class FormatUtil {
                 .trim();
     }
 
+    /**
+     * Repairs mojibake when UTF-8 bytes were misinterpreted as ISO-8859-1 (e.g. Cyrillic
+     * showing as ÐÑÐ»Ð¾ instead of Было). Only attempts repair when the string could be
+     * mojibake (all code points in 0x00–0xFF); otherwise returns the original string.
+     *
+     * @param input possibly corrupted track title or other text from external sources
+     * @return repaired string, or the original if not mojibake or repair produced invalid UTF-8
+     */
+    public static String fixMojibakeUtf8AsLatin1(String input)
+    {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        for (int i = 0; i < input.length(); i++) {
+            if (input.charAt(i) > 0xFF) {
+                return input; // already contains non–Latin-1 (e.g. correct Cyrillic), do not alter
+            }
+        }
+        String decoded = new String(input.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        if (decoded.contains("\uFFFD")) {
+            return input; // invalid UTF-8 sequence, keep original
+        }
+        return decoded;
+    }
+
     public static String getTrackTitle(AudioTrack track) {
         String title = track.getInfo().title;
+        if (title != null) {
+            title = fixMojibakeUtf8AsLatin1(title);
+        }
         if (track instanceof LocalAudioTrack && (title == null || title.equals("Unknown title"))) {
             String identifier = track.getIdentifier();
             int lastSeparator = Math.max(identifier.lastIndexOf('/'), identifier.lastIndexOf('\\'));

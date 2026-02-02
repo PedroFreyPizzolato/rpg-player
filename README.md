@@ -72,9 +72,18 @@ Please see the [Setup Page](https://jmusicbot.com/setup) to run this bot yoursel
 
 When running JMusicBot directly (not in Docker), make sure to pass these JVM flags:
 
+**Linux / macOS / Windows (CMD):**
 ```bash
-java -Dnogui=true --enable-native-access=ALL-UNNAMED -jar JMusicBot-0.6.2-All.jar
+java -Dfile.encoding=UTF-8 -Dnogui=true --enable-native-access=ALL-UNNAMED -jar JMusicBot-0.6.2-All.jar
 ```
+
+**Windows (PowerShell):** PowerShell treats `-D` as its own parameter. Quote each JVM option so they are passed to `java` correctly:
+```powershell
+java "-Dfile.encoding=UTF-8" "-Dnogui=true" "--enable-native-access=ALL-UNNAMED" "-jar" ".\JMusicBot-0.6.2-All.jar"
+```
+Alternatively, use the stop-parsing token so the rest of the line is passed literally: `java --% -Dfile.encoding=UTF-8 -Dnogui=true ...`
+
+`-Dfile.encoding=UTF-8` ensures non-English characters (Cyrillic, Japanese, etc.) display correctly in Discord. On Windows or older JDKs, omitting it can cause mojibake in slash-command autocomplete and embeds.
 
 ### Linux System Requirements
 
@@ -180,7 +189,8 @@ For optimal audio quality with minimal stuttering, the following JVM and configu
 The bot works best with ZGC (Z Garbage Collector) which provides sub-millisecond pause times:
 
 ```bash
-java -XX:+UseZGC \
+java -Dfile.encoding=UTF-8 \
+     -XX:+UseZGC \
      -XX:+AlwaysPreTouch \
      -Dnogui=true \
      --enable-native-access=ALL-UNNAMED \
@@ -188,6 +198,7 @@ java -XX:+UseZGC \
 ```
 
 **Flag explanations:**
+- `-Dfile.encoding=UTF-8`: Ensures non-English characters display correctly in Discord (required on Windows or older JDKs)
 - `-XX:+UseZGC`: Sub-millisecond GC pauses (generational mode is default in JDK 24+)
 - `-XX:+AlwaysPreTouch`: Pre-allocates memory at startup to avoid page faults
 - `-Xms` / `-Xmx`: Optional; set heap size if you want to limit or fix memory (e.g. `-Xms256m -Xmx512m`)
