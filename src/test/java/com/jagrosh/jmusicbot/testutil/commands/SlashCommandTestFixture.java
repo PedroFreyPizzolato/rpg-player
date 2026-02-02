@@ -219,7 +219,10 @@ public class SlashCommandTestFixture
 
         // Reply action chain
         when(event.reply(anyString())).thenReturn(replyAction);
+        when(event.replyEmbeds(any(net.dv8tion.jda.api.entities.MessageEmbed.class))).thenReturn(replyAction);
         when(replyAction.setEphemeral(anyBoolean())).thenReturn(replyAction);
+        when(replyAction.setComponents(anyList())).thenReturn(replyAction);
+        when(replyAction.addEmbeds(any(net.dv8tion.jda.api.entities.MessageEmbed.class))).thenReturn(replyAction);
         doNothing().when(replyAction).queue();
 
         // Hook and edit action chain

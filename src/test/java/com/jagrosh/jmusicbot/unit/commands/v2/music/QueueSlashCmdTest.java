@@ -20,6 +20,7 @@ import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -30,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -119,7 +121,7 @@ public class QueueSlashCmdTest
     }
 
     @Test
-    void testDoCommand_WithQueue_ShowsFirstPage()
+    void testDoCommand_WithQueue_ShowsFirstPageWithButtons()
     {
         // Given
         when(fixture.getEvent().getOption("page")).thenReturn(null);
@@ -134,15 +136,25 @@ public class QueueSlashCmdTest
                 null
         );
         when(fixture.getMusicService().getQueueInfo(fixture.getGuild(), fixture.getJda())).thenReturn(queueInfo);
-        when(fixture.getMusicService().formatQueueTitle(queueInfo, "✅")).thenReturn("✅ Queue");
-        when(fixture.getReplyAction().addEmbeds(any(MessageEmbed.class))).thenReturn(fixture.getReplyAction());
 
         // When
         command.doCommand(fixture.getEvent());
 
-        // Then
-        verify(fixture.getEvent()).reply("✅ Queue");
-        verify(fixture.getReplyAction()).addEmbeds(any(MessageEmbed.class));
+        // Then - verify replyEmbeds was called with embed
+        ArgumentCaptor<MessageEmbed> embedCaptor = ArgumentCaptor.forClass(MessageEmbed.class);
+        verify(fixture.getEvent()).replyEmbeds(embedCaptor.capture());
+
+        MessageEmbed capturedEmbed = embedCaptor.getValue();
+        assertEquals("Current Queue", capturedEmbed.getTitle());
+        assertTrue(capturedEmbed.getDescription().contains("Now Playing"));
+        assertTrue(capturedEmbed.getDescription().contains("Track 1"));
+
+        // Verify components were set (3 rows: track buttons 1-5, 6-10, pagination+shuffle)
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ActionRow>> componentsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(fixture.getReplyAction()).setComponents(componentsCaptor.capture());
+        List<ActionRow> components = componentsCaptor.getValue();
+        assertEquals(3, components.size()); // No track selected, so no action row
     }
 
     @Test
@@ -166,17 +178,16 @@ public class QueueSlashCmdTest
                 null
         );
         when(fixture.getMusicService().getQueueInfo(fixture.getGuild(), fixture.getJda())).thenReturn(queueInfo);
-        when(fixture.getMusicService().formatQueueTitle(queueInfo, "✅")).thenReturn("✅ Queue");
-        when(fixture.getReplyAction().addEmbeds(any(MessageEmbed.class))).thenReturn(fixture.getReplyAction());
 
         // When
         command.doCommand(fixture.getEvent());
 
-        // Then
-        verify(fixture.getEvent()).reply("✅ Queue");
+        // Then - verify embed footer contains page 2
         ArgumentCaptor<MessageEmbed> embedCaptor = ArgumentCaptor.forClass(MessageEmbed.class);
-        verify(fixture.getReplyAction()).addEmbeds(embedCaptor.capture());
-        assertTrue(embedCaptor.getValue().getTitle().contains("Page 2"));
+        verify(fixture.getEvent()).replyEmbeds(embedCaptor.capture());
+        MessageEmbed capturedEmbed = embedCaptor.getValue();
+        assertNotNull(capturedEmbed.getFooter());
+        assertTrue(capturedEmbed.getFooter().getText().contains("Page 2"));
     }
 
     @Test
@@ -198,17 +209,16 @@ public class QueueSlashCmdTest
                 null
         );
         when(fixture.getMusicService().getQueueInfo(fixture.getGuild(), fixture.getJda())).thenReturn(queueInfo);
-        when(fixture.getMusicService().formatQueueTitle(queueInfo, "✅")).thenReturn("✅ Queue");
-        when(fixture.getReplyAction().addEmbeds(any(MessageEmbed.class))).thenReturn(fixture.getReplyAction());
 
         // When
         command.doCommand(fixture.getEvent());
 
-        // Then
-        verify(fixture.getEvent()).reply("✅ Queue");
+        // Then - should clamp to last page (1)
         ArgumentCaptor<MessageEmbed> embedCaptor = ArgumentCaptor.forClass(MessageEmbed.class);
-        verify(fixture.getReplyAction()).addEmbeds(embedCaptor.capture());
-        assertTrue(embedCaptor.getValue().getTitle().contains("Page 1")); // Should clamp to last page (1)
+        verify(fixture.getEvent()).replyEmbeds(embedCaptor.capture());
+        MessageEmbed capturedEmbed = embedCaptor.getValue();
+        assertNotNull(capturedEmbed.getFooter());
+        assertTrue(capturedEmbed.getFooter().getText().contains("Page 1"));
     }
 
     @Test
@@ -233,19 +243,104 @@ public class QueueSlashCmdTest
                 null
         );
         when(fixture.getMusicService().getQueueInfo(fixture.getGuild(), fixture.getJda())).thenReturn(queueInfo);
-        when(fixture.getMusicService().formatQueueTitle(queueInfo, "✅")).thenReturn("✅ Queue");
-        when(fixture.getReplyAction().addEmbeds(any(MessageEmbed.class))).thenReturn(fixture.getReplyAction());
 
         // When
         command.doCommand(fixture.getEvent());
 
         // Then
-        verify(fixture.getEvent()).reply("✅ Queue");
         ArgumentCaptor<MessageEmbed> embedCaptor = ArgumentCaptor.forClass(MessageEmbed.class);
-        verify(fixture.getReplyAction()).addEmbeds(embedCaptor.capture());
+        verify(fixture.getEvent()).replyEmbeds(embedCaptor.capture());
         MessageEmbed capturedEmbed = embedCaptor.getValue();
-        assertTrue(capturedEmbed.getTitle().contains("Page 1/3"));
+
+        // Verify footer shows page 1 of 3
+        assertNotNull(capturedEmbed.getFooter());
+        assertTrue(capturedEmbed.getFooter().getText().contains("Page 1 of 3"));
+
+        // Verify description contains first page tracks
         assertTrue(capturedEmbed.getDescription().contains("Track 1"));
         assertTrue(capturedEmbed.getDescription().contains("Track 10"));
+    }
+
+    @Test
+    void testBuildQueueComponents_NoSelection_Returns3Rows()
+    {
+        // Given
+        int page = 1;
+        int totalPages = 2;
+        int tracksOnPage = 10;
+        int selectedTrack = 0; // No selection
+        long userId = 123456789L;
+
+        // When
+        List<ActionRow> components = QueueSlashCmd.buildQueueComponents(page, totalPages, tracksOnPage, selectedTrack, userId);
+
+        // Then
+        assertEquals(3, components.size()); // Track row 1-5, Track row 6-10, Pagination+Shuffle
+    }
+
+    @Test
+    void testBuildQueueComponents_WithSelection_Returns4Rows()
+    {
+        // Given
+        int page = 1;
+        int totalPages = 2;
+        int tracksOnPage = 10;
+        int selectedTrack = 5; // Track 5 selected
+        long userId = 123456789L;
+
+        // When
+        List<ActionRow> components = QueueSlashCmd.buildQueueComponents(page, totalPages, tracksOnPage, selectedTrack, userId);
+
+        // Then
+        assertEquals(4, components.size()); // Track row 1-5, Track row 6-10, Pagination+Shuffle, Actions
+    }
+
+    @Test
+    void testBuildQueueComponents_FewerTracks_DisablesExtraButtons()
+    {
+        // Given
+        int page = 1;
+        int totalPages = 1;
+        int tracksOnPage = 3; // Only 3 tracks
+        int selectedTrack = 0;
+        long userId = 123456789L;
+
+        // When
+        List<ActionRow> components = QueueSlashCmd.buildQueueComponents(page, totalPages, tracksOnPage, selectedTrack, userId);
+
+        // Then
+        assertEquals(3, components.size());
+
+        // First row should have buttons 1-5, with 4 and 5 disabled
+        ActionRow firstRow = components.get(0);
+        assertEquals(5, firstRow.getComponents().size());
+
+        // Second row (6-10) should all be disabled since we only have 3 tracks
+        ActionRow secondRow = components.get(1);
+        assertEquals(5, secondRow.getComponents().size());
+    }
+
+    @Test
+    void testGetTracksOnPage_FirstPage()
+    {
+        assertEquals(10, QueueSlashCmd.getTracksOnPage(1, 25));
+        assertEquals(10, QueueSlashCmd.getTracksOnPage(1, 10));
+        assertEquals(5, QueueSlashCmd.getTracksOnPage(1, 5));
+    }
+
+    @Test
+    void testGetTracksOnPage_LastPage()
+    {
+        assertEquals(5, QueueSlashCmd.getTracksOnPage(3, 25)); // Page 3 of 25 tracks = 5 remaining
+        assertEquals(2, QueueSlashCmd.getTracksOnPage(2, 12)); // Page 2 of 12 tracks = 2 remaining
+    }
+
+    @Test
+    void testGetTotalPages()
+    {
+        assertEquals(1, QueueSlashCmd.getTotalPages(5));
+        assertEquals(1, QueueSlashCmd.getTotalPages(10));
+        assertEquals(2, QueueSlashCmd.getTotalPages(11));
+        assertEquals(3, QueueSlashCmd.getTotalPages(25));
     }
 }

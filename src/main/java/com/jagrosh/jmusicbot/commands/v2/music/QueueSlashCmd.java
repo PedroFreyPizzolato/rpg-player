@@ -19,21 +19,29 @@ import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.service.MusicService;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Slash command to show the current queue.
  */
 public class QueueSlashCmd extends MusicSlashCommand
 {
-    private static final int TRACKS_PER_PAGE = 10;
+    public static final int TRACKS_PER_PAGE = 10;
     private final MusicService musicService;
 
     public QueueSlashCmd(Bot bot)
@@ -86,23 +94,158 @@ public class QueueSlashCmd extends MusicSlashCommand
             page = totalPages;
         }
 
+        long userId = event.getUser().getIdLong();
+        int tracksOnPage = getTracksOnPage(page, queueInfo.tracks.length);
+
+        MessageEmbed embed = buildQueueEmbed(queueInfo, page, totalPages, 0, event.getMember().getColor());
+        List<ActionRow> components = buildQueueComponents(page, totalPages, tracksOnPage, 0, userId);
+
+        event.replyEmbeds(embed).setComponents(components).queue();
+    }
+
+    /**
+     * Builds the queue embed with all relevant information.
+     */
+    public static MessageEmbed buildQueueEmbed(MusicService.QueueInfo queueInfo, int page, int totalPages,
+                                               int selectedTrack, java.awt.Color memberColor)
+    {
         int startIndex = (page - 1) * TRACKS_PER_PAGE;
         int endIndex = Math.min(startIndex + TRACKS_PER_PAGE, queueInfo.tracks.length);
 
         StringBuilder sb = new StringBuilder();
+        if (queueInfo.nowPlayingTitle != null)
+        {
+            sb.append(queueInfo.statusEmoji).append(" **").append(queueInfo.nowPlayingTitle).append("**\n\n");
+        }
+        sb.append("**Up Next** *(select a track below)*\n");
         for (int i = startIndex; i < endIndex; i++)
         {
-            sb.append("`").append(i + 1).append(".` ").append(queueInfo.tracks[i]).append("\n");
+            int displayNum = i + 1;
+            // Highlight selected track with arrow emoji and bold formatting
+            if (selectedTrack > 0 && displayNum == selectedTrack)
+            {
+                sb.append("▶️ **`").append(displayNum).append(".`** ").append(queueInfo.tracks[i]).append("\n");
+            }
+            else
+            {
+                sb.append("⬛ `").append(displayNum).append(".` ").append(queueInfo.tracks[i]).append("\n");
+            }
         }
 
-        String title = musicService.formatQueueTitle(queueInfo, event.getClient().getSuccess());
-
         EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("Queue - Page " + page + "/" + totalPages)
+                .setTitle("Current Queue")
                 .setDescription(sb.toString())
-                .setFooter("Total: " + queueInfo.tracks.length + " tracks | Duration: " + TimeUtil.formatTime(queueInfo.totalDuration))
-                .setColor(event.getMember().getColor());
+                .addField("Entries", String.valueOf(queueInfo.tracks.length), true)
+                .addField("Duration", TimeUtil.formatTime(queueInfo.totalDuration), true)
+                .addField("Mode", queueInfo.queueType.getEmoji() + " " + queueInfo.queueType.getUserFriendlyName(), true)
+                .setFooter("Page " + page + " of " + totalPages)
+                .setTimestamp(Instant.now())
+                .setColor(memberColor);
 
-        event.reply(title).addEmbeds(embed.build()).queue();
+        if (queueInfo.repeatMode != RepeatMode.OFF)
+        {
+            embed.addField("Repeat", queueInfo.repeatMode.getEmoji() + " " + queueInfo.repeatMode.getUserFriendlyName(), true);
+        }
+
+        return embed.build();
+    }
+
+    /**
+     * Builds the interactive button components for the queue.
+     *
+     * @param page Current page number (1-based)
+     * @param totalPages Total number of pages
+     * @param tracksOnPage Number of tracks displayed on current page
+     * @param selectedTrack Currently selected track position (0 if none)
+     * @param userId User ID who initiated the command
+     * @return List of ActionRows containing the buttons
+     */
+    public static List<ActionRow> buildQueueComponents(int page, int totalPages, int tracksOnPage,
+                                                       int selectedTrack, long userId)
+    {
+        List<ActionRow> rows = new ArrayList<>();
+        String baseId = "queue_%s_" + page + "_" + selectedTrack + "_" + userId;
+
+        // Row 1: Track buttons 1-5
+        List<Button> row1Buttons = new ArrayList<>();
+        for (int i = 1; i <= 5; i++)
+        {
+            int trackNum = (page - 1) * TRACKS_PER_PAGE + i;
+            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
+            if (i > tracksOnPage)
+            {
+                btn = btn.asDisabled();
+            }
+            else if (trackNum == selectedTrack)
+            {
+                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
+            }
+            row1Buttons.add(btn);
+        }
+        rows.add(ActionRow.of(row1Buttons));
+
+        // Row 2: Track buttons 6-10
+        List<Button> row2Buttons = new ArrayList<>();
+        for (int i = 6; i <= 10; i++)
+        {
+            int trackNum = (page - 1) * TRACKS_PER_PAGE + i;
+            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
+            if (i > tracksOnPage)
+            {
+                btn = btn.asDisabled();
+            }
+            else if (trackNum == selectedTrack)
+            {
+                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
+            }
+            row2Buttons.add(btn);
+        }
+        rows.add(ActionRow.of(row2Buttons));
+
+        // Row 3: Pagination and Shuffle
+        Button prevBtn = Button.secondary(String.format(baseId, "prev"), Emoji.fromUnicode("⬅️"));
+        Button nextBtn = Button.secondary(String.format(baseId, "next"), Emoji.fromUnicode("➡️"));
+        Button shuffleBtn = Button.secondary(String.format(baseId, "shuffle"), "Shuffle").withEmoji(Emoji.fromUnicode("🔀"));
+
+        if (page <= 1)
+        {
+            prevBtn = prevBtn.asDisabled();
+        }
+        if (page >= totalPages)
+        {
+            nextBtn = nextBtn.asDisabled();
+        }
+
+        rows.add(ActionRow.of(prevBtn, nextBtn, shuffleBtn));
+
+        // Row 4: Track actions (only shown when a track is selected)
+        if (selectedTrack > 0)
+        {
+            Button removeBtn = Button.danger(String.format(baseId, "remove"), "Remove").withEmoji(Emoji.fromUnicode("🗑️"));
+            Button playNextBtn = Button.primary(String.format(baseId, "playnext"), "Play Next").withEmoji(Emoji.fromUnicode("⏭️"));
+            Button moveBtn = Button.secondary(String.format(baseId, "move"), "Move").withEmoji(Emoji.fromUnicode("↕️"));
+            Button playNowBtn = Button.success(String.format(baseId, "playnow"), "Play Now").withEmoji(Emoji.fromUnicode("▶️"));
+
+            rows.add(ActionRow.of(removeBtn, playNextBtn, moveBtn, playNowBtn));
+        }
+
+        return rows;
+    }
+
+    /**
+     * Calculates the number of tracks displayed on a given page.
+     */
+    public static int getTracksOnPage(int page, int totalTracks)
+    {
+        int startIndex = (page - 1) * TRACKS_PER_PAGE;
+        return Math.min(TRACKS_PER_PAGE, totalTracks - startIndex);
+    }
+
+    /**
+     * Calculates the total number of pages for a given track count.
+     */
+    public static int getTotalPages(int totalTracks)
+    {
+        return (int) Math.ceil((double) totalTracks / TRACKS_PER_PAGE);
     }
 }

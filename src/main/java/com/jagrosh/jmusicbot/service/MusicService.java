@@ -872,6 +872,64 @@ public class MusicService
     }
 
     /**
+     * Moves a track to position 1, making it play next.
+     * Convenience method that wraps moveTrack.
+     *
+     * @param guild    The guild
+     * @param member   The member executing the command
+     * @param position The 1-based position of the track to move
+     * @param output   The output adapter for responses
+     */
+    public void playNext(Guild guild, Member member, int position, OutputAdapter output)
+    {
+        if (position == 1)
+        {
+            output.replyWarning("This track is already next!");
+            return;
+        }
+        moveTrack(guild, member, position, 1, output);
+    }
+
+    /**
+     * Plays a track from the queue immediately while preserving the rest of the queue.
+     * Moves the track to position 1 and skips the currently playing track.
+     *
+     * @param guild    The guild
+     * @param member   The member executing the command
+     * @param position The 1-based position of the track to play now
+     * @param output   The output adapter for responses
+     */
+    public void playNow(Guild guild, Member member, int position, OutputAdapter output)
+    {
+        if (!requireDJPermission(guild, member, output, "play a track immediately"))
+            return;
+
+        AudioHandler handler = getHandler(guild);
+        AbstractQueue<QueuedTrack> queue = handler.getQueue();
+
+        if (isInvalidPosition(queue, position))
+        {
+            output.replyError("`" + position + "` is not a valid position in the queue!");
+            return;
+        }
+
+        // Get the track info before moving
+        QueuedTrack queuedTrack = queue.get(position - 1);
+        String trackTitle = queuedTrack.getTrack().getInfo().title;
+
+        // Move the track to position 1
+        if (position > 1)
+        {
+            queue.moveItem(position - 1, 0);
+        }
+
+        // Skip the currently playing track to start the moved track immediately
+        handler.getPlayer().stopTrack();
+
+        output.replySuccess("Now playing **" + trackTitle + "**");
+    }
+
+    /**
      * Moves a track from one position to another (no permission check).
      * Use this when DJ permission is already verified by the caller.
      *
