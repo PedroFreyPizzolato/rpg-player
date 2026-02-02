@@ -210,17 +210,17 @@ public class Bot
      */
     public void shutdown()
     {
-        if(shuttingDown)
+        if (shuttingDown)
             return;
         shuttingDown = true;
-        
+
         // Clean up audio connections first (before shutting down thread pool, as these may trigger events that use it)
-        if(jda != null && jda.getStatus() != JDA.Status.SHUTTING_DOWN)
+        if (jda != null && jda.getStatus() != JDA.Status.SHUTTING_DOWN)
         {
-            jda.getGuilds().stream().forEach(g -> 
+            jda.getGuilds().stream().forEach(g ->
             {
-                AudioHandler ah = (AudioHandler)g.getAudioManager().getSendingHandler();
-                if(ah!=null)
+                AudioHandler ah = (AudioHandler) g.getAudioManager().getSendingHandler();
+                if (ah != null)
                 {
                     ah.stopAndClear();
                     ah.getPlayer().destroy();
@@ -229,11 +229,11 @@ public class Bot
             });
             jda.shutdown();
         }
-        
+
         // Shut down thread pool after audio cleanup to avoid RejectedExecutionException
         threadpool.shutdownNow();
-        
-        if(gui!=null)
+
+        if (gui != null)
             gui.dispose();
         InstanceLock.release();
         System.exit(0);
