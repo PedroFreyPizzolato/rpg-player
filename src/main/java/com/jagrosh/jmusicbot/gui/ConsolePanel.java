@@ -17,6 +17,8 @@
 package com.jagrosh.jmusicbot.gui;
 
 import com.jagrosh.jmusicbot.utils.ConsoleUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -35,6 +37,8 @@ import java.awt.event.KeyEvent;
  * @author Arif Banai (arif-banai)
  */
 public class ConsolePanel extends JPanel {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ConsolePanel.class);
     
     private final JTextArea textArea;
     private final JScrollPane scrollPane;
@@ -77,6 +81,23 @@ public class ConsolePanel extends JPanel {
         
         add(topPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
+
+        installEdtUncaughtExceptionHandler();
+    }
+
+    /**
+     * Installs an uncaught exception handler for the AWT Event Dispatch Thread so that
+     * EDT exceptions are logged with full stack trace instead of printing
+     * "Exception in thread \"AWT-EventQueue-0\"" to stderr (and thus into the console).
+     */
+    private void installEdtUncaughtExceptionHandler() {
+        EventQueue.invokeLater(() -> {
+            Thread edt = Thread.currentThread();
+            edt.setUncaughtExceptionHandler((t, e) -> {
+                LOG.error("Uncaught exception on AWT Event Dispatch Thread", e);
+                // Do not delegate to default handler; avoids duplicate "Exception in thread..." in console
+            });
+        });
     }
     
     /**
@@ -89,10 +110,19 @@ public class ConsolePanel extends JPanel {
         textArea.setWrapStyleWord(true);
         textArea.setMargin(new Insets(4, 4, 4, 4));
         
-        // Add caret listener for auto-scroll behavior
+        // Add caret listener for auto-scroll behavior (guarded so it never throws on EDT).
+        // When the user starts selecting text, disable auto-scroll so it doesn't clear the selection.
+        // Otherwise only auto-scroll when there is no selection.
         textArea.addCaretListener(e -> {
-            if (autoScrollCheckbox != null && autoScrollCheckbox.isSelected()) {
-                textArea.setCaretPosition(textArea.getDocument().getLength());
+            try {
+                if (autoScrollCheckbox == null) return;
+                if (textArea.getSelectionStart() != textArea.getSelectionEnd()) {
+                    autoScrollCheckbox.setSelected(false);
+                } else if (autoScrollCheckbox.isSelected()) {
+                    textArea.setCaretPosition(textArea.getDocument().getLength());
+                }
+            } catch (Throwable ignored) {
+                // Catch Throwable so Errors (e.g. AssertionError) do not propagate on EDT
             }
         });
     }
