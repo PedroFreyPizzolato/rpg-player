@@ -233,18 +233,19 @@ class AudioSourceOAuthTest {
             // With OAuth enabled
             Object[] oauthClients = (Object[]) buildClients.invoke(null, true);
             assertNotNull(oauthClients, "Should return clients for OAuth mode");
-            assertEquals(4, oauthClients.length, "OAuth mode should use 4 clients (AndroidVr, MWeb, Web, Tv)");
+            assertEquals(5, oauthClients.length, "OAuth mode should use 5 clients");
             
             // Verify client types
-            assertEquals("AndroidVr", oauthClients[0].getClass().getSimpleName(),
-                "First OAuth client should be AndroidVr");
-            assertEquals("MWeb", oauthClients[1].getClass().getSimpleName(),
-                "Second OAuth client should be MWeb");
-            assertEquals("Web", oauthClients[2].getClass().getSimpleName(),
-                "Third OAuth client should be Web");
+            assertEquals("AndroidVrWithThumbnail", oauthClients[0].getClass().getSimpleName(),
+                "First OAuth client should be <AndroidVrWithThumbnail>");
+            assertEquals("MWebWithThumbnail", oauthClients[1].getClass().getSimpleName(),
+                "Second OAuth client should be <MWebWithThumbnail>");
+            assertEquals("WebWithThumbnail", oauthClients[2].getClass().getSimpleName(),
+                "Third OAuth client should be <WebWithThumbnail>");
             assertEquals("Tv", oauthClients[3].getClass().getSimpleName(),
                 "Fourth OAuth client should be Tv");
-            
+            assertEquals("TvHtml5SimplyWithThumbnail", oauthClients[4].getClass().getSimpleName(),
+                "Fifth OAuth client should be TvHtml5SimplyWithThumbnail");
             // Verify first 3 clients have playback disabled (metadataOnly)
             for (int i = 0; i < 3; i++) {
                 Client client = (Client) oauthClients[i];
@@ -262,15 +263,17 @@ class AudioSourceOAuthTest {
             // Without OAuth
             Object[] nonOauthClients = (Object[]) buildClients.invoke(null, false);
             assertNotNull(nonOauthClients, "Should return clients for non-OAuth mode");
-            assertEquals(3, nonOauthClients.length, "Non-OAuth mode should use 3 clients (AndroidVr, MWeb, Web)");
+            assertEquals(4, nonOauthClients.length, "Non-OAuth mode should use 4 clients");
             
             // Verify client types
             assertEquals("AndroidVrWithThumbnail", nonOauthClients[0].getClass().getSimpleName(),
-                "First non-OAuth client should be AndroidVrWithThumbnail");
-            assertEquals("MWeb", nonOauthClients[1].getClass().getSimpleName(),
-                "Second non-OAuth client should be MWeb");
-            assertEquals("Web", nonOauthClients[2].getClass().getSimpleName(),
-                "Third non-OAuth client should be Web");
+                "First non-OAuth client should be <AndroidVrWithThumbnail>");
+            assertEquals("MWebWithThumbnail", nonOauthClients[1].getClass().getSimpleName(),
+                "Second non-OAuth client should be <MWebWithThumbnail>");
+            assertEquals("WebWithThumbnail", nonOauthClients[2].getClass().getSimpleName(),
+                "Third non-OAuth client should be <WebWithThumbnail>");
+            assertEquals("TvHtml5SimplyWithThumbnail", nonOauthClients[3].getClass().getSimpleName(),
+                "Fourth non-OAuth client should be <TvHtml5SimplyWithThumbnail>");
         }
 
         @Test
