@@ -30,6 +30,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -1135,6 +1137,113 @@ public class MusicServiceTest
             // Then
             assertTrue(message.contains("Test Song"));
             assertTrue(message.contains("position 5"));
+        }
+    }
+
+    // ==================== History Operation Tests ====================
+
+    @Nested
+    @DisplayName("History Operations")
+    class HistoryOperationTests
+    {
+        @Test
+        @DisplayName("getHistoryInfo() returns null when no handler")
+        void getHistoryInfo_returnsNullWhenNoHandler()
+        {
+            when(fixture.getAudioManager().getSendingHandler()).thenReturn(null);
+
+            MusicService.HistoryInfo info = musicService.getHistoryInfo(fixture.getGuild(), fixture.getJda());
+
+            assertNull(info);
+        }
+
+        @Test
+        @DisplayName("queueFromHistory() replies error when no handler")
+        void queueFromHistory_repliesErrorWhenNoHandler()
+        {
+            when(fixture.getAudioManager().getSendingHandler()).thenReturn(null);
+
+            musicService.queueFromHistory(fixture.getGuild(), fixture.getMember(), 1,
+                    fixture.getTextChannel(), output);
+
+            output.assertErrorMessageContains("no player");
+        }
+
+        @Test
+        @DisplayName("queueFromHistory() replies error when history empty")
+        void queueFromHistory_repliesErrorWhenHistoryEmpty()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.isEmpty()).thenReturn(true);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
+
+            musicService.queueFromHistory(fixture.getGuild(), fixture.getMember(), 1,
+                    fixture.getTextChannel(), output);
+
+            output.assertErrorMessageContains("empty");
+        }
+
+        @Test
+        @DisplayName("queueFromHistory() replies error when position out of range")
+        void queueFromHistory_repliesErrorWhenPositionOutOfRange()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.isEmpty()).thenReturn(false);
+            when(history.size()).thenReturn(3);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
+
+            musicService.queueFromHistory(fixture.getGuild(), fixture.getMember(), 10,
+                    fixture.getTextChannel(), output);
+
+            output.assertErrorMessageContains("1 and 3");
+        }
+
+        @Test
+        @DisplayName("playFromHistoryNow() replies error when history empty")
+        void playFromHistoryNow_repliesErrorWhenHistoryEmpty()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.isEmpty()).thenReturn(true);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
+
+            musicService.playFromHistoryNow(fixture.getGuild(), fixture.getMember(), 1,
+                    fixture.getTextChannel(), output);
+
+            output.assertErrorMessageContains("empty");
+        }
+
+        @Test
+        @DisplayName("saveHistoryAsPlaylist() replies error when not DJ and not owner")
+        void saveHistoryAsPlaylist_repliesErrorWhenNotAuthorized()
+        {
+            fixture.withoutDJPermission();
+            when(fixture.getConfig().getOwnerId()).thenReturn(999999L);
+
+            musicService.saveHistoryAsPlaylist(fixture.getGuild(), fixture.getMember(), "myplaylist", output);
+
+            output.assertErrorMessageContains("DJ or the bot owner");
+        }
+
+        @Test
+        @DisplayName("saveHistoryAsPlaylist() replies error when playlist already exists")
+        void saveHistoryAsPlaylist_repliesErrorWhenPlaylistExists()
+        {
+            fixture.withDJPermission();
+            QueuedTrack qt = mock(QueuedTrack.class);
+            AudioTrack track = mock(AudioTrack.class);
+            AudioTrackInfo info = new AudioTrackInfo("Title", "Author", 180000, "id", false, "https://example.com/1");
+            when(track.getInfo()).thenReturn(info);
+            when(qt.getTrack()).thenReturn(track);
+            when(fixture.getAudioHandler().getPreviousTracks()).thenReturn(List.of(qt));
+            when(fixture.getBot().getPlaylistLoader().getPlaylist("existing"))
+                    .thenReturn(mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class));
+
+            musicService.saveHistoryAsPlaylist(fixture.getGuild(), fixture.getMember(), "existing", output);
+
+            output.assertErrorMessageContains("already exists");
         }
     }
 }

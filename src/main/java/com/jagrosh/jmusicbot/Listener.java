@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 
 import com.jagrosh.jmusicbot.commands.SlashCommandRegistry;
+import com.jagrosh.jmusicbot.commands.v2.music.HistorySlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.QueueSlashCmd;
 import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
@@ -29,11 +30,17 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
@@ -153,6 +160,13 @@ public class Listener extends ListenerAdapter
         if (componentId.startsWith("queue_"))
         {
             handleQueueInteraction(event);
+            return;
+        }
+
+        // Handle history interactions separately
+        if (componentId.startsWith("history_"))
+        {
+            handleHistoryInteraction(event);
             return;
         }
 
@@ -531,6 +545,289 @@ public class Listener extends ListenerAdapter
                 // Not used for queue buttons
             }
         };
+    }
+
+    /**
+     * Handles button interactions for the interactive history embed.
+     * Component ID format: history_{action}_{page}_{selectedTrack}_{userId}
+     */
+    private void handleHistoryInteraction(ButtonInteractionEvent event)
+    {
+        if (event.getGuild() == null || event.getMember() == null)
+        {
+            event.reply("This can only be used in a server!").setEphemeral(true).queue();
+            return;
+        }
+
+        String componentId = event.getComponentId();
+        String[] parts = componentId.split("_");
+        if (parts.length < 5)
+        {
+            event.reply("Invalid button state.").setEphemeral(true).queue();
+            return;
+        }
+
+        String action = parts[1];
+        int page;
+        int selectedTrack;
+        long userId;
+        try
+        {
+            page = Integer.parseInt(parts[2]);
+            selectedTrack = Integer.parseInt(parts[3]);
+            userId = Long.parseLong(parts[4]);
+        }
+        catch (NumberFormatException e)
+        {
+            event.reply("Invalid button state.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (event.getUser().getIdLong() != userId)
+        {
+            event.reply("Only the user who ran the command can use these buttons!").setEphemeral(true).queue();
+            return;
+        }
+
+        MusicService musicService = bot.getMusicService();
+        MusicService.HistoryInfo historyInfo = musicService.getHistoryInfo(event.getGuild(), event.getJDA());
+
+        if (historyInfo == null || historyInfo.isEmpty())
+        {
+            event.editMessage("Playback history is now empty!").setEmbeds().setComponents().queue();
+            return;
+        }
+
+        int totalPages = HistorySlashCmd.getTotalPages(historyInfo.tracks.length);
+
+        if (action.startsWith("select"))
+        {
+            int trackIndexOnPage = Integer.parseInt(action.substring(6));
+            int newSelectedTrack = (page - 1) * HistorySlashCmd.TRACKS_PER_PAGE + trackIndexOnPage;
+            if (newSelectedTrack == selectedTrack)
+            {
+                newSelectedTrack = 0;
+            }
+            if (newSelectedTrack > historyInfo.tracks.length)
+            {
+                event.reply("That track doesn't exist!").setEphemeral(true).queue();
+                return;
+            }
+            updateHistoryEmbed(event, historyInfo, page, totalPages, newSelectedTrack, userId);
+        }
+        else if (action.equals("prev"))
+        {
+            int newPage = Math.max(1, page - 1);
+            updateHistoryEmbed(event, historyInfo, newPage, totalPages, 0, userId);
+        }
+        else if (action.equals("next"))
+        {
+            int newPage = Math.min(totalPages, page + 1);
+            updateHistoryEmbed(event, historyInfo, newPage, totalPages, 0, userId);
+        }
+        else if (action.equals("queue"))
+        {
+            if (selectedTrack <= 0 || selectedTrack > historyInfo.tracks.length)
+            {
+                event.reply("No track selected!").setEphemeral(true).queue();
+                return;
+            }
+            if (!event.getMember().getVoiceState().inAudioChannel()
+                    || event.getGuild().getSelfMember().getVoiceState().getChannel() == null
+                    || !event.getMember().getVoiceState().getChannel().equals(event.getGuild().getSelfMember().getVoiceState().getChannel()))
+            {
+                event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
+                return;
+            }
+            MusicService.OutputAdapter adapter = createHistoryOutputAdapter(event);
+            TextChannel channel = event.getChannel().asTextChannel();
+            musicService.queueFromHistory(event.getGuild(), event.getMember(), selectedTrack, channel, adapter);
+            MusicService.HistoryInfo newInfo = musicService.getHistoryInfo(event.getGuild(), event.getJDA());
+            if (newInfo == null || newInfo.isEmpty())
+            {
+                event.editMessage("Playback history is now empty!").setEmbeds().setComponents().queue();
+            }
+            else
+            {
+                int newTotalPages = HistorySlashCmd.getTotalPages(newInfo.tracks.length);
+                int safePage = Math.min(page, newTotalPages);
+                updateHistoryEmbed(event, newInfo, safePage, newTotalPages, 0, userId);
+            }
+        }
+        else if (action.equals("playnow"))
+        {
+            if (selectedTrack <= 0 || selectedTrack > historyInfo.tracks.length)
+            {
+                event.reply("No track selected!").setEphemeral(true).queue();
+                return;
+            }
+            if (!event.getMember().getVoiceState().inAudioChannel()
+                    || event.getGuild().getSelfMember().getVoiceState().getChannel() == null
+                    || !event.getMember().getVoiceState().getChannel().equals(event.getGuild().getSelfMember().getVoiceState().getChannel()))
+            {
+                event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
+                return;
+            }
+            MusicService.OutputAdapter adapter = createHistoryOutputAdapter(event);
+            TextChannel channel = event.getChannel().asTextChannel();
+            musicService.playFromHistoryNow(event.getGuild(), event.getMember(), selectedTrack, channel, adapter);
+            MusicService.HistoryInfo newInfo = musicService.getHistoryInfo(event.getGuild(), event.getJDA());
+            if (newInfo == null || newInfo.isEmpty())
+            {
+                event.editMessage("Playback history is now empty!").setEmbeds().setComponents().queue();
+            }
+            else
+            {
+                int newTotalPages = HistorySlashCmd.getTotalPages(newInfo.tracks.length);
+                updateHistoryEmbed(event, newInfo, 1, newTotalPages, 0, userId);
+            }
+        }
+        else if (action.equals("save"))
+        {
+            TextInput input = TextInput.create("playlist_name", TextInputStyle.SHORT)
+                    .setPlaceholder("e.g. my-history")
+                    .setMinLength(1)
+                    .setMaxLength(100)
+                    .setRequired(true)
+                    .build();
+            Modal modal = Modal.create("history_save_" + userId, "Save history as playlist")
+                    .addComponents(Label.of("Playlist name", input))
+                    .build();
+            event.replyModal(modal).queue();
+        }
+    }
+
+    private void updateHistoryEmbed(ButtonInteractionEvent event, MusicService.HistoryInfo historyInfo,
+                                   int page, int totalPages, int selectedTrack, long userId)
+    {
+        int tracksOnPage = HistorySlashCmd.getTracksOnPage(page, historyInfo.tracks.length);
+        MessageEmbed embed = HistorySlashCmd.buildHistoryEmbed(historyInfo, page, totalPages, selectedTrack,
+                event.getMember().getColor());
+        List<ActionRow> components = HistorySlashCmd.buildHistoryComponents(page, totalPages, tracksOnPage, selectedTrack, userId);
+        event.editMessageEmbeds(embed).setComponents(components).queue();
+    }
+
+    private MusicService.OutputAdapter createHistoryOutputAdapter(ButtonInteractionEvent event)
+    {
+        return new MusicService.OutputAdapter()
+        {
+            @Override
+            public void replySuccess(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyError(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyWarning(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void editMessage(String content) { }
+
+            @Override
+            public void editMessage(String content, Consumer<net.dv8tion.jda.api.entities.Message> onSuccess) { }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler) { }
+
+            @Override
+            public void editNoMusic(AudioHandler handler) { }
+
+            @Override
+            public void onShowHelp() { }
+        };
+    }
+
+    @Override
+    public void onModalInteraction(@NotNull ModalInteractionEvent event)
+    {
+        String modalId = event.getModalId();
+        if (!modalId.startsWith("history_save_"))
+        {
+            return;
+        }
+
+        if (event.getGuild() == null || event.getMember() == null)
+        {
+            event.reply("This can only be used in a server!").setEphemeral(true).queue();
+            return;
+        }
+
+        long userId;
+        try
+        {
+            userId = Long.parseLong(modalId.substring("history_save_".length()));
+        }
+        catch (NumberFormatException e)
+        {
+            event.reply("Invalid modal state.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (event.getUser().getIdLong() != userId)
+        {
+            event.reply("Only the user who opened the save dialog can submit it!").setEphemeral(true).queue();
+            return;
+        }
+
+        String playlistName = event.getValues().stream()
+                .filter(m -> "playlist_name".equals(m.getCustomId()))
+                .findFirst()
+                .map(net.dv8tion.jda.api.interactions.modals.ModalMapping::getAsString)
+                .orElse("")
+                .trim();
+
+        if (playlistName.isEmpty())
+        {
+            event.reply("Please enter a playlist name!").setEphemeral(true).queue();
+            return;
+        }
+
+        MusicService.OutputAdapter adapter = new MusicService.OutputAdapter()
+        {
+            @Override
+            public void replySuccess(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyError(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void replyWarning(String content)
+            {
+                event.reply(content).setEphemeral(true).queue();
+            }
+
+            @Override
+            public void editMessage(String content) { }
+
+            @Override
+            public void editMessage(String content, Consumer<net.dv8tion.jda.api.entities.Message> onSuccess) { }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler) { }
+
+            @Override
+            public void editNoMusic(AudioHandler handler) { }
+
+            @Override
+            public void onShowHelp() { }
+        };
+
+        bot.getMusicService().saveHistoryAsPlaylist(event.getGuild(), event.getMember(), playlistName, adapter);
     }
 
     @Override

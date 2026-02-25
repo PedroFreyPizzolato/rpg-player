@@ -36,6 +36,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -1131,6 +1132,226 @@ public class MusicService
                 .append(info.repeatMode.getEmoji() != null ? " | " + info.repeatMode.getEmoji() : "").toString());
     }
 
+    // ========== History Info ==========
+
+    /**
+     * Gets playback history information for display (e.g. history command embed).
+     * History index 0 is most recent. Does not require music to be playing.
+     *
+     * @param guild The guild
+     * @param jda   The JDA instance (for consistency with getQueueInfo)
+     * @return HistoryInfo, or null if no handler exists
+     */
+    public HistoryInfo getHistoryInfo(Guild guild, JDA jda)
+    {
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            return null;
+        }
+
+        List<QueuedTrack> list = handler.getPreviousTracks();
+        int maxSize = handler.getQueue().getHistory().getMaxSize();
+
+        long totalDuration = 0;
+        String[] trackStrings = new String[list.size()];
+        for (int i = 0; i < list.size(); i++)
+        {
+            totalDuration += list.get(i).getTrack().getDuration();
+            trackStrings[i] = list.get(i).toString();
+        }
+
+        return new HistoryInfo(trackStrings, totalDuration, maxSize);
+    }
+
+    /**
+     * Adds the track at the given 1-based history position to the queue, and removes it from history (de-dup).
+     *
+     * @param guild           The guild
+     * @param member          The member adding the track
+     * @param historyPosition 1-based position (1 = most recent)
+     * @param channel         The text channel for request metadata
+     * @param output          The output adapter
+     */
+    public void queueFromHistory(Guild guild, Member member, int historyPosition, TextChannel channel, OutputAdapter output)
+    {
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        var history = handler.getQueue().getHistory();
+        if (history.isEmpty())
+        {
+            output.replyError("Playback history is empty!");
+            return;
+        }
+        if (historyPosition < 1 || historyPosition > history.size())
+        {
+            output.replyError("Position must be between 1 and " + history.size() + "!");
+            return;
+        }
+
+        int index = historyPosition - 1;
+        QueuedTrack qt = history.get(index);
+        handler.getQueue().removeFromHistoryAt(index);
+
+        AudioTrack track = qt.getTrack().makeClone();
+        if (isTooLong(track))
+        {
+            output.replyError(formatTooLongError(track));
+            return;
+        }
+
+        RequestMetadata rm = new RequestMetadata(member.getUser(),
+                new RequestMetadata.RequestInfo(qt.getTrack().getInfo().uri, qt.getTrack().getInfo().uri),
+                channel.getIdLong());
+        QueuedTrack newQt = new QueuedTrack(track, rm);
+        handler.setLastReason(member.getUser().getName() + " added from history.");
+        int position = handler.addTrack(newQt) + 1;
+        String title = FormatUtil.getTrackTitle(track);
+        output.replySuccess(formatTrackAddedMessage(title, track.getDuration(), position));
+    }
+
+    /**
+     * Plays the track at the given 1-based history position immediately, and removes it from history (de-dup).
+     *
+     * @param guild           The guild
+     * @param member          The member
+     * @param historyPosition 1-based position (1 = most recent)
+     * @param channel         The text channel for request metadata
+     * @param output          The output adapter
+     */
+    public void playFromHistoryNow(Guild guild, Member member, int historyPosition, TextChannel channel, OutputAdapter output)
+    {
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        var history = handler.getQueue().getHistory();
+        if (history.isEmpty())
+        {
+            output.replyError("Playback history is empty!");
+            return;
+        }
+        if (historyPosition < 1 || historyPosition > history.size())
+        {
+            output.replyError("Position must be between 1 and " + history.size() + "!");
+            return;
+        }
+
+        int index = historyPosition - 1;
+        QueuedTrack qt = history.get(index);
+        handler.getQueue().removeFromHistoryAt(index);
+
+        AudioTrack track = qt.getTrack().makeClone();
+        if (isTooLong(track))
+        {
+            output.replyError(formatTooLongError(track));
+            return;
+        }
+
+        RequestMetadata rm = new RequestMetadata(member.getUser(),
+                new RequestMetadata.RequestInfo(qt.getTrack().getInfo().uri, qt.getTrack().getInfo().uri),
+                channel.getIdLong());
+        QueuedTrack newQt = new QueuedTrack(track, rm);
+        handler.setLastReason(member.getUser().getName() + " playing from history.");
+        handler.addTrackToFront(newQt);
+        if (handler.getPlayer().getPlayingTrack() != null)
+        {
+            handler.getPlayer().stopTrack();
+        }
+        String title = FormatUtil.getTrackTitle(track);
+        output.replySuccess("Now playing **" + FormatUtil.filter(title) + "**");
+    }
+
+    /**
+     * Saves the current playback history as a playlist file. Rejects if a playlist with the name already exists.
+     * Requires DJ permission or bot owner.
+     *
+     * @param guild        The guild
+     * @param member       The member
+     * @param playlistName The name for the new playlist (sanitized)
+     * @param output       The output adapter
+     */
+    public void saveHistoryAsPlaylist(Guild guild, Member member, String playlistName, OutputAdapter output)
+    {
+        if (!canSaveHistoryAsPlaylist(guild, member))
+        {
+            output.replyError("You need to be a DJ or the bot owner to save history as a playlist!");
+            return;
+        }
+
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        List<QueuedTrack> previous = handler.getPreviousTracks();
+        List<String> uris = extractHttpUrisFromHistory(previous);
+        if (uris.isEmpty())
+        {
+            output.replyWarning("No valid track URLs in history to save (only http(s) sources are stored).");
+            return;
+        }
+
+        String sanitized = playlistName.replaceAll("\\s+", "_").replaceAll("[*?|\\/\":<>]", "");
+        if (sanitized.isEmpty())
+        {
+            output.replyError("Please provide a valid playlist name!");
+            return;
+        }
+
+        if (bot.getPlaylistLoader().getPlaylist(sanitized) != null)
+        {
+            output.replyError("Playlist `" + sanitized + "` already exists! Choose a different name.");
+            return;
+        }
+
+        try
+        {
+            bot.getPlaylistLoader().createPlaylist(sanitized);
+            String content = String.join("\r\n", uris);
+            bot.getPlaylistLoader().writePlaylist(sanitized, content);
+            output.replySuccess("Saved " + uris.size() + " tracks from history to playlist `" + sanitized + "`!");
+        }
+        catch (java.io.IOException e)
+        {
+            LOG.warn("Failed to save history as playlist: {}", e.getMessage());
+            output.replyError("Failed to save playlist: " + e.getLocalizedMessage());
+        }
+    }
+
+    private boolean canSaveHistoryAsPlaylist(Guild guild, Member member)
+    {
+        return bot.getConfig().getOwnerId() == member.getIdLong()
+                || DJCommand.checkDJPermission(bot, guild, member);
+    }
+
+    /**
+     * Extracts http(s) URIs from history tracks for playlist persistence.
+     */
+    private static List<String> extractHttpUrisFromHistory(List<QueuedTrack> previous)
+    {
+        List<String> uris = new ArrayList<>();
+        for (QueuedTrack qt : previous)
+        {
+            String uri = qt.getTrack().getInfo().uri;
+            if (uri != null && uri.startsWith("http"))
+            {
+                uris.add(uri);
+            }
+        }
+        return uris;
+    }
+
     private boolean isInvalidPosition(AbstractQueue<QueuedTrack> queue, int position)
     {
         return position < 1 || position > queue.size();
@@ -1216,6 +1437,28 @@ public class MusicService
             this.queueType = queueType;
             this.nowPlayingMessage = nowPlayingMessage;
             this.noMusicMessage = noMusicMessage;
+        }
+
+        public boolean isEmpty()
+        {
+            return tracks.length == 0;
+        }
+    }
+
+    /**
+     * Data class containing playback history information for display.
+     */
+    public static class HistoryInfo
+    {
+        public final String[] tracks;
+        public final long totalDuration;
+        public final int maxSize;
+
+        public HistoryInfo(String[] tracks, long totalDuration, int maxSize)
+        {
+            this.tracks = tracks;
+            this.totalDuration = totalDuration;
+            this.maxSize = maxSize;
         }
 
         public boolean isEmpty()

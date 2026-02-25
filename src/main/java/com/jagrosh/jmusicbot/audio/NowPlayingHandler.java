@@ -50,10 +50,8 @@ public class NowPlayingHandler
     
     public void init()
     {
-        // Schedule the 10-second update thread only when:
-        // 1. NP images are disabled (to avoid image reloads on each update)
-        // 2. Progress bar updates are enabled
-        if(!bot.getConfig().useNPImages() && bot.getConfig().updateNpProgressBar())
+        // Schedule the 10-second update thread only when progress bar updates are enabled.
+        if (bot.getConfig().updateNpProgressBar())
             bot.getThreadpool().scheduleWithFixedDelay(this::updateAll, 0, 10, TimeUnit.SECONDS);
     }
     

@@ -326,6 +326,19 @@ public class ListenerTest
             // Then - should not throw, and no service calls
             verify(fixture.getMusicService(), never()).stop(any(), any(), any());
         }
+
+        @Test
+        @DisplayName("onButtonInteraction() handles history_ button with invalid format and replies error")
+        void onButtonInteraction_historyInvalidFormat_repliesError()
+        {
+            fixture.withButtonId("history_ab");
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("Invalid button state")));
+            verify(fixture.getReplyAction()).setEphemeral(true);
+            verify(fixture.getMusicService(), never()).stop(any(), any(), any());
+        }
     }
 
     // ==================== onGuildVoiceUpdate Tests ====================

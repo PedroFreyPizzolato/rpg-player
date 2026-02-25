@@ -102,4 +102,73 @@ public class PlaybackHistoryTest {
         assertThrows(IllegalArgumentException.class, () -> new PlaybackHistory<String>(0));
         assertThrows(IllegalArgumentException.class, () -> new PlaybackHistory<String>(-1));
     }
+
+    @Test
+    public void testRemoveAt() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(10);
+        history.add("a");
+        history.add("b");
+        history.add("c");
+
+        assertEquals("c", history.removeAt(0));
+        assertEquals(2, history.size());
+        assertEquals("b", history.get(0));
+
+        assertEquals("a", history.removeAt(1));
+        assertEquals(1, history.size());
+        assertEquals("b", history.get(0));
+
+        assertNull(history.removeAt(5));
+        assertNull(history.removeAt(-1));
+    }
+
+    @Test
+    public void testRemoveFirstMatching() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(10);
+        history.add("x");
+        history.add("y");
+        history.add("z");
+
+        assertTrue(history.removeFirstMatching("y"::equals));
+        assertEquals(2, history.size());
+        assertEquals("z", history.get(0));
+        assertEquals("x", history.get(1));
+
+        assertFalse(history.removeFirstMatching("y"::equals));
+        assertTrue(history.removeFirstMatching("z"::equals));
+        assertEquals(1, history.size());
+        assertEquals("x", history.get(0));
+
+        assertFalse(history.removeFirstMatching(null));
+    }
+
+    @Test
+    public void testKeyExtractorDuplicateKeyOnlyOneEntry() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(10, s -> s);
+        history.add("a");
+        history.add("a");
+        assertEquals(1, history.size());
+        assertEquals("a", history.get(0));
+    }
+
+    @Test
+    public void testKeyExtractorSameKeyMovesToFront() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(10, s -> s);
+        history.add("a");
+        history.add("b");
+        history.add("a");
+        assertEquals(2, history.size());
+        assertEquals("a", history.get(0));
+        assertEquals("b", history.get(1));
+    }
+
+    @Test
+    public void testKeyExtractorNullPreservesExistingBehavior() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(10);
+        history.add("a");
+        history.add("a");
+        assertEquals(2, history.size());
+        assertEquals("a", history.get(0));
+        assertEquals("a", history.get(1));
+    }
 }

@@ -15,8 +15,10 @@
  */
 package com.jagrosh.jmusicbot.queue;
 
+import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  *
@@ -36,8 +38,8 @@ public abstract class AbstractQueue<T extends Queueable>
         // Use ArrayList for O(1) random access (display, shuffle, etc.)
         // Copy the list when switching queue types to avoid shared mutable state
         this.list = queue != null ? new ArrayList<>(queue.getList()) : new ArrayList<>();
-        // Reuse history when switching queue types, create new one for initial creation
-        this.history = queue != null ? queue.getHistory() : new PlaybackHistory<>(maxHistorySize);
+        // Reuse history when switching queue types, create new one for initial creation with key extractor for de-dup at add time (QueuedTrack uses track id; other Queueable use getIdentifier())
+        this.history = queue != null ? queue.getHistory() : new PlaybackHistory<>(maxHistorySize, qt -> qt instanceof QueuedTrack ? ((QueuedTrack) qt).getTrack().getIdentifier() : qt.getIdentifier());
     }
 
     protected final List<T> list;
@@ -76,6 +78,30 @@ public abstract class AbstractQueue<T extends Queueable>
     public T removeLastPlayed()
     {
         return history.removeFirst();
+    }
+
+    /**
+     * Removes the history entry at the given index (0 = most recent).
+     * Used when a user replays a track from history so it is not retained.
+     *
+     * @param index The history index to remove
+     * @return The removed item, or null if index is out of range
+     */
+    public T removeFromHistoryAt(int index)
+    {
+        return history.removeAt(index);
+    }
+
+    /**
+     * Removes the first history entry that matches the predicate.
+     * Used when a track starts playing to avoid duplicate entries in history.
+     *
+     * @param predicate The condition to match (e.g. same track identifier)
+     * @return true if an entry was removed, false otherwise
+     */
+    public boolean removeFromHistoryFirstMatch(Predicate<T> predicate)
+    {
+        return history.removeFirstMatching(predicate);
     }
 
     /**

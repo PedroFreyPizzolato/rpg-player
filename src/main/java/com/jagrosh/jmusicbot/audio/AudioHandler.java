@@ -357,7 +357,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         LOGGER.debug(" - Is Paused:  {}", player.isPaused());
         votes.clear();
         metricsListener.onSessionReset(); // Reset metrics for new track
-        
+
         // Record track start for timeline and time-to-first-frame tracking
         String trackTitle = null;
         String trackUri = null;
