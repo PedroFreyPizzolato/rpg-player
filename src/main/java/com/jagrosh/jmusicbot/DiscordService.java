@@ -5,6 +5,12 @@ import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.audio.VoiceConnectionMonitor;
 import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
+import com.jagrosh.jmusicbot.listener.HistoryInteractionListener;
+import com.jagrosh.jmusicbot.listener.NowPlayingCleanupListener;
+import com.jagrosh.jmusicbot.listener.PlaybackControlsListener;
+import com.jagrosh.jmusicbot.listener.QueueInteractionListener;
+import com.jagrosh.jmusicbot.listener.StartupLifecycleListener;
+import com.jagrosh.jmusicbot.listener.VoiceStateListener;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import com.jagrosh.jmusicbot.utils.ProxyUtil;
 import com.sedmelluq.discord.lavaplayer.jdaudp.NativeAudioSendFactory;
@@ -40,7 +46,13 @@ public class DiscordService {
                 .setStatus(config.getStatus() == OnlineStatus.INVISIBLE || config.getStatus() == OnlineStatus.OFFLINE
                         ? OnlineStatus.INVISIBLE
                         : OnlineStatus.DO_NOT_DISTURB)
-                .addEventListeners(client, waiter, new Listener(bot))
+                .addEventListeners(client, waiter,
+                        new StartupLifecycleListener(bot),
+                        new NowPlayingCleanupListener(bot),
+                        new PlaybackControlsListener(bot),
+                        new QueueInteractionListener(bot),
+                        new HistoryInteractionListener(bot),
+                        new VoiceStateListener(bot))
                 .setBulkDeleteSplittingEnabled(true)
                 .setAudioModuleConfig(
                         new AudioModuleConfig()

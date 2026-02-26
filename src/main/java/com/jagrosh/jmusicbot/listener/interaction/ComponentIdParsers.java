@@ -1,0 +1,125 @@
+/*
+ * Copyright 2026 Arif Banai (arif-banai)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.jagrosh.jmusicbot.listener.interaction;
+
+import java.util.Optional;
+
+/**
+ * Parsing and validation for component IDs used by queue and history interactions.
+ * Format contracts: queue_{action}_{page}_{selectedTrack}_{userId}, history_{action}_{page}_{selectedTrack}_{userId},
+ * queue_move_select_{fromPosition}_{page}_{userId}, history_save_{userId}.
+ */
+public final class ComponentIdParsers {
+
+    private static final String QUEUE_PREFIX = "queue_";
+    private static final String HISTORY_PREFIX = "history_";
+    private static final String QUEUE_MOVE_SELECT_PREFIX = "queue_move_select_";
+    private static final String HISTORY_SAVE_PREFIX = "history_save_";
+
+    private ComponentIdParsers() {
+    }
+
+    /**
+     * Parsed queue or history button ID: action, page, selectedTrack, userId.
+     */
+    public record PaginatedButtonId(String action, int page, int selectedTrack, long userId) {
+    }
+
+    /**
+     * Parsed queue move select ID: fromPosition, page, userId.
+     */
+    public record QueueMoveSelectId(int fromPosition, int page, long userId) {
+    }
+
+    /**
+     * Parses queue_* button component ID. Expected format: queue_action_page_selectedTrack_userId.
+     */
+    public static Optional<PaginatedButtonId> parseQueueButtonId(String componentId) {
+        if (!componentId.startsWith(QUEUE_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length < 5) {
+            return Optional.empty();
+        }
+        try {
+            String action = parts[1];
+            int page = Integer.parseInt(parts[2]);
+            int selectedTrack = Integer.parseInt(parts[3]);
+            long userId = Long.parseLong(parts[4]);
+            return Optional.of(new PaginatedButtonId(action, page, selectedTrack, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses history_* button component ID. Expected format: history_action_page_selectedTrack_userId.
+     */
+    public static Optional<PaginatedButtonId> parseHistoryButtonId(String componentId) {
+        if (!componentId.startsWith(HISTORY_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length < 5) {
+            return Optional.empty();
+        }
+        try {
+            String action = parts[1];
+            int page = Integer.parseInt(parts[2]);
+            int selectedTrack = Integer.parseInt(parts[3]);
+            long userId = Long.parseLong(parts[4]);
+            return Optional.of(new PaginatedButtonId(action, page, selectedTrack, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses queue_move_select_* component ID. Expected format: queue_move_select_fromPosition_page_userId.
+     */
+    public static Optional<QueueMoveSelectId> parseQueueMoveSelectId(String componentId) {
+        if (!componentId.startsWith(QUEUE_MOVE_SELECT_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length < 6) {
+            return Optional.empty();
+        }
+        try {
+            int fromPosition = Integer.parseInt(parts[3]);
+            int page = Integer.parseInt(parts[4]);
+            long userId = Long.parseLong(parts[5]);
+            return Optional.of(new QueueMoveSelectId(fromPosition, page, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses history_save_* modal ID. Expected format: history_save_userId.
+     */
+    public static Optional<Long> parseHistorySaveModalUserId(String modalId) {
+        if (!modalId.startsWith(HISTORY_SAVE_PREFIX)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Long.parseLong(modalId.substring(HISTORY_SAVE_PREFIX.length())));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+}
