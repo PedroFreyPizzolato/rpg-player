@@ -144,6 +144,25 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         //current = null;
     }
 
+    /**
+     * Stops playback and clears only active queues while preserving history.
+     * If a track is currently playing, it is added to history before stopping.
+     */
+    public void stopAndClearQueuePreserveHistory()
+    {
+        LOGGER.debug("Stopping playback and clearing queue (preserving history)");
+        AudioTrack currentTrack = audioPlayer.getPlayingTrack();
+        if (currentTrack != null)
+        {
+            QueuedTrack completedTrack = new QueuedTrack(currentTrack.makeClone(),
+                    currentTrack.getUserData(RequestMetadata.class));
+            queue.addToHistory(completedTrack);
+        }
+        queue.clear();
+        defaultQueue.clear();
+        audioPlayer.stopTrack();
+    }
+
     public boolean isMusicPlaying(JDA jda)
     {
         // Check that the selfMember is connected to a channel where they can receive audio

@@ -488,7 +488,7 @@ public class MusicService
             return;
 
         AudioHandler handler = getHandler(guild);
-        handler.stopAndClear();
+        handler.stopAndClearQueuePreserveHistory();
         guild.getAudioManager().closeAudioConnection();
         output.editNoMusic(handler);
     }
@@ -504,7 +504,7 @@ public class MusicService
         LOG.info("Stopping playback and clearing queue: guild={}", guild.getId());
 
         AudioHandler handler = getHandler(guild);
-        handler.stopAndClear();
+        handler.stopAndClearQueuePreserveHistory();
         guild.getAudioManager().closeAudioConnection();
 
         LOG.debug("Audio connection closed: guild={}", guild.getId());

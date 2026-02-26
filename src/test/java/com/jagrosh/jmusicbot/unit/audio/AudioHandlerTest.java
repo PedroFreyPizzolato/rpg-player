@@ -161,6 +161,43 @@ public class AudioHandlerTest extends TestBase {
 
             verify(audioPlayer, times(2)).stopTrack();
         }
+
+        @Test
+        @DisplayName("stopAndClearQueuePreserveHistory() adds current track to history and clears queue only")
+        public void testStopAndClearQueuePreserveHistoryAddsCurrentTrack() {
+            AudioTrack playingTrack = mock(AudioTrack.class);
+            AudioTrack clonedTrack = mock(AudioTrack.class);
+            AudioTrackInfo playingInfo = new AudioTrackInfo("Playing", "Author", 1000, "playing-id", false, "uri");
+            when(playingTrack.getInfo()).thenReturn(playingInfo);
+            when(playingTrack.makeClone()).thenReturn(clonedTrack);
+            when(audioPlayer.getPlayingTrack()).thenReturn(playingTrack);
+
+            // Put one item in the queue to verify it gets cleared.
+            QueuedTrack queued = mock(QueuedTrack.class);
+            AudioTrack queuedTrack = mock(AudioTrack.class);
+            AudioTrackInfo queuedInfo = new AudioTrackInfo("Queued", "Author", 1000, "queued-id", false, "uri2");
+            when(queuedTrack.getInfo()).thenReturn(queuedInfo);
+            when(queued.getTrack()).thenReturn(queuedTrack);
+            audioHandler.addTrack(queued);
+
+            audioHandler.stopAndClearQueuePreserveHistory();
+
+            verify(audioPlayer).stopTrack();
+            assertTrue(audioHandler.getQueue().isEmpty());
+            assertEquals(1, audioHandler.getPreviousTracks().size());
+        }
+
+        @Test
+        @DisplayName("stopAndClearQueuePreserveHistory() leaves history unchanged when nothing is playing")
+        public void testStopAndClearQueuePreserveHistoryNoCurrentTrack() {
+            when(audioPlayer.getPlayingTrack()).thenReturn(null);
+
+            audioHandler.stopAndClearQueuePreserveHistory();
+
+            verify(audioPlayer).stopTrack();
+            assertTrue(audioHandler.getQueue().isEmpty());
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
     }
 
     // ==================== isMusicPlaying Tests ====================

@@ -421,7 +421,7 @@ public class MusicServiceTest
             musicService.stop(fixture.getGuild(), fixture.getMember(), output);
 
             // Then
-            verify(fixture.getAudioHandler()).stopAndClear();
+            verify(fixture.getAudioHandler()).stopAndClearQueuePreserveHistory();
             verify(fixture.getAudioManager()).closeAudioConnection();
             output.assertNoMusicEdited();
         }
@@ -437,7 +437,7 @@ public class MusicServiceTest
             musicService.stop(fixture.getGuild(), fixture.getMember(), output);
 
             // Then
-            verify(fixture.getAudioHandler(), never()).stopAndClear();
+            verify(fixture.getAudioHandler(), never()).stopAndClearQueuePreserveHistory();
             output.assertErrorMessageContains("need to be a DJ");
         }
 
@@ -449,7 +449,7 @@ public class MusicServiceTest
             musicService.stopAndClear(fixture.getGuild());
 
             // Then
-            verify(fixture.getAudioHandler()).stopAndClear();
+            verify(fixture.getAudioHandler()).stopAndClearQueuePreserveHistory();
             verify(fixture.getAudioManager()).closeAudioConnection();
         }
     }

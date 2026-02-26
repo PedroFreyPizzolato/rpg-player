@@ -17,7 +17,6 @@ package com.jagrosh.jmusicbot.commands.v2.dj;
 
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
-import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v2.DJSlashCommand;
 
 /**
@@ -37,9 +36,7 @@ public class StopSlashCmd extends DJSlashCommand
     @Override
     public void doDJCommand(SlashCommandEvent event)
     {
-        AudioHandler handler = (AudioHandler) event.getGuild().getAudioManager().getSendingHandler();
-        handler.stopAndClear();
-        event.getGuild().getAudioManager().closeAudioConnection();
+        bot.getMusicService().stopAndClear(event.getGuild());
         event.reply(event.getClient().getSuccess() + " The player has stopped and the queue has been cleared.").queue();
     }
 }
