@@ -146,18 +146,11 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
 
     /**
      * Stops playback and clears only active queues while preserving history.
-     * If a track is currently playing, it is added to history before stopping.
+     * Playback history is maintained from track start events.
      */
     public void stopAndClearQueuePreserveHistory()
     {
         LOGGER.debug("Stopping playback and clearing queue (preserving history)");
-        AudioTrack currentTrack = audioPlayer.getPlayingTrack();
-        if (currentTrack != null)
-        {
-            QueuedTrack completedTrack = new QueuedTrack(currentTrack.makeClone(),
-                    currentTrack.getUserData(RequestMetadata.class));
-            queue.addToHistory(completedTrack);
-        }
         queue.clear();
         defaultQueue.clear();
         audioPlayer.stopTrack();
@@ -240,13 +233,6 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         }
         else if (track != null && track.getInfo() != null) {
             LOGGER.debug("Track ended: {} Reason: {}", track.getInfo().title, endReason);
-        }
-
-        // Add to queue history for tracking previously played tracks
-        if (endReason.mayStartNext && track != null)
-        {
-            QueuedTrack completedTrack = new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class));
-            queue.addToHistory(completedTrack);
         }
 
         RepeatMode repeatMode = manager.getBot().getSettingsManager().getSettings(guildId).getRepeatMode();
@@ -391,6 +377,11 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
                     track.getSourceManager() != null ? track.getSourceManager().getSourceName() : "Unknown");
         }
         metricsListener.onTrackStart(trackTitle, trackUri);
+        if (track != null)
+        {
+            QueuedTrack startedTrack = new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class));
+            queue.addToHistory(startedTrack);
+        }
 
         if (lastReason == null)
             lastReason = "Playing next song.";

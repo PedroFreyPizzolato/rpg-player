@@ -19,7 +19,9 @@ import com.jagrosh.jmusicbot.TestBase;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.settings.QueueType;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
@@ -47,6 +49,7 @@ public class AudioHandlerTest extends TestBase {
     public void setUp() {
         super.setUp();
         when(settings.getQueueType()).thenReturn(QueueType.FAIR);
+        when(settings.getRepeatMode()).thenReturn(RepeatMode.OFF);
 
         // AudioHandler's constructor is not visible, so use reflection to instantiate it for testing
         try {
@@ -163,13 +166,11 @@ public class AudioHandlerTest extends TestBase {
         }
 
         @Test
-        @DisplayName("stopAndClearQueuePreserveHistory() adds current track to history and clears queue only")
-        public void testStopAndClearQueuePreserveHistoryAddsCurrentTrack() {
+        @DisplayName("stopAndClearQueuePreserveHistory() does not add current track and clears queue only")
+        public void testStopAndClearQueuePreserveHistoryDoesNotAddCurrentTrack() {
             AudioTrack playingTrack = mock(AudioTrack.class);
-            AudioTrack clonedTrack = mock(AudioTrack.class);
             AudioTrackInfo playingInfo = new AudioTrackInfo("Playing", "Author", 1000, "playing-id", false, "uri");
             when(playingTrack.getInfo()).thenReturn(playingInfo);
-            when(playingTrack.makeClone()).thenReturn(clonedTrack);
             when(audioPlayer.getPlayingTrack()).thenReturn(playingTrack);
 
             // Put one item in the queue to verify it gets cleared.
@@ -184,7 +185,7 @@ public class AudioHandlerTest extends TestBase {
 
             verify(audioPlayer).stopTrack();
             assertTrue(audioHandler.getQueue().isEmpty());
-            assertEquals(1, audioHandler.getPreviousTracks().size());
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
         }
 
         @Test
@@ -356,6 +357,108 @@ public class AudioHandlerTest extends TestBase {
         @DisplayName("getPreviousTracks() starts empty")
         public void testGetPreviousTracksStartsEmpty() {
             assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
+    }
+
+    @Nested
+    @DisplayName("Track Start History")
+    class TrackStartHistoryTests
+    {
+        @Test
+        @DisplayName("onTrackStart() adds started track to history")
+        void onTrackStart_addsToHistory()
+        {
+            AudioTrack startedTrack = createTrack("started-track", "Started Track", "https://example.com/started-track");
+            when(bot.getNowplayingHandler()).thenReturn(mock(com.jagrosh.jmusicbot.audio.NowPlayingHandler.class));
+
+            audioHandler.onTrackStart(audioPlayer, startedTrack);
+
+            assertEquals(1, audioHandler.getPreviousTracks().size());
+        }
+
+        @Test
+        @DisplayName("onTrackEnd(FINISHED) does not add track to history")
+        void onTrackEnd_finished_doesNotAddToHistory()
+        {
+            AudioTrack playedTrack = createTrack("played-finished", "Played Finished", "https://example.com/played-finished");
+            enqueueNextTrack("queued-finished", "Queued Finished", "https://example.com/queued-finished");
+
+            audioHandler.onTrackEnd(audioPlayer, playedTrack, AudioTrackEndReason.FINISHED);
+
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
+
+        @Test
+        @DisplayName("onTrackEnd(STOPPED) does not add track to history")
+        void onTrackEnd_stopped_doesNotAddToHistory()
+        {
+            AudioTrack playedTrack = createTrack("played-stopped", "Played Stopped", "https://example.com/played-stopped");
+            enqueueNextTrack("queued-stopped", "Queued Stopped", "https://example.com/queued-stopped");
+
+            audioHandler.onTrackEnd(audioPlayer, playedTrack, AudioTrackEndReason.STOPPED);
+
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
+
+        @Test
+        @DisplayName("onTrackEnd(STOPPED) does not add history across repeated calls")
+        void onTrackEnd_stopped_repeatedCalls_doNotAddHistory()
+        {
+            AudioTrack firstStoppedTrack = createTrack("played-guard-1", "Played Guard 1", "https://example.com/played-guard-1");
+            enqueueNextTrack("queued-guard-1", "Queued Guard 1", "https://example.com/queued-guard-1");
+            audioHandler.onTrackEnd(audioPlayer, firstStoppedTrack, AudioTrackEndReason.STOPPED);
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+
+            AudioTrack secondStoppedTrack = createTrack("played-guard-2", "Played Guard 2", "https://example.com/played-guard-2");
+            enqueueNextTrack("queued-guard-2", "Queued Guard 2", "https://example.com/queued-guard-2");
+            audioHandler.onTrackEnd(audioPlayer, secondStoppedTrack, AudioTrackEndReason.STOPPED);
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
+
+        @Test
+        @DisplayName("onTrackEnd(LOAD_FAILED) does not add track to history")
+        void onTrackEnd_loadFailed_doesNotAddToHistory()
+        {
+            AudioTrack playedTrack = createTrack("played-load-failed", "Played Load Failed", "https://example.com/played-load-failed");
+            enqueueNextTrack("queued-load-failed", "Queued Load Failed", "https://example.com/queued-load-failed");
+
+            audioHandler.onTrackEnd(audioPlayer, playedTrack, AudioTrackEndReason.LOAD_FAILED);
+
+            assertTrue(audioHandler.getPreviousTracks().isEmpty());
+        }
+
+        @Test
+        @DisplayName("stopAndClearQueuePreserveHistory() does not duplicate a track already added on start")
+        void stopAndClearQueuePreserveHistory_doesNotDuplicateTrackAlreadyInHistory()
+        {
+            AudioTrack startedTrack = createTrack("started-dedup", "Started Dedup", "https://example.com/started-dedup");
+            when(audioPlayer.getPlayingTrack()).thenReturn(startedTrack);
+            when(bot.getNowplayingHandler()).thenReturn(mock(com.jagrosh.jmusicbot.audio.NowPlayingHandler.class));
+
+            audioHandler.onTrackStart(audioPlayer, startedTrack);
+            audioHandler.stopAndClearQueuePreserveHistory();
+
+            assertEquals(1, audioHandler.getPreviousTracks().size());
+        }
+
+        private AudioTrack createTrack(String identifier, String title, String uri)
+        {
+            AudioTrack track = mock(AudioTrack.class);
+            AudioTrack clone = mock(AudioTrack.class);
+            AudioTrackInfo info = new AudioTrackInfo(title, "Author", 1000, identifier, false, uri);
+            when(track.getInfo()).thenReturn(info);
+            when(track.getIdentifier()).thenReturn(identifier);
+            when(track.makeClone()).thenReturn(clone);
+            return track;
+        }
+
+        private void enqueueNextTrack(String identifier, String title, String uri)
+        {
+            AudioTrack track = createTrack(identifier, title, uri);
+            QueuedTrack queuedTrack = mock(QueuedTrack.class);
+            when(queuedTrack.getTrack()).thenReturn(track);
+            when(queuedTrack.getIdentifier()).thenReturn(0L);
+            audioHandler.getQueue().add(queuedTrack);
         }
     }
 }
