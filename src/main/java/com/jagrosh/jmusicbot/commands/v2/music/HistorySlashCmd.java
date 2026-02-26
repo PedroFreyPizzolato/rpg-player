@@ -179,13 +179,17 @@ public class HistorySlashCmd extends MusicSlashCommand
         }
         rows.add(ActionRow.of(prevBtn, nextBtn));
 
-        // Row 4: Track actions (Queue, Play Now, Save) when a track is selected
+        // Row 4: Save as playlist always; Queue and Play Now only when a track is selected
+        Button saveBtn = Button.primary(String.format(baseId, "save"), "Save as playlist").withEmoji(Emoji.fromUnicode("💾"));
         if (selectedTrack > 0)
         {
             Button queueBtn = Button.secondary(String.format(baseId, "queue"), "Queue").withEmoji(Emoji.fromUnicode("➕"));
             Button playNowBtn = Button.success(String.format(baseId, "playnow"), "Play Now").withEmoji(Emoji.fromUnicode("▶️"));
-            Button saveBtn = Button.primary(String.format(baseId, "save"), "Save as playlist").withEmoji(Emoji.fromUnicode("💾"));
             rows.add(ActionRow.of(queueBtn, playNowBtn, saveBtn));
+        }
+        else
+        {
+            rows.add(ActionRow.of(saveBtn));
         }
 
         return rows;

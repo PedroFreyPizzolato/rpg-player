@@ -32,7 +32,9 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.api.exceptions.PermissionException;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.textinput.TextInput;
@@ -632,11 +634,8 @@ public class Listener extends ListenerAdapter
                 event.reply("No track selected!").setEphemeral(true).queue();
                 return;
             }
-            if (!event.getMember().getVoiceState().inAudioChannel()
-                    || event.getGuild().getSelfMember().getVoiceState().getChannel() == null
-                    || !event.getMember().getVoiceState().getChannel().equals(event.getGuild().getSelfMember().getVoiceState().getChannel()))
+            if (!ensureBotInUserVoiceChannel(event))
             {
-                event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
                 return;
             }
             MusicService.OutputAdapter adapter = createHistoryOutputAdapter(event);
@@ -661,11 +660,8 @@ public class Listener extends ListenerAdapter
                 event.reply("No track selected!").setEphemeral(true).queue();
                 return;
             }
-            if (!event.getMember().getVoiceState().inAudioChannel()
-                    || event.getGuild().getSelfMember().getVoiceState().getChannel() == null
-                    || !event.getMember().getVoiceState().getChannel().equals(event.getGuild().getSelfMember().getVoiceState().getChannel()))
+            if (!ensureBotInUserVoiceChannel(event))
             {
-                event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
                 return;
             }
             MusicService.OutputAdapter adapter = createHistoryOutputAdapter(event);
@@ -744,6 +740,55 @@ public class Listener extends ListenerAdapter
             @Override
             public void onShowHelp() { }
         };
+    }
+
+    /**
+     * Ensures the bot is in the user's voice channel for playback actions (e.g. History Queue / Play Now).
+     * If the user is not in a voice channel, or is in a different channel than the bot when the bot is
+     * already connected, replies with an error and returns false. If the bot is not connected, joins
+     * the user's channel and returns true (or false on permission error).
+     *
+     * @param event The button interaction event (must be in a guild with a non-null member)
+     * @return true if the bot is now in the user's voice channel, false if an error was replied
+     */
+    private boolean ensureBotInUserVoiceChannel(ButtonInteractionEvent event)
+    {
+        Guild guild = event.getGuild();
+        assert guild != null;
+        var member = event.getMember();
+        assert member != null;
+
+        if (!member.getVoiceState().inAudioChannel())
+        {
+            event.reply("You need to be in a voice channel to use this!").setEphemeral(true).queue();
+            return false;
+        }
+
+        AudioChannel botChannel = guild.getSelfMember().getVoiceState().getChannel();
+        AudioChannel userChannel = member.getVoiceState().getChannel();
+
+        if (botChannel != null)
+        {
+            if (!userChannel.equals(botChannel))
+            {
+                event.reply("You must be in the same voice channel to use this!").setEphemeral(true).queue();
+                return false;
+            }
+            return true;
+        }
+
+        // Bot is not in a voice channel: join the user's channel
+        bot.getPlayerManager().setUpHandler(guild);
+        try
+        {
+            guild.getAudioManager().openAudioConnection(userChannel);
+            return true;
+        }
+        catch (PermissionException ex)
+        {
+            event.reply("I cannot connect to " + userChannel.getName() + "! Check my permissions.").setEphemeral(true).queue();
+            return false;
+        }
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.jagrosh.jmusicbot.commands.v2.music.HistorySlashCmd;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -115,10 +116,14 @@ public class HistorySlashCmdTest
     }
 
     @Test
-    void testBuildHistoryComponents_NoSelection_ReturnsThreeRows()
+    void testBuildHistoryComponents_NoSelection_ReturnsFourRowsWithSaveButtonOnly()
     {
         List<ActionRow> rows = HistorySlashCmd.buildHistoryComponents(1, 2, 10, 0, 12345L);
-        assertEquals(3, rows.size());
+        assertEquals(4, rows.size());
+        // Row 4 is action row: only "Save as playlist" when no track selected
+        ActionRow actionRow = rows.get(3);
+        assertEquals(1, actionRow.getComponents().size());
+        assertEquals("Save as playlist", ((Button) actionRow.getComponents().get(0)).getLabel());
     }
 
     @Test
