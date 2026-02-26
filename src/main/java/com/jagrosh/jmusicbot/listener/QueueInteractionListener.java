@@ -94,10 +94,23 @@ public class QueueInteractionListener extends ListenerAdapter {
         }
 
         int totalPages = QueueSlashCmd.getTotalPages(queueInfo.tracks.length);
+        page = Math.max(1, Math.min(page, totalPages));
 
         if (action.startsWith("select")) {
-            int trackIndexOnPage = Integer.parseInt(action.substring(6));
-            int newSelectedTrack = (page - 1) * QueueSlashCmd.TRACKS_PER_PAGE + trackIndexOnPage;
+            int newSelectedTrack;
+            try {
+                newSelectedTrack = Integer.parseInt(action.substring(6));
+            } catch (NumberFormatException e) {
+                event.reply("Invalid track selection.").setEphemeral(true).queue();
+                return;
+            }
+            int tracksOnPage = QueueSlashCmd.getTracksOnPage(page, queueInfo.tracks.length);
+            int firstOnPage = (page - 1) * QueueSlashCmd.TRACKS_PER_PAGE + 1;
+            int lastOnPage = firstOnPage + tracksOnPage - 1;
+            if (newSelectedTrack < firstOnPage || newSelectedTrack > lastOnPage) {
+                event.reply("That track isn't on this page!").setEphemeral(true).queue();
+                return;
+            }
             if (newSelectedTrack == selectedTrack) {
                 newSelectedTrack = 0;
             }

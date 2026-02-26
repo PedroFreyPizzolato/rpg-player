@@ -105,4 +105,20 @@ class PlaylistsInteractionListenerTest
                 any(MusicService.OutputAdapter.class)
         );
     }
+
+    @Test
+    @DisplayName("onButtonInteraction() rejects select action not present on current page")
+    void onButtonInteraction_selectOutsidePage_repliesError()
+    {
+        fixture.withButtonId("playlists_select11_1_0_" + fixture.getUser().getIdLong());
+        when(playlistLoader.folderExists()).thenReturn(true);
+        when(playlistLoader.getPlaylistNames()).thenReturn(List.of(
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"
+        ));
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("isn't on this page")));
+        verify(fixture.getReplyAction()).setEphemeral(true);
+    }
 }

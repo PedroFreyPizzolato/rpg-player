@@ -89,8 +89,24 @@ public class PlaylistsInteractionListener extends ListenerAdapter
 
         if (action.startsWith("select"))
         {
-            int playlistIndexOnPage = Integer.parseInt(action.substring(6));
-            int newSelectedIndex = (page - 1) * PlaylistsSlashCmd.PLAYLISTS_PER_PAGE + playlistIndexOnPage;
+            int newSelectedIndex;
+            try
+            {
+                newSelectedIndex = Integer.parseInt(action.substring(6));
+            }
+            catch (NumberFormatException e)
+            {
+                event.reply("Invalid playlist selection.").setEphemeral(true).queue();
+                return;
+            }
+            int playlistsOnPage = PlaylistsSlashCmd.getPlaylistsOnPage(page, playlists.size());
+            int firstOnPage = (page - 1) * PlaylistsSlashCmd.PLAYLISTS_PER_PAGE + 1;
+            int lastOnPage = firstOnPage + playlistsOnPage - 1;
+            if (newSelectedIndex < firstOnPage || newSelectedIndex > lastOnPage)
+            {
+                event.reply("That playlist isn't on this page!").setEphemeral(true).queue();
+                return;
+            }
             if (newSelectedIndex == selectedIndex)
             {
                 newSelectedIndex = 0;

@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot.commands.v2.music;
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
+import com.jagrosh.jmusicbot.listener.interaction.PaginatedListComponents;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -128,56 +129,15 @@ public class HistorySlashCmd extends MusicSlashCommand
                                                          int selectedTrack, long userId)
     {
         List<ActionRow> rows = new ArrayList<>();
-        String baseId = "history_%s_" + page + "_" + selectedTrack + "_" + userId;
-
-        // Row 1: Track buttons 1-5
-        List<Button> row1Buttons = new ArrayList<>();
-        for (int i = 1; i <= 5; i++)
-        {
-            int trackNum = (page - 1) * TRACKS_PER_PAGE + i;
-            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
-            if (i > tracksOnPage)
-            {
-                btn = btn.asDisabled();
-            }
-            else if (trackNum == selectedTrack)
-            {
-                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
-            }
-            row1Buttons.add(btn);
-        }
-        rows.add(ActionRow.of(row1Buttons));
-
-        // Row 2: Track buttons 6-10
-        List<Button> row2Buttons = new ArrayList<>();
-        for (int i = 6; i <= 10; i++)
-        {
-            int trackNum = (page - 1) * TRACKS_PER_PAGE + i;
-            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
-            if (i > tracksOnPage)
-            {
-                btn = btn.asDisabled();
-            }
-            else if (trackNum == selectedTrack)
-            {
-                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
-            }
-            row2Buttons.add(btn);
-        }
-        rows.add(ActionRow.of(row2Buttons));
+        String baseId = PaginatedListComponents.baseId("history", page, selectedTrack, userId);
+        rows.addAll(PaginatedListComponents.buildSelectRows(baseId, page, TRACKS_PER_PAGE, tracksOnPage, selectedTrack));
 
         // Row 3: Pagination
-        Button prevBtn = Button.secondary(String.format(baseId, "prev"), Emoji.fromUnicode("⬅️"));
-        Button nextBtn = Button.secondary(String.format(baseId, "next"), Emoji.fromUnicode("➡️"));
-        if (page <= 1)
+        ActionRow paginationRow = PaginatedListComponents.buildPaginationRow(baseId, page, totalPages);
+        if (paginationRow != null)
         {
-            prevBtn = prevBtn.asDisabled();
+            rows.add(paginationRow);
         }
-        if (page >= totalPages)
-        {
-            nextBtn = nextBtn.asDisabled();
-        }
-        rows.add(ActionRow.of(prevBtn, nextBtn));
 
         // Row 4: Save as playlist always; Queue and Play Now only when a track is selected; Add all to queue only when no track selected
         Button saveBtn = Button.primary(String.format(baseId, "save"), "Save as playlist").withEmoji(Emoji.fromUnicode("💾"));

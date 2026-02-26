@@ -133,4 +133,28 @@ public class HistorySlashCmdTest
         List<ActionRow> rows = HistorySlashCmd.buildHistoryComponents(1, 2, 10, 5, 12345L);
         assertEquals(4, rows.size());
     }
+
+    @Test
+    void testBuildHistoryComponents_FewerTracks_UsesSparseButtons()
+    {
+        List<ActionRow> rows = HistorySlashCmd.buildHistoryComponents(1, 1, 3, 0, 12345L);
+        assertEquals(2, rows.size());
+        ActionRow selectRow = rows.get(0);
+        assertEquals(3, selectRow.getComponents().size());
+        assertEquals("1", ((Button) selectRow.getComponents().get(0)).getLabel());
+        assertEquals("3", ((Button) selectRow.getComponents().get(2)).getLabel());
+    }
+
+    @Test
+    void testBuildHistoryComponents_PageTwo_UsesAbsoluteButtonLabels()
+    {
+        List<ActionRow> rows = HistorySlashCmd.buildHistoryComponents(2, 3, 10, 0, 12345L);
+        assertEquals(4, rows.size());
+        ActionRow row1 = rows.get(0);
+        ActionRow row2 = rows.get(1);
+        assertEquals("11", ((Button) row1.getComponents().get(0)).getLabel());
+        assertEquals("15", ((Button) row1.getComponents().get(4)).getLabel());
+        assertEquals("16", ((Button) row2.getComponents().get(0)).getLabel());
+        assertEquals("20", ((Button) row2.getComponents().get(4)).getLabel());
+    }
 }

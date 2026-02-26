@@ -21,6 +21,7 @@ import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -149,12 +150,12 @@ public class QueueSlashCmdTest
         assertTrue(capturedEmbed.getDescription().contains("Now Playing"));
         assertTrue(capturedEmbed.getDescription().contains("Track 1"));
 
-        // Verify components were set (3 rows: track buttons 1-5, 6-10, pagination+shuffle)
+        // Verify components were set (sparse selection rows + pagination/actions)
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<ActionRow>> componentsCaptor = ArgumentCaptor.forClass(List.class);
         verify(fixture.getReplyAction()).setComponents(componentsCaptor.capture());
         List<ActionRow> components = componentsCaptor.getValue();
-        assertEquals(3, components.size()); // No track selected, so no action row
+        assertEquals(2, components.size()); // 3 tracks => one select row + pagination row
     }
 
     @Test
@@ -296,7 +297,7 @@ public class QueueSlashCmdTest
     }
 
     @Test
-    void testBuildQueueComponents_FewerTracks_DisablesExtraButtons()
+    void testBuildQueueComponents_FewerTracks_UsesSparseButtons()
     {
         // Given
         int page = 1;
@@ -309,15 +310,27 @@ public class QueueSlashCmdTest
         List<ActionRow> components = QueueSlashCmd.buildQueueComponents(page, totalPages, tracksOnPage, selectedTrack, userId);
 
         // Then
-        assertEquals(3, components.size());
-
-        // First row should have buttons 1-5, with 4 and 5 disabled
+        assertEquals(2, components.size());
         ActionRow firstRow = components.get(0);
-        assertEquals(5, firstRow.getComponents().size());
+        assertEquals(3, firstRow.getComponents().size());
+        assertEquals("1", ((Button) firstRow.getComponents().get(0)).getLabel());
+        assertEquals("3", ((Button) firstRow.getComponents().get(2)).getLabel());
+        ActionRow paginationAndActionsRow = components.get(1);
+        assertEquals(1, paginationAndActionsRow.getComponents().size());
+        assertEquals("Shuffle", ((Button) paginationAndActionsRow.getComponents().get(0)).getLabel());
+    }
 
-        // Second row (6-10) should all be disabled since we only have 3 tracks
-        ActionRow secondRow = components.get(1);
-        assertEquals(5, secondRow.getComponents().size());
+    @Test
+    void testBuildQueueComponents_PageTwo_UsesAbsoluteButtonLabels()
+    {
+        List<ActionRow> components = QueueSlashCmd.buildQueueComponents(2, 3, 10, 0, 123456789L);
+        assertEquals(3, components.size());
+        ActionRow row1 = components.get(0);
+        ActionRow row2 = components.get(1);
+        assertEquals("11", ((Button) row1.getComponents().get(0)).getLabel());
+        assertEquals("15", ((Button) row1.getComponents().get(4)).getLabel());
+        assertEquals("16", ((Button) row2.getComponents().get(0)).getLabel());
+        assertEquals("20", ((Button) row2.getComponents().get(4)).getLabel());
     }
 
     @Test

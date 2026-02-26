@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot.commands.v2.music;
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
+import com.jagrosh.jmusicbot.listener.interaction.PaginatedListComponents;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -126,53 +127,13 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
                                                            int selectedIndex, long userId)
     {
         List<ActionRow> rows = new ArrayList<>();
-        String baseId = "playlists_%s_" + page + "_" + selectedIndex + "_" + userId;
-
-        List<Button> row1Buttons = new ArrayList<>();
-        for (int i = 1; i <= 5; i++)
+        String baseId = PaginatedListComponents.baseId("playlists", page, selectedIndex, userId);
+        rows.addAll(PaginatedListComponents.buildSelectRows(baseId, page, PLAYLISTS_PER_PAGE, playlistsOnPage, selectedIndex));
+        ActionRow paginationRow = PaginatedListComponents.buildPaginationRow(baseId, page, totalPages);
+        if (paginationRow != null)
         {
-            int absoluteIndex = (page - 1) * PLAYLISTS_PER_PAGE + i;
-            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
-            if (i > playlistsOnPage)
-            {
-                btn = btn.asDisabled();
-            }
-            else if (absoluteIndex == selectedIndex)
-            {
-                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
-            }
-            row1Buttons.add(btn);
+            rows.add(paginationRow);
         }
-        rows.add(ActionRow.of(row1Buttons));
-
-        List<Button> row2Buttons = new ArrayList<>();
-        for (int i = 6; i <= 10; i++)
-        {
-            int absoluteIndex = (page - 1) * PLAYLISTS_PER_PAGE + i;
-            Button btn = Button.secondary(String.format(baseId, "select" + i), String.valueOf(i));
-            if (i > playlistsOnPage)
-            {
-                btn = btn.asDisabled();
-            }
-            else if (absoluteIndex == selectedIndex)
-            {
-                btn = Button.primary(String.format(baseId, "select" + i), String.valueOf(i));
-            }
-            row2Buttons.add(btn);
-        }
-        rows.add(ActionRow.of(row2Buttons));
-
-        Button prevBtn = Button.secondary(String.format(baseId, "prev"), Emoji.fromUnicode("⬅️"));
-        Button nextBtn = Button.secondary(String.format(baseId, "next"), Emoji.fromUnicode("➡️"));
-        if (page <= 1)
-        {
-            prevBtn = prevBtn.asDisabled();
-        }
-        if (page >= totalPages)
-        {
-            nextBtn = nextBtn.asDisabled();
-        }
-        rows.add(ActionRow.of(prevBtn, nextBtn));
 
         Button refreshBtn = Button.secondary(String.format(baseId, "refresh"), "Refresh").withEmoji(Emoji.fromUnicode("🔄"));
         if (selectedIndex > 0)

@@ -15,55 +15,53 @@
  */
 package com.jagrosh.jmusicbot.unit;
 
-import com.jagrosh.jmusicbot.listener.HistoryInteractionListener;
+import com.jagrosh.jmusicbot.listener.QueueInteractionListener;
 import com.jagrosh.jmusicbot.service.MusicService;
+import com.jagrosh.jmusicbot.settings.QueueType;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.testutil.listener.ListenerTestFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@DisplayName("HistoryInteractionListener Tests")
-public class HistoryInteractionListenerTest {
-
+@DisplayName("QueueInteractionListener Tests")
+class QueueInteractionListenerTest
+{
     private ListenerTestFixture fixture;
-    private HistoryInteractionListener listener;
+    private QueueInteractionListener listener;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         fixture = ListenerTestFixture.create();
-        listener = new HistoryInteractionListener(fixture.getBot());
+        listener = new QueueInteractionListener(fixture.getBot());
         when(fixture.getButtonInteractionEvent().getUser()).thenReturn(fixture.getUser());
     }
 
     @Test
-    @DisplayName("onButtonInteraction() handles history_ button with invalid format and replies error")
-    void onButtonInteraction_historyInvalidFormat_repliesError() {
-        fixture.withButtonId("history_ab");
-
-        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
-
-        verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("Invalid button state")));
-        verify(fixture.getReplyAction()).setEphemeral(true);
-        verify(fixture.getMusicService(), never()).stop(any(), any(), any());
-    }
-
-    @Test
     @DisplayName("onButtonInteraction() rejects select action not present on current page")
-    void onButtonInteraction_selectOutsidePage_repliesError() {
-        fixture.withButtonId("history_select11_1_0_" + fixture.getUser().getIdLong());
-        MusicService.HistoryInfo info = new MusicService.HistoryInfo(
+    void onButtonInteraction_selectOutsidePage_repliesError()
+    {
+        fixture.withButtonId("queue_select11_1_0_" + fixture.getUser().getIdLong())
+                .withMemberInVoiceChannel();
+        MusicService.QueueInfo info = new MusicService.QueueInfo(
                 new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"},
                 0L,
-                50
+                null,
+                "",
+                RepeatMode.OFF,
+                QueueType.LINEAR,
+                null,
+                null
         );
-        when(fixture.getMusicService().getHistoryInfo(fixture.getGuild(), fixture.getJda())).thenReturn(info);
+        when(fixture.getMusicService().getQueueInfo(fixture.getGuild(), fixture.getJda())).thenReturn(info);
 
         listener.onButtonInteraction(fixture.getButtonInteractionEvent());
 
-        verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("isn't on this page")));
+        verify(fixture.getButtonInteractionEvent()).reply(org.mockito.ArgumentMatchers.argThat((String s) -> s.contains("isn't on this page")));
         verify(fixture.getReplyAction()).setEphemeral(true);
     }
 }

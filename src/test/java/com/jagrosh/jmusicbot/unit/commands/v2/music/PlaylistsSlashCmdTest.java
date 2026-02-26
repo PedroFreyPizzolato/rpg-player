@@ -19,6 +19,7 @@ import com.jagrosh.jmusicbot.commands.v2.music.PlaylistsSlashCmd;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,7 @@ class PlaylistsSlashCmdTest
         ArgumentCaptor<List<ActionRow>> componentsCaptor = ArgumentCaptor.forClass(List.class);
         verify(fixture.getReplyAction()).setComponents(componentsCaptor.capture());
         assertFalse(componentsCaptor.getValue().isEmpty());
-        assertEquals(4, componentsCaptor.getValue().size());
+        assertEquals(2, componentsCaptor.getValue().size());
     }
 
     @Test
@@ -99,5 +100,27 @@ class PlaylistsSlashCmdTest
         assertEquals(10, PlaylistsSlashCmd.getPlaylistsOnPage(1, 23));
         assertEquals(3, PlaylistsSlashCmd.getPlaylistsOnPage(3, 23));
         assertEquals(3, PlaylistsSlashCmd.getTotalPages(23));
+    }
+
+    @Test
+    void buildPlaylistsComponents_sparseButtonsForPartialPage()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistsComponents(1, 1, 3, 0, 42L);
+        assertEquals(2, rows.size());
+        ActionRow selectRow = rows.get(0);
+        assertEquals(3, selectRow.getComponents().size());
+        assertEquals("1", ((Button) selectRow.getComponents().get(0)).getLabel());
+        assertEquals("3", ((Button) selectRow.getComponents().get(2)).getLabel());
+    }
+
+    @Test
+    void buildPlaylistsComponents_pageTwoUsesAbsoluteLabels()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistsComponents(2, 3, 10, 0, 42L);
+        assertEquals(4, rows.size());
+        ActionRow row1 = rows.get(0);
+        ActionRow row2 = rows.get(1);
+        assertEquals("11", ((Button) row1.getComponents().get(0)).getLabel());
+        assertEquals("20", ((Button) row2.getComponents().get(4)).getLabel());
     }
 }
