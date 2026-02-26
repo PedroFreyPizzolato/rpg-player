@@ -20,12 +20,14 @@ import java.util.Optional;
 /**
  * Parsing and validation for component IDs used by queue and history interactions.
  * Format contracts: queue_{action}_{page}_{selectedTrack}_{userId}, history_{action}_{page}_{selectedTrack}_{userId},
- * queue_move_select_{fromPosition}_{page}_{userId}, history_save_{userId}.
+ * playlists_{action}_{page}_{selectedIndex}_{userId}, queue_move_select_{fromPosition}_{page}_{userId},
+ * history_save_{userId}.
  */
 public final class ComponentIdParsers {
 
     private static final String QUEUE_PREFIX = "queue_";
     private static final String HISTORY_PREFIX = "history_";
+    private static final String PLAYLISTS_PREFIX = "playlists_";
     private static final String QUEUE_MOVE_SELECT_PREFIX = "queue_move_select_";
     private static final String HISTORY_SAVE_PREFIX = "history_save_";
 
@@ -83,6 +85,28 @@ public final class ComponentIdParsers {
             int selectedTrack = Integer.parseInt(parts[3]);
             long userId = Long.parseLong(parts[4]);
             return Optional.of(new PaginatedButtonId(action, page, selectedTrack, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses playlists_* button component ID. Expected format: playlists_action_page_selectedIndex_userId.
+     */
+    public static Optional<PaginatedButtonId> parsePlaylistsButtonId(String componentId) {
+        if (!componentId.startsWith(PLAYLISTS_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length < 5) {
+            return Optional.empty();
+        }
+        try {
+            String action = parts[1];
+            int page = Integer.parseInt(parts[2]);
+            int selectedIndex = Integer.parseInt(parts[3]);
+            long userId = Long.parseLong(parts[4]);
+            return Optional.of(new PaginatedButtonId(action, page, selectedIndex, userId));
         } catch (NumberFormatException e) {
             return Optional.empty();
         }

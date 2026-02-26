@@ -20,6 +20,7 @@ import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist;
 import com.jagrosh.jmusicbot.queue.AbstractQueue;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
@@ -1333,6 +1334,161 @@ public class MusicService
     }
 
     /**
+     * Queues all tracks from a named saved playlist.
+     *
+     * @param guild        The guild
+     * @param member       The member requesting playback
+     * @param playlistName The saved playlist name
+     * @param channel      The text channel for request metadata
+     * @param output       The output adapter
+     */
+    public void queuePlaylist(Guild guild, Member member, String playlistName, TextChannel channel, OutputAdapter output)
+    {
+        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
+        if (playlist == null)
+        {
+            output.replyError("I could not find `" + playlistName + ".txt` in the Playlists folder.");
+            return;
+        }
+
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            handler = bot.getPlayerManager().setUpHandler(guild);
+        }
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        AudioHandler finalHandler = handler;
+        playlist.loadTracks(bot.getPlayerManager(), at -> {
+            RequestMetadata metadata = new RequestMetadata(member.getUser(),
+                    new RequestMetadata.RequestInfo("playlist " + playlist.getName(), at.getInfo().uri),
+                    channel.getIdLong());
+            finalHandler.addTrack(new QueuedTrack(at, metadata));
+        }, () -> {
+            int loadedCount = playlist.getTracks().size();
+            int errorCount = playlist.getErrors().size();
+            if (loadedCount == 0)
+            {
+                output.replyWarning("No tracks were loaded from playlist `" + playlist.getName() + "`!");
+                return;
+            }
+
+            StringBuilder msg = new StringBuilder("Queued **")
+                    .append(loadedCount)
+                    .append("** track(s) from playlist `")
+                    .append(playlist.getName())
+                    .append("`.");
+            if (errorCount > 0)
+            {
+                msg.append(" Failed to load ").append(errorCount).append(" item(s).");
+            }
+            output.replySuccess(msg.toString());
+        });
+    }
+
+    /**
+     * Clears current playback queue and starts playing the selected saved playlist immediately.
+     *
+     * @param guild        The guild
+     * @param member       The member requesting playback
+     * @param playlistName The saved playlist name
+     * @param channel      The text channel for request metadata
+     * @param output       The output adapter
+     */
+    public void playPlaylistNow(Guild guild, Member member, String playlistName, TextChannel channel, OutputAdapter output)
+    {
+        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
+        if (playlist == null)
+        {
+            output.replyError("I could not find `" + playlistName + ".txt` in the Playlists folder.");
+            return;
+        }
+
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            handler = bot.getPlayerManager().setUpHandler(guild);
+        }
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        handler.stopAndClearQueuePreserveHistory();
+        queuePlaylist(guild, member, playlistName, channel, new OutputAdapter()
+        {
+            @Override
+            public void replySuccess(String content)
+            {
+                output.replySuccess("Now playing playlist `" + playlistName + "` (queue replaced). " + content);
+            }
+
+            @Override
+            public void replyError(String content)
+            {
+                output.replyError(content);
+            }
+
+            @Override
+            public void replyWarning(String content)
+            {
+                output.replyWarning(content);
+            }
+
+            @Override
+            public void editMessage(String content)
+            {
+            }
+
+            @Override
+            public void editMessage(String content, Consumer<Message> onSuccess)
+            {
+            }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler)
+            {
+            }
+
+            @Override
+            public void editNoMusic(AudioHandler handler)
+            {
+            }
+
+            @Override
+            public void onShowHelp()
+            {
+            }
+        });
+    }
+
+    /**
+     * Gets lightweight metadata for a saved playlist.
+     *
+     * @param playlistName The saved playlist name
+     * @return playlist details, or null if playlist does not exist
+     */
+    public PlaylistDetailsInfo getPlaylistDetails(String playlistName)
+    {
+        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
+        if (playlist == null)
+        {
+            return null;
+        }
+
+        List<String> items = playlist.getItems();
+        int previewLimit = Math.min(5, items.size());
+        List<String> preview = new ArrayList<>(items.subList(0, previewLimit));
+        boolean hasMore = items.size() > previewLimit;
+        return new PlaylistDetailsInfo(playlist.getName(), items.size(), preview, hasMore);
+    }
+
+    /**
      * Saves the current playback history as a playlist file. Rejects if a playlist with the name already exists.
      * Requires DJ permission or bot owner.
      *
@@ -1526,6 +1682,25 @@ public class MusicService
         public boolean isEmpty()
         {
             return tracks.length == 0;
+        }
+    }
+
+    /**
+     * Metadata used for playlist details previews in interactions.
+     */
+    public static class PlaylistDetailsInfo
+    {
+        public final String playlistName;
+        public final int totalItems;
+        public final List<String> previewItems;
+        public final boolean hasMore;
+
+        public PlaylistDetailsInfo(String playlistName, int totalItems, List<String> previewItems, boolean hasMore)
+        {
+            this.playlistName = playlistName;
+            this.totalItems = totalItems;
+            this.previewItems = previewItems;
+            this.hasMore = hasMore;
         }
     }
 

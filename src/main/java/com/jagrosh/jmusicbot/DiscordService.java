@@ -7,6 +7,7 @@ import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
 import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.listener.HistoryInteractionListener;
 import com.jagrosh.jmusicbot.listener.NowPlayingCleanupListener;
+import com.jagrosh.jmusicbot.listener.PlaylistsInteractionListener;
 import com.jagrosh.jmusicbot.listener.PlaybackControlsListener;
 import com.jagrosh.jmusicbot.listener.QueueInteractionListener;
 import com.jagrosh.jmusicbot.listener.StartupLifecycleListener;
@@ -52,6 +53,7 @@ public class DiscordService {
                         new PlaybackControlsListener(bot),
                         new QueueInteractionListener(bot),
                         new HistoryInteractionListener(bot),
+                        new PlaylistsInteractionListener(bot),
                         new VoiceStateListener(bot))
                 .setBulkDeleteSplittingEnabled(true)
                 .setAudioModuleConfig(

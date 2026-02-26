@@ -18,6 +18,9 @@ package com.jagrosh.jmusicbot.commands.v1.music;
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v1.MusicCommand;
+import com.jagrosh.jmusicbot.commands.v2.music.PlaylistsSlashCmd;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 import java.util.List;
 
@@ -55,10 +58,20 @@ public class PlaylistsCmd extends MusicCommand
             event.reply(event.getClient().getWarning()+" There are no playlists in the Playlists folder!");
         else
         {
-            StringBuilder builder = new StringBuilder(event.getClient().getSuccess()+" Available playlists:\n");
-            list.forEach(str -> builder.append("`").append(str).append("` "));
-            builder.append("\nType `").append(event.getClient().getTextualPrefix()).append("play playlist <name>` to play a playlist");
-            event.reply(builder.toString());
+            int page = 1;
+            int totalPages = PlaylistsSlashCmd.getTotalPages(list.size());
+            int playlistsOnPage = PlaylistsSlashCmd.getPlaylistsOnPage(page, list.size());
+            long userId = event.getAuthor().getIdLong();
+            var member = event.getMember();
+            var color = member != null ? member.getColor() : event.getSelfMember().getColor();
+
+            var embed = PlaylistsSlashCmd.buildPlaylistsEmbed(list, page, totalPages, 0, color);
+            var components = PlaylistsSlashCmd.buildPlaylistsComponents(page, totalPages, playlistsOnPage, 0, userId);
+            MessageCreateData message = new MessageCreateBuilder()
+                    .addEmbeds(embed)
+                    .setComponents(components)
+                    .build();
+            event.reply(message);
         }
     }
 }
