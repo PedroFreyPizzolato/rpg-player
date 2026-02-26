@@ -116,14 +116,15 @@ public class HistorySlashCmdTest
     }
 
     @Test
-    void testBuildHistoryComponents_NoSelection_ReturnsFourRowsWithSaveButtonOnly()
+    void testBuildHistoryComponents_NoSelection_ReturnsFourRowsWithAddAllAndSaveButtons()
     {
         List<ActionRow> rows = HistorySlashCmd.buildHistoryComponents(1, 2, 10, 0, 12345L);
         assertEquals(4, rows.size());
-        // Row 4 is action row: only "Save as playlist" when no track selected
+        // Row 4 is action row: "Add all to queue" and "Save as playlist" when no track selected
         ActionRow actionRow = rows.get(3);
-        assertEquals(1, actionRow.getComponents().size());
-        assertEquals("Save as playlist", ((Button) actionRow.getComponents().get(0)).getLabel());
+        assertEquals(2, actionRow.getComponents().size());
+        assertEquals("Add all to queue", ((Button) actionRow.getComponents().get(0)).getLabel());
+        assertEquals("Save as playlist", ((Button) actionRow.getComponents().get(1)).getLabel());
     }
 
     @Test

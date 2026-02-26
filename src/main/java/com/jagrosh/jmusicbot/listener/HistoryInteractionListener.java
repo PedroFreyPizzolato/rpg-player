@@ -149,6 +149,21 @@ public class HistoryInteractionListener extends ListenerAdapter {
                 int newTotalPages = HistorySlashCmd.getTotalPages(newInfo.tracks.length);
                 updateHistoryEmbed(event, newInfo, 1, newTotalPages, 0, userId);
             }
+        } else if (action.equals("queueall")) {
+            if (!InteractionGuards.ensureBotInUserVoiceChannel(event, bot)) {
+                return;
+            }
+            MusicService.OutputAdapter adapter = OutputAdapters.forHistoryReply(event);
+            TextChannel channel = event.getChannel().asTextChannel();
+            musicService.queueAllFromHistory(event.getGuild(), event.getMember(), channel, adapter);
+            MusicService.HistoryInfo newInfo = musicService.getHistoryInfo(event.getGuild(), event.getJDA());
+            if (newInfo == null || newInfo.isEmpty()) {
+                event.editMessage("Playback history is now empty!").setEmbeds().setComponents().queue();
+            } else {
+                int newTotalPages = HistorySlashCmd.getTotalPages(newInfo.tracks.length);
+                int safePage = Math.min(page, newTotalPages);
+                updateHistoryEmbed(event, newInfo, safePage, newTotalPages, 0, userId);
+            }
         } else if (action.equals("save")) {
             TextInput input = TextInput.create("playlist_name", TextInputStyle.SHORT)
                     .setPlaceholder("e.g. my-history")

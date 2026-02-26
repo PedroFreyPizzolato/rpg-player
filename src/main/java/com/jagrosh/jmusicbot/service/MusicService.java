@@ -1216,6 +1216,68 @@ public class MusicService
     }
 
     /**
+     * Adds all tracks from playback history to the queue, removing them from history (de-dup).
+     * Tracks that exceed the max duration are skipped. Order in queue is most recent first (playback will be chronological).
+     *
+     * @param guild   The guild
+     * @param member  The member adding the tracks
+     * @param channel The text channel for request metadata
+     * @param output  The output adapter
+     */
+    public void queueAllFromHistory(Guild guild, Member member, TextChannel channel, OutputAdapter output)
+    {
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        var history = handler.getQueue().getHistory();
+        if (history.isEmpty())
+        {
+            output.replyError("Playback history is empty!");
+            return;
+        }
+
+        handler.setLastReason(member.getUser().getName() + " added entire history to queue.");
+        int added = 0;
+        int skipped = 0;
+
+        while (!history.isEmpty())
+        {
+            QueuedTrack qt = history.get(0);
+            handler.getQueue().removeFromHistoryAt(0);
+
+            AudioTrack track = qt.getTrack().makeClone();
+            if (isTooLong(track))
+            {
+                skipped++;
+                continue;
+            }
+
+            RequestMetadata rm = new RequestMetadata(member.getUser(),
+                    new RequestMetadata.RequestInfo(qt.getTrack().getInfo().uri, qt.getTrack().getInfo().uri),
+                    channel.getIdLong());
+            QueuedTrack newQt = new QueuedTrack(track, rm);
+            handler.addTrack(newQt);
+            added++;
+        }
+
+        if (added == 0 && skipped > 0)
+        {
+            output.replyError("All " + skipped + " track(s) were too long to add.");
+            return;
+        }
+        String message = "Added **" + added + "** track(s) to the queue.";
+        if (skipped > 0)
+        {
+            message += " Skipped " + skipped + " track(s) (too long).";
+        }
+        output.replySuccess(message);
+    }
+
+    /**
      * Plays the track at the given 1-based history position immediately, and removes it from history (de-dup).
      *
      * @param guild           The guild
