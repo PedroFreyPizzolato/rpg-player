@@ -19,6 +19,7 @@ import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.commands.v2.DJSlashCommand;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
 
 /**
  * Slash command to pause the current song.
@@ -47,7 +48,8 @@ public class PauseSlashCmd extends DJSlashCommand
         }
 
         handler.getPlayer().setPaused(true);
-        event.reply(event.getClient().getSuccess() + " Paused **" + handler.getPlayer().getPlayingTrack().getInfo().title
+        String trackTitle = FormatUtil.getTrackTitle(handler.getPlayer().getPlayingTrack());
+        event.reply(event.getClient().getSuccess() + " Paused **" + trackTitle
                 + "**. Use `/play` to unpause!").queue();
     }
 }

@@ -35,8 +35,10 @@ public class MessageFormatter {
             eb.setTitle(title);
         }
 
-        if (info.track.getInfo().author != null && (!info.track.getInfo().author.isEmpty() && !info.track.getInfo().author.equalsIgnoreCase( "unknown artist") )) {
-            eb.addField("Author", info.track.getInfo().author, false);
+        String rawAuthor = info.track.getInfo().author;
+        String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
+        if (author != null && (!author.isEmpty() && !author.equalsIgnoreCase("unknown artist"))) {
+            eb.addField("Author", author, false);
         }
 
         StringBuilder description = new StringBuilder();

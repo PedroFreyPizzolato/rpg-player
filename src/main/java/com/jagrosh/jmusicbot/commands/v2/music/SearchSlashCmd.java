@@ -95,7 +95,10 @@ public class SearchSlashCmd extends MusicSlashCommand
                             for (int i = 0; i < limit; i++)
                             {
                                 AudioTrack track = playlist.getTracks().get(i);
-                                String title = track.getInfo().title;
+                                String title = FormatUtil.getTrackTitle(track);
+                                if (title == null) {
+                                    title = "";
+                                }
                                 if (title.length() > 80)
                                 {
                                     title = title.substring(0, 77) + "...";
@@ -106,7 +109,7 @@ public class SearchSlashCmd extends MusicSlashCommand
                                         "Duration: " + TimeUtil.formatTime(track.getDuration())
                                 );
                                 description.append("`").append(i + 1).append(".` ")
-                                        .append("[**").append(FormatUtil.filter(track.getInfo().title)).append("**](")
+                                        .append("[**").append(FormatUtil.filter(title)).append("**](")
                                         .append(track.getInfo().uri).append(") `[")
                                         .append(TimeUtil.formatTime(track.getDuration())).append("]`\n");
                             }

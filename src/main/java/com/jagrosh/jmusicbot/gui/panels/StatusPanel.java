@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot.gui.panels;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.gui.model.BotStatusData;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 
@@ -262,7 +263,10 @@ public class StatusPanel extends JPanel {
                 nowPlayingLabel.setText("Nothing playing");
                 nowPlayingLabel.setForeground(Color.GRAY);
             } else {
-                String title = track.getInfo().title;
+                String title = FormatUtil.getTrackTitle(track);
+                if (title == null) {
+                    title = "";
+                }
                 if (title.length() > 40) {
                     title = title.substring(0, 37) + "...";
                 }

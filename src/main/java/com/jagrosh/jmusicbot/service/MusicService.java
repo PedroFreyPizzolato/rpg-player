@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -269,7 +270,8 @@ public class MusicService
                     handler.getPlayer().setPaused(false);
                     LOG.info("Playback resumed: guild={}, user={}, track=\"{}\"",
                             guild.getId(), member.getUser().getName(), handler.getPlayer().getPlayingTrack().getInfo().title);
-                    output.replySuccess("Resumed **" + handler.getPlayer().getPlayingTrack().getInfo().title + "**.");
+                    String resumedTitle = FormatUtil.getTrackTitle(handler.getPlayer().getPlayingTrack());
+                    output.replySuccess("Resumed **" + resumedTitle + "**.");
                 }
                 else
                 {
@@ -309,11 +311,23 @@ public class MusicService
         {
             playing.setPosition(0);
             LOG.info("Track restarted: guild={}, track=\"{}\"", guild.getId(), playing.getInfo().title);
-            output.replySuccess("Restarted **" + playing.getInfo().title + "**");
+            output.replySuccess("Restarted **" + FormatUtil.getTrackTitle(playing) + "**");
             return;
         }
 
-        if (handler.getQueue().getHistory().isEmpty())
+        var history = handler.getQueue().getHistory();
+        if (playing != null && !history.isEmpty())
+        {
+            QueuedTrack mostRecent = history.get(0);
+            AudioTrack mostRecentTrack = mostRecent != null ? mostRecent.getTrack() : null;
+            if (mostRecentTrack != null
+                    && Objects.equals(mostRecentTrack.getIdentifier(), playing.getIdentifier()))
+            {
+                handler.getQueue().removeFromHistoryAt(0);
+            }
+        }
+
+        if (history.isEmpty())
         {
             LOG.debug("Previous rejected: no history available");
             output.replyError("There are no previous tracks!");
@@ -331,7 +345,7 @@ public class MusicService
             handler.getPlayer().playTrack(previous.getTrack());
             LOG.info("Went to previous track: guild={}, track=\"{}\"",
                     guild.getId(), previous.getTrack().getInfo().title);
-            output.replySuccess("Went back to **" + previous.getTrack().getInfo().title + "**");
+            output.replySuccess("Went back to **" + FormatUtil.getTrackTitle(previous.getTrack()) + "**");
         }
         else
         {
@@ -545,7 +559,7 @@ public class MusicService
         AudioHandler handler = getHandler(guild);
         handler.getPlayer().setPaused(paused);
         AudioTrack track = handler.getPlayer().getPlayingTrack();
-        String trackTitle = track != null ? track.getInfo().title : null;
+        String trackTitle = track != null ? FormatUtil.getTrackTitle(track) : null;
 
         LOG.info("Player {} : guild={}, track=\"{}\"",
                 paused ? "paused" : "resumed", guild.getId(), trackTitle);
@@ -595,7 +609,7 @@ public class MusicService
         }
 
         RequestMetadata rm = handler.getRequestMetadata();
-        String trackTitle = track.getInfo().title;
+        String trackTitle = FormatUtil.getTrackTitle(track);
         String requesterInfo = rm.getOwner() == 0L ? "(autoplay)" : "(requested by **" + FormatUtil.formatUsername(rm.user) + "**)";
 
         handler.getPlayer().stopTrack();
@@ -636,7 +650,7 @@ public class MusicService
 
         if (member.getIdLong() == rm.getOwner() || skipRatio == 0)
         {
-            String trackTitle = handler.getPlayer().getPlayingTrack().getInfo().title;
+            String trackTitle = FormatUtil.getTrackTitle(handler.getPlayer().getPlayingTrack());
             handler.getPlayer().stopTrack();
             LOG.info("Track skipped by owner/instant skip: guild={}, user={}, track=\"{}\"",
                     guild.getId(), member.getUser().getName(), trackTitle);
@@ -668,7 +682,7 @@ public class MusicService
         }
         else if (skippers >= required)
         {
-            String trackTitle = handler.getPlayer().getPlayingTrack().getInfo().title;
+            String trackTitle = FormatUtil.getTrackTitle(handler.getPlayer().getPlayingTrack());
             String requester = rm.getOwner() == 0L ? "(autoplay)" : "(requested by **" + FormatUtil.formatUsername(rm.user) + "**)";
             handler.getPlayer().stopTrack();
             LOG.info("Track skipped by vote: guild={}, track=\"{}\", votes={}/{}",
@@ -711,7 +725,7 @@ public class MusicService
         {
             LOG.debug("Seek rejected: user lacks permission - user={}, track=\"{}\"",
                     member.getUser().getName(), playingTrack.getInfo().title);
-            output.replyError("You cannot seek **" + playingTrack.getInfo().title + "** because you didn't add it!");
+            output.replyError("You cannot seek **" + FormatUtil.getTrackTitle(playingTrack) + "** because you didn't add it!");
             return;
         }
 
@@ -773,7 +787,7 @@ public class MusicService
         if (qt.getIdentifier() == member.getIdLong())
         {
             handler.getQueue().remove(position - 1);
-            output.replySuccess("Removed **" + qt.getTrack().getInfo().title + "** from the queue");
+            output.replySuccess("Removed **" + FormatUtil.getTrackTitle(qt.getTrack()) + "** from the queue");
         }
         else if (isDJ)
         {
@@ -785,12 +799,12 @@ public class MusicService
             }
             catch (Exception ignored) {}
 
-            output.replySuccess("Removed **" + qt.getTrack().getInfo().title
+            output.replySuccess("Removed **" + FormatUtil.getTrackTitle(qt.getTrack())
                     + "** from the queue (requested by " + (u == null ? "someone" : "**" + u.getName() + "**") + ")");
         }
         else
         {
-            output.replyError("You cannot remove **" + qt.getTrack().getInfo().title + "** because you didn't add it!");
+            output.replyError("You cannot remove **" + FormatUtil.getTrackTitle(qt.getTrack()) + "** because you didn't add it!");
         }
     }
 
@@ -869,7 +883,7 @@ public class MusicService
         }
 
         QueuedTrack track = queue.moveItem(from - 1, to - 1);
-        String trackTitle = track.getTrack().getInfo().title;
+        String trackTitle = FormatUtil.getTrackTitle(track.getTrack());
         output.replySuccess("Moved **" + trackTitle + "** from position `" + from + "` to `" + to + "`.");
     }
 
@@ -917,7 +931,7 @@ public class MusicService
 
         // Get the track info before moving
         QueuedTrack queuedTrack = queue.get(position - 1);
-        String trackTitle = queuedTrack.getTrack().getInfo().title;
+        String trackTitle = FormatUtil.getTrackTitle(queuedTrack.getTrack());
 
         // Move the track to position 1
         if (position > 1)
@@ -955,7 +969,7 @@ public class MusicService
         }
 
         QueuedTrack track = queue.moveItem(from - 1, to - 1);
-        String title = track.getTrack().getInfo().title;
+        String title = FormatUtil.getTrackTitle(track.getTrack());
 
         LOG.info("Track moved: guild={}, track=\"{}\", from={}, to={}",
                 guild.getId(), title, from, to);
@@ -987,7 +1001,7 @@ public class MusicService
             return;
 
         handler.getQueue().skip(position - 1);
-        String trackTitle = handler.getQueue().get(0).getTrack().getInfo().title;
+        String trackTitle = FormatUtil.getTrackTitle(handler.getQueue().get(0).getTrack());
         handler.getPlayer().stopTrack();
         output.replySuccess("Skipped to **" + trackTitle + "**");
     }
@@ -1015,7 +1029,7 @@ public class MusicService
         }
 
         handler.getQueue().skip(position - 1);
-        String trackTitle = handler.getQueue().get(0).getTrack().getInfo().title;
+        String trackTitle = FormatUtil.getTrackTitle(handler.getQueue().get(0).getTrack());
         handler.getPlayer().stopTrack();
 
         LOG.info("Skipped to position: guild={}, position={}, track=\"{}\"",
@@ -1104,7 +1118,7 @@ public class MusicService
         String statusEmoji = handler.getStatusEmoji();
         if (handler.getPlayer().getPlayingTrack() != null)
         {
-            nowPlayingTitle = handler.getPlayer().getPlayingTrack().getInfo().title;
+            nowPlayingTitle = FormatUtil.getTrackTitle(handler.getPlayer().getPlayingTrack());
         }
 
         return new QueueInfo(

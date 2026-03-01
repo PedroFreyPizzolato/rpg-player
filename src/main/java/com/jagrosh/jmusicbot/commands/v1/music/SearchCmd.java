@@ -92,13 +92,15 @@ public class SearchCmd extends MusicCommand
         {
             if(bot.getConfig().isTooLong(track))
             {
-                m.editMessage(FormatUtil.filter(event.getClient().getWarning()+" This track (**"+track.getInfo().title+"**) is longer than the allowed maximum: `"
+                String trackTitle = FormatUtil.getTrackTitle(track);
+                m.editMessage(FormatUtil.filter(event.getClient().getWarning()+" This track (**"+trackTitle+"**) is longer than the allowed maximum: `"
                         + TimeUtil.formatTime(track.getDuration())+"` > `"+bot.getConfig().getMaxTime()+"`")).queue();
                 return;
             }
             AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
             int pos = handler.addTrack(new QueuedTrack(track, RequestMetadata.fromResultHandler(track, event)))+1;
-            m.editMessage(FormatUtil.filter(event.getClient().getSuccess()+" Added **"+track.getInfo().title
+            String trackTitle = FormatUtil.getTrackTitle(track);
+            m.editMessage(FormatUtil.filter(event.getClient().getSuccess()+" Added **"+trackTitle
                     +"** (`"+ TimeUtil.formatTime(track.getDuration())+"`) "+(pos==0 ? "to begin playing"
                         : " to the queue at position "+pos))).queue();
         }
@@ -112,15 +114,16 @@ public class SearchCmd extends MusicCommand
                     .setSelection((msg,i) -> 
                     {
                         AudioTrack track = playlist.getTracks().get(i-1);
+                        String trackTitle = FormatUtil.getTrackTitle(track);
                         if(bot.getConfig().isTooLong(track))
                         {
-                            event.replyWarning("This track (**"+track.getInfo().title+"**) is longer than the allowed maximum: `"
+                            event.replyWarning("This track (**"+trackTitle+"**) is longer than the allowed maximum: `"
                                     + TimeUtil.formatTime(track.getDuration())+"` > `"+bot.getConfig().getMaxTime()+"`");
                             return;
                         }
                         AudioHandler handler = (AudioHandler)event.getGuild().getAudioManager().getSendingHandler();
                         int pos = handler.addTrack(new QueuedTrack(track, RequestMetadata.fromResultHandler(track, event)))+1;
-                        event.replySuccess("Added **" + FormatUtil.filter(track.getInfo().title)
+                        event.replySuccess("Added **" + FormatUtil.filter(trackTitle)
                                 + "** (`" + TimeUtil.formatTime(track.getDuration()) + "`) " + (pos==0 ? "to begin playing" 
                                     : " to the queue at position "+pos));
                     })
@@ -130,7 +133,8 @@ public class SearchCmd extends MusicCommand
             for(int i=0; i<4 && i<playlist.getTracks().size(); i++)
             {
                 AudioTrack track = playlist.getTracks().get(i);
-                builder.addChoices("`["+ TimeUtil.formatTime(track.getDuration())+"]` [**"+track.getInfo().title+"**]("+track.getInfo().uri+")");
+                String trackTitle = FormatUtil.getTrackTitle(track);
+                builder.addChoices("`["+ TimeUtil.formatTime(track.getDuration())+"]` [**"+FormatUtil.filter(trackTitle == null ? "" : trackTitle)+"**]("+track.getInfo().uri+")");
             }
             builder.build().display(m);
         }

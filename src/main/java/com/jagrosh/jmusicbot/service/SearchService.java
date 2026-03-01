@@ -16,6 +16,7 @@
 package com.jagrosh.jmusicbot.service;
 
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -90,8 +91,9 @@ public class SearchService
         for (int i = 0; i < count; i++)
         {
             AudioTrack track = tracks.get(i);
+            String title = FormatUtil.getTrackTitle(track);
             choices[i] = "`[" + TimeUtil.formatTime(track.getDuration()) + "]` [**"
-                    + track.getInfo().title + "**](" + track.getInfo().uri + ")";
+                    + FormatUtil.filter(title == null ? "" : title) + "**](" + track.getInfo().uri + ")";
         }
         return choices;
     }

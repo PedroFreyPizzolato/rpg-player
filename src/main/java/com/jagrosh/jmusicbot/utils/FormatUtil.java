@@ -133,19 +133,24 @@ public class FormatUtil {
      */
     public static String fixMojibakeUtf8AsLatin1(String input)
     {
-        if (input == null || input.isEmpty()) {
-            return input;
-        }
-        for (int i = 0; i < input.length(); i++) {
-            if (input.charAt(i) > 0xFF) {
-                return input; // already contains non–Latin-1 (e.g. correct Cyrillic), do not alter
-            }
-        }
-        String decoded = new String(input.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
-        if (decoded.contains("\uFFFD")) {
-            return input; // invalid UTF-8 sequence, keep original
-        }
-        return decoded;
+        // TODO Evalute if this is still needed, it may be redundant now that we have the source-manager changes.
+        
+        // if (input == null || input.isEmpty()) {
+        //     return input;
+        // }
+        // for (int i = 0; i < input.length(); i++) {
+        //     if (input.charAt(i) > 0xFF) {
+        //         return input; // already contains non–Latin-1 (e.g. correct Cyrillic), do not alter
+        //     }
+        // }
+        // String decoded = new String(input.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        // if (decoded.contains("\uFFFD")) {
+        //     return input; // invalid UTF-8 sequence, keep original
+        // }
+        // return decoded;
+        // Intentionally disabled to allow end-to-end validation of source-side
+        // metadata decoding fixes (e.g., lavaplayer/source-manager changes).
+        return input;
     }
 
     public static String getTrackTitle(AudioTrack track) {

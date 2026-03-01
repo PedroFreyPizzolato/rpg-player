@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
@@ -264,11 +265,17 @@ public class MusicServiceTest
             RequestMetadata metadata = mock(RequestMetadata.class);
             when(metadata.getOwner()).thenReturn(USER_ID);
             when(fixture.getAudioHandler().getRequestMetadata()).thenReturn(metadata);
+            when(fixture.getCurrentTrack().getIdentifier()).thenReturn("current-id");
             
-            // Setup history with a previous track
+            // Setup history where current track appears at head, followed by an actual previous track.
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
             when(history.isEmpty()).thenReturn(false);
             when(fixture.getQueue().getHistory()).thenReturn(history);
+            QueuedTrack currentHistoryEntry = mock(QueuedTrack.class);
+            AudioTrack currentHistoryTrack = mock(AudioTrack.class);
+            when(currentHistoryEntry.getTrack()).thenReturn(currentHistoryTrack);
+            when(currentHistoryTrack.getIdentifier()).thenReturn("current-id");
+            when(history.get(0)).thenReturn(currentHistoryEntry);
             
             QueuedTrack previousTrack = mock(QueuedTrack.class);
             AudioTrack prevAudioTrack = mock(AudioTrack.class);
@@ -282,8 +289,42 @@ public class MusicServiceTest
             musicService.previous(fixture.getGuild(), fixture.getMember(), output);
 
             // Then
+            verify(fixture.getQueue()).removeFromHistoryAt(0);
             verify(fixture.getAudioPlayer()).playTrack(prevAudioTrack);
             output.assertSuccessMessageContains("Went back to");
+        }
+
+        @Test
+        @DisplayName("previous() fails when only current track exists in history under 5 seconds")
+        void previous_failsWhenOnlyCurrentTrackInHistory_under5Seconds()
+        {
+            // Given
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            when(fixture.getCurrentTrack().getPosition()).thenReturn(3000L);
+
+            RequestMetadata metadata = mock(RequestMetadata.class);
+            when(metadata.getOwner()).thenReturn(USER_ID);
+            when(fixture.getAudioHandler().getRequestMetadata()).thenReturn(metadata);
+            when(fixture.getCurrentTrack().getIdentifier()).thenReturn("current-id");
+
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.isEmpty()).thenReturn(false, true);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            QueuedTrack currentHistoryEntry = mock(QueuedTrack.class);
+            AudioTrack currentHistoryTrack = mock(AudioTrack.class);
+            when(currentHistoryEntry.getTrack()).thenReturn(currentHistoryTrack);
+            when(currentHistoryTrack.getIdentifier()).thenReturn("current-id");
+            when(history.get(0)).thenReturn(currentHistoryEntry);
+            when(fixture.getCurrentTrack().makeClone()).thenReturn(fixture.getCurrentTrack());
+
+            // When
+            musicService.previous(fixture.getGuild(), fixture.getMember(), output);
+
+            // Then
+            verify(fixture.getQueue()).removeFromHistoryAt(0);
+            verify(fixture.getQueue(), never()).rewind(any());
+            output.assertErrorMessageContains("no previous tracks");
         }
 
         @Test
@@ -1146,6 +1187,57 @@ public class MusicServiceTest
     @DisplayName("History Operations")
     class HistoryOperationTests
     {
+        @Test
+        @DisplayName("getHistoryInfo() repairs mojibake track titles to Cyrillic")
+        void getHistoryInfo_repairsMojibakeTitles()
+        {
+            String expectedCyrillic = "Привет мир";
+            String mojibakeTitle = new String(expectedCyrillic.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
+
+            AudioTrack track = mock(AudioTrack.class);
+            AudioTrackInfo info = new AudioTrackInfo(mojibakeTitle, "Artist", 180000L, "id-1", false, "https://example.com/1");
+            when(track.getInfo()).thenReturn(info);
+            when(track.getDuration()).thenReturn(180000L);
+            when(track.isSeekable()).thenReturn(false);
+            when(track.getUserData(RequestMetadata.class)).thenReturn(RequestMetadata.EMPTY);
+
+            QueuedTrack queuedTrack = new QueuedTrack(track, RequestMetadata.EMPTY);
+            when(fixture.getAudioHandler().getPreviousTracks()).thenReturn(List.of(queuedTrack));
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            when(history.getMaxSize()).thenReturn(40);
+
+            MusicService.HistoryInfo historyInfo = musicService.getHistoryInfo(fixture.getGuild(), fixture.getJda());
+
+            assertNotNull(historyInfo);
+            assertEquals(1, historyInfo.tracks.length);
+            assertTrue(historyInfo.tracks[0].contains(expectedCyrillic));
+            assertFalse(historyInfo.tracks[0].contains(mojibakeTitle));
+        }
+
+        @Test
+        @DisplayName("getQueueInfo() keeps ASCII titles unchanged")
+        void getQueueInfo_keepsAsciiTitlesUnchanged()
+        {
+            String asciiTitle = "Rick Astley - Never Gonna Give You Up";
+
+            AudioTrack track = mock(AudioTrack.class);
+            AudioTrackInfo info = new AudioTrackInfo(asciiTitle, "Artist", 180000L, "id-2", false, "https://example.com/2");
+            when(track.getInfo()).thenReturn(info);
+            when(track.getDuration()).thenReturn(180000L);
+            when(track.isSeekable()).thenReturn(false);
+            when(track.getUserData(RequestMetadata.class)).thenReturn(RequestMetadata.EMPTY);
+
+            QueuedTrack queuedTrack = new QueuedTrack(track, RequestMetadata.EMPTY);
+            when(fixture.getQueue().getList()).thenReturn(List.of(queuedTrack));
+
+            MusicService.QueueInfo queueInfo = musicService.getQueueInfo(fixture.getGuild(), fixture.getJda());
+
+            assertNotNull(queueInfo);
+            assertEquals(1, queueInfo.tracks.length);
+            assertTrue(queueInfo.tracks[0].contains(asciiTitle));
+        }
+
         @Test
         @DisplayName("getHistoryInfo() returns null when no handler")
         void getHistoryInfo_returnsNullWhenNoHandler()
