@@ -27,7 +27,10 @@ import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
+import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
+import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -38,8 +41,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -1502,6 +1507,105 @@ public class MusicService
         return new PlaylistDetailsInfo(playlist.getName(), items.size(), preview, hasMore);
     }
 
+    private static final String COULD_NOT_LOAD_LINE = "`[?:??]` **Could not load**";
+
+    /**
+     * Asynchronously loads the first N playlist URLs and invokes the callback with formatted track lines
+     * (same style as Queue/History: duration + linked title). Uses a unique load identifier per index so
+     * loads run in parallel. If the playlist does not exist, the callback is invoked with null.
+     *
+     * @param playlistName name of the saved playlist
+     * @param maxPreview   maximum number of preview entries to load (e.g. 5)
+     * @param callback     invoked with the result, or null if playlist not found
+     */
+    public void loadPlaylistPreviewWithTracks(String playlistName, int maxPreview,
+                                             Consumer<PlaylistPreviewWithTracks> callback)
+    {
+        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
+        if (playlist == null)
+        {
+            callback.accept(null);
+            return;
+        }
+        List<String> items = playlist.getItems();
+        if (items.isEmpty())
+        {
+            callback.accept(new PlaylistPreviewWithTracks(playlist.getName(), items.size(), false, new ArrayList<>()));
+            return;
+        }
+        int toLoad = Math.min(maxPreview, items.size());
+        String[] lines = new String[toLoad];
+        AtomicInteger completed = new AtomicInteger(0);
+
+        Runnable maybeDone = () ->
+        {
+            if (completed.incrementAndGet() == toLoad)
+            {
+                callback.accept(new PlaylistPreviewWithTracks(
+                        playlist.getName(),
+                        items.size(),
+                        items.size() > maxPreview,
+                        Arrays.asList(lines)));
+            }
+        };
+
+        for (int i = 0; i < toLoad; i++)
+        {
+            int index = i;
+            String url = items.get(i);
+            Object orderingId = "playlist-preview-" + playlistName + "-" + index;
+            bot.getPlayerManager().loadItemOrdered(orderingId, url, new AudioLoadResultHandler()
+            {
+                @Override
+                public void trackLoaded(AudioTrack track)
+                {
+                    lines[index] = FormatUtil.formatTrackLineForEmbed(track);
+                    maybeDone.run();
+                }
+
+                @Override
+                public void playlistLoaded(AudioPlaylist ap)
+                {
+                    AudioTrack single;
+                    if (ap.isSearchResult() && !ap.getTracks().isEmpty())
+                    {
+                        single = ap.getTracks().get(0);
+                    }
+                    else if (ap.getSelectedTrack() != null)
+                    {
+                        single = ap.getSelectedTrack();
+                    }
+                    else if (!ap.getTracks().isEmpty())
+                    {
+                        single = ap.getTracks().get(0);
+                    }
+                    else
+                    {
+                        lines[index] = COULD_NOT_LOAD_LINE;
+                        maybeDone.run();
+                        return;
+                    }
+                    lines[index] = FormatUtil.formatTrackLineForEmbed(single);
+                    maybeDone.run();
+                }
+
+                @Override
+                public void noMatches()
+                {
+                    lines[index] = COULD_NOT_LOAD_LINE;
+                    maybeDone.run();
+                }
+
+                @Override
+                public void loadFailed(FriendlyException exception)
+                {
+                    lines[index] = COULD_NOT_LOAD_LINE;
+                    maybeDone.run();
+                }
+            });
+        }
+    }
+
     /**
      * Saves the current playback history as a playlist file. Rejects if a playlist with the name already exists.
      * Requires DJ permission or bot owner.
@@ -1715,6 +1819,25 @@ public class MusicService
             this.totalItems = totalItems;
             this.previewItems = previewItems;
             this.hasMore = hasMore;
+        }
+    }
+
+    /**
+     * Result of loading playlist preview with resolved track lines (duration + title, same style as Queue/History).
+     */
+    public static class PlaylistPreviewWithTracks
+    {
+        public final String playlistName;
+        public final int totalItems;
+        public final boolean hasMore;
+        public final List<String> formattedLines;
+
+        public PlaylistPreviewWithTracks(String playlistName, int totalItems, boolean hasMore, List<String> formattedLines)
+        {
+            this.playlistName = playlistName;
+            this.totalItems = totalItems;
+            this.hasMore = hasMore;
+            this.formattedLines = formattedLines;
         }
     }
 

@@ -149,6 +149,38 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
     }
 
     /**
+     * Builds the playlist details embed from pre-formatted track lines (e.g. from async load), in the same
+     * style as Queue/History. Use this when lines are already in the format {@code `[MM:SS]` [**Title**](url)}.
+     */
+    public static MessageEmbed buildPlaylistDetailsEmbed(String playlistName, int totalItems,
+                                                         List<String> formattedLineContents, boolean hasMore,
+                                                         Color memberColor)
+    {
+        int previewSize = formattedLineContents != null ? formattedLineContents.size() : 0;
+        StringBuilder description = new StringBuilder();
+        if (previewSize > 0)
+        {
+            description.append(PaginatedListEmbedUtil.buildNumberedListSection(
+                    "**Preview** *(first " + previewSize + " entries)*", formattedLineContents, 0, 1));
+            if (hasMore)
+            {
+                description.append("...");
+            }
+        }
+
+        String footer = previewSize > 0 ? "Preview: first " + previewSize + " entries" : null;
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle("Playlist: " + playlistName)
+                .addField("Entries", String.valueOf(totalItems), true);
+        if (description.length() > 0)
+        {
+            embed.setDescription(description.toString());
+        }
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed, footer, memberColor);
+        return embed.build();
+    }
+
+    /**
      * Returns a short label for a preview link. Extracts YouTube video ID when possible; otherwise "Link".
      */
     private static String formatPreviewLinkLabel(String url)

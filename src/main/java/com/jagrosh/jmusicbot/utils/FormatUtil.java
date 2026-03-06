@@ -171,4 +171,26 @@ public class FormatUtil {
 
         return title;
     }
+
+    /**
+     * Formats a single track line for use in embeds (e.g. playlist details preview), in the same style as
+     * Queue/History: duration plus linked title, without the " - @user" part.
+     *
+     * @param track the loaded track
+     * @return string like {@code `[MM:SS]` [**Title**](url)} or {@code `[MM:SS]` **Title**} for non-http URIs
+     */
+    public static String formatTrackLineForEmbed(AudioTrack track)
+    {
+        if (track == null)
+        {
+            return "`[?:??]` **Could not load**";
+        }
+        String entry = "`[" + TimeUtil.formatTime(track.getDuration()) + "]` ";
+        var trackInfo = track.getInfo();
+        String title = getTrackTitle(track);
+        String safeTitle = filter(title == null ? "" : title);
+        return entry + (trackInfo.uri != null && trackInfo.uri.startsWith("http")
+                ? "[**" + safeTitle + "**](" + trackInfo.uri + ")"
+                : "**" + safeTitle + "**");
+    }
 }

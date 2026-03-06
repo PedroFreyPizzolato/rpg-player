@@ -149,15 +149,24 @@ public class PlaylistsInteractionListener extends ListenerAdapter
         MusicService musicService = bot.getMusicService();
         if (action.equals("details"))
         {
-            MusicService.PlaylistDetailsInfo details = musicService.getPlaylistDetails(selectedPlaylist);
-            if (details == null)
+            if (musicService.getPlaylistDetails(selectedPlaylist) == null)
             {
                 event.reply("Playlist no longer exists. Click Refresh.").setEphemeral(true).queue();
                 return;
             }
-            MessageEmbed embed = PlaylistsSlashCmd.buildPlaylistDetailsEmbed(details,
-                    event.getMember() != null ? event.getMember().getColor() : null);
-            event.replyEmbeds(embed).setEphemeral(true).queue();
+            event.reply("Loading playlist preview...").setEphemeral(true).queue(hook ->
+                    musicService.loadPlaylistPreviewWithTracks(selectedPlaylist, 5, result ->
+                    {
+                        if (result == null)
+                        {
+                            hook.editOriginal("Playlist no longer exists. Click Refresh.").queue();
+                            return;
+                        }
+                        java.awt.Color color = event.getMember() != null ? event.getMember().getColor() : null;
+                        MessageEmbed embed = PlaylistsSlashCmd.buildPlaylistDetailsEmbed(
+                                result.playlistName, result.totalItems, result.formattedLines, result.hasMore, color);
+                        hook.editOriginalEmbeds(embed).setContent("").queue();
+                    }));
             return;
         }
 
