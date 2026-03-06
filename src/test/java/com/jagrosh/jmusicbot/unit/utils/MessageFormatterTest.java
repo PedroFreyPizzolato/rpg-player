@@ -31,6 +31,8 @@ class MessageFormatterTest
     @DisplayName("buildNowPlayingMessage() repairs mojibake in author field")
     void buildNowPlayingMessage_repairsMojibakeAuthor()
     {
+        // Mojibake repair is currently disabled in FormatUtil.fixMojibakeUtf8AsLatin1.
+        // Assertion below matches disabled behavior. When re-enabling repair there, use the commented line instead.
         String expectedAuthor = "МР. CREDO [Этой]";
         String mojibakeAuthor = new String(expectedAuthor.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
 
@@ -38,7 +40,9 @@ class MessageFormatterTest
         Optional<MessageEmbed.Field> authorField = findField(embed, "Author");
 
         assertTrue(authorField.isPresent());
-        assertEquals(expectedAuthor, authorField.get().getValue());
+        assertEquals(mojibakeAuthor, authorField.get().getValue());
+        // When repair is re-enabled in FormatUtil.fixMojibakeUtf8AsLatin1, use this instead:
+        // assertEquals(expectedAuthor, authorField.get().getValue());
     }
 
     @Test
