@@ -155,25 +155,9 @@ public class PlaylistsInteractionListener extends ListenerAdapter
                 event.reply("Playlist no longer exists. Click Refresh.").setEphemeral(true).queue();
                 return;
             }
-
-            StringBuilder sb = new StringBuilder("**Playlist:** `")
-                    .append(details.playlistName)
-                    .append("`\n**Entries:** ")
-                    .append(details.totalItems);
-
-            if (!details.previewItems.isEmpty())
-            {
-                sb.append("\n\n**Preview:**");
-                for (int i = 0; i < details.previewItems.size(); i++)
-                {
-                    sb.append("\n`").append(i + 1).append(".` ").append(details.previewItems.get(i));
-                }
-                if (details.hasMore)
-                {
-                    sb.append("\n...");
-                }
-            }
-            event.reply(sb.toString()).setEphemeral(true).queue();
+            MessageEmbed embed = PlaylistsSlashCmd.buildPlaylistDetailsEmbed(details,
+                    event.getMember() != null ? event.getMember().getColor() : null);
+            event.replyEmbeds(embed).setEphemeral(true).queue();
             return;
         }
 

@@ -19,6 +19,9 @@ import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.listener.interaction.PaginatedListComponents;
+import com.jagrosh.jmusicbot.service.MusicService;
+import com.jagrosh.jmusicbot.utils.FormatUtil;
+import com.jagrosh.jmusicbot.utils.PaginatedListEmbedUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -26,9 +29,9 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 
 import java.awt.Color;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Slash command to show available playlists with interactive pagination and actions.
@@ -93,30 +96,86 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
     {
         int startIndex = (page - 1) * PLAYLISTS_PER_PAGE;
         int endIndex = Math.min(startIndex + PLAYLISTS_PER_PAGE, playlists.size());
+        List<String> lineContents = playlists.subList(startIndex, endIndex).stream()
+                .map(name -> "`" + name + "`")
+                .collect(Collectors.toList());
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("**Available playlists** *(select one below to queue or play now)*\n\n");
-        for (int i = startIndex; i < endIndex; i++)
+        String description = PaginatedListEmbedUtil.buildNumberedListSection(
+                "**Available playlists** *(select one below to queue or play now)*", lineContents, selectedIndex, startIndex + 1);
+
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle("Playlists")
+                .setDescription(description)
+                .addField("Entries", String.valueOf(playlists.size()), true);
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed, "Page " + page + " of " + totalPages, memberColor);
+        return embed.build();
+    }
+
+    /**
+     * Builds the playlist details embed with preview lines in the same style as Queue/History.
+     * Preview items are shown as markdown links to avoid Discord URL unfurling and misalignment.
+     */
+    public static MessageEmbed buildPlaylistDetailsEmbed(MusicService.PlaylistDetailsInfo details, Color memberColor)
+    {
+        int previewSize = details.previewItems.size();
+        List<String> lineContents = new ArrayList<>(previewSize);
+        for (String url : details.previewItems)
         {
-            int displayNum = i + 1;
-            if (selectedIndex > 0 && displayNum == selectedIndex)
+            String label = formatPreviewLinkLabel(url);
+            lineContents.add("[**" + label + "**](" + url + ")");
+        }
+
+        StringBuilder description = new StringBuilder();
+        if (previewSize > 0)
+        {
+            description.append(PaginatedListEmbedUtil.buildNumberedListSection(
+                    "**Preview** *(first " + previewSize + " entries)*", lineContents, 0, 1));
+            if (details.hasMore)
             {
-                sb.append("▶️ **`").append(displayNum).append(".`** `").append(playlists.get(i)).append("`\n");
-            }
-            else
-            {
-                sb.append("⬛ `").append(displayNum).append(".` `").append(playlists.get(i)).append("`\n");
+                description.append("...");
             }
         }
 
-        return new EmbedBuilder()
-                .setTitle("Playlists")
-                .setDescription(sb.toString())
-                .addField("Entries", String.valueOf(playlists.size()), true)
-                .setFooter("Page " + page + " of " + totalPages)
-                .setTimestamp(Instant.now())
-                .setColor(memberColor)
-                .build();
+        String footer = previewSize > 0 ? "Preview: first " + previewSize + " entries" : null;
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle("Playlist: " + details.playlistName)
+                .addField("Entries", String.valueOf(details.totalItems), true);
+        if (description.length() > 0)
+        {
+            embed.setDescription(description.toString());
+        }
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed, footer, memberColor);
+        return embed.build();
+    }
+
+    /**
+     * Returns a short label for a preview link. Extracts YouTube video ID when possible; otherwise "Link".
+     */
+    private static String formatPreviewLinkLabel(String url)
+    {
+        if (url == null)
+        {
+            return "Link";
+        }
+        // YouTube: ...?v=VIDEO_ID or youtu.be/VIDEO_ID
+        int v = url.indexOf("?v=");
+        if (v >= 0)
+        {
+            int end = url.indexOf('&', v + 3);
+            String id = end >= 0 ? url.substring(v + 3, end) : url.substring(v + 3);
+            if (!id.isEmpty())
+                return FormatUtil.filter(id.length() <= 20 ? id : id.substring(0, 17) + "...");
+        }
+        int be = url.indexOf("youtu.be/");
+        if (be >= 0)
+        {
+            int start = be + 9;
+            int end = url.indexOf('?', start);
+            String id = end >= 0 ? url.substring(start, end) : url.substring(start);
+            if (!id.isEmpty())
+                return FormatUtil.filter(id.length() <= 20 ? id : id.substring(0, 17) + "...");
+        }
+        return "Link";
     }
 
     /**

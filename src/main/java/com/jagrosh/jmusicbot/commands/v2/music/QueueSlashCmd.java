@@ -21,6 +21,7 @@ import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.listener.interaction.PaginatedListComponents;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
+import com.jagrosh.jmusicbot.utils.PaginatedListEmbedUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -32,8 +33,8 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -112,36 +113,23 @@ public class QueueSlashCmd extends MusicSlashCommand
     {
         int startIndex = (page - 1) * TRACKS_PER_PAGE;
         int endIndex = Math.min(startIndex + TRACKS_PER_PAGE, queueInfo.tracks.length);
+        List<String> pageLines = Arrays.asList(queueInfo.tracks).subList(startIndex, endIndex);
 
         StringBuilder sb = new StringBuilder();
         if (queueInfo.nowPlayingTitle != null)
         {
             sb.append(queueInfo.statusEmoji).append(" **").append(queueInfo.nowPlayingTitle).append("**\n\n");
         }
-        sb.append("**Up Next** *(select a track below)*\n");
-        for (int i = startIndex; i < endIndex; i++)
-        {
-            int displayNum = i + 1;
-            // Highlight selected track with arrow emoji and bold formatting
-            if (selectedTrack > 0 && displayNum == selectedTrack)
-            {
-                sb.append("▶️ **`").append(displayNum).append(".`** ").append(queueInfo.tracks[i]).append("\n");
-            }
-            else
-            {
-                sb.append("⬛ `").append(displayNum).append(".` ").append(queueInfo.tracks[i]).append("\n");
-            }
-        }
+        sb.append(PaginatedListEmbedUtil.buildNumberedListSection(
+                "**Up Next** *(select a track below)*", pageLines, selectedTrack, startIndex + 1));
 
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("Current Queue")
                 .setDescription(sb.toString())
                 .addField("Entries", String.valueOf(queueInfo.tracks.length), true)
                 .addField("Duration", TimeUtil.formatTime(queueInfo.totalDuration), true)
-                .addField("Mode", queueInfo.queueType.getEmoji() + " " + queueInfo.queueType.getUserFriendlyName(), true)
-                .setFooter("Page " + page + " of " + totalPages)
-                .setTimestamp(Instant.now())
-                .setColor(memberColor);
+                .addField("Mode", queueInfo.queueType.getEmoji() + " " + queueInfo.queueType.getUserFriendlyName(), true);
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed, "Page " + page + " of " + totalPages, memberColor);
 
         if (queueInfo.repeatMode != RepeatMode.OFF)
         {

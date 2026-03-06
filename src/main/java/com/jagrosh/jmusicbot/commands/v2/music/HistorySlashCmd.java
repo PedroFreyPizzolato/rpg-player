@@ -20,6 +20,7 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v2.MusicSlashCommand;
 import com.jagrosh.jmusicbot.listener.interaction.PaginatedListComponents;
 import com.jagrosh.jmusicbot.service.MusicService;
+import com.jagrosh.jmusicbot.utils.PaginatedListEmbedUtil;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -30,8 +31,8 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
 import java.awt.Color;
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -92,31 +93,19 @@ public class HistorySlashCmd extends MusicSlashCommand
     {
         int startIndex = (page - 1) * TRACKS_PER_PAGE;
         int endIndex = Math.min(startIndex + TRACKS_PER_PAGE, historyInfo.tracks.length);
+        List<String> pageLines = Arrays.asList(historyInfo.tracks).subList(startIndex, endIndex);
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("**Recently played** *(select a track below to queue or play)*\n\n");
-        for (int i = startIndex; i < endIndex; i++)
-        {
-            int displayNum = i + 1;
-            if (selectedTrack > 0 && displayNum == selectedTrack)
-            {
-                sb.append("▶️ **`").append(displayNum).append(".`** ").append(historyInfo.tracks[i]).append("\n");
-            }
-            else
-            {
-                sb.append("⬛ `").append(displayNum).append(".` ").append(historyInfo.tracks[i]).append("\n");
-            }
-        }
+        String description = PaginatedListEmbedUtil.buildNumberedListSection(
+                "**Recently played** *(select a track below to queue or play)*", pageLines, selectedTrack, startIndex + 1);
 
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("History Queue")
-                .setDescription(sb.toString())
+                .setDescription(description)
                 .addField("Entries", String.valueOf(historyInfo.tracks.length), true)
                 .addField("Duration", TimeUtil.formatTime(historyInfo.totalDuration), true)
-                .addField("Max history", String.valueOf(historyInfo.maxSize), true)
-                .setFooter("Page " + page + " of " + totalPages + " | 1 = most recent")
-                .setTimestamp(Instant.now())
-                .setColor(memberColor);
+                .addField("Max history", String.valueOf(historyInfo.maxSize), true);
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed,
+                "Page " + page + " of " + totalPages + " | 1 = most recent", memberColor);
 
         return embed.build();
     }
