@@ -22,6 +22,7 @@ import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist;
 import com.jagrosh.jmusicbot.queue.AbstractQueue;
+import com.jagrosh.jmusicbot.queue.PlaybackHistory;
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.settings.Settings;
@@ -53,6 +54,9 @@ import java.util.function.Consumer;
  */
 public class MusicService
 {
+    public static final String HISTORY_DISABLED_MESSAGE =
+            "Playback history is disabled by config (playback.maxHistorySize = 0).";
+
     private static final Logger LOG = LoggerFactory.getLogger(MusicService.class);
 
     private final Bot bot;
@@ -1172,6 +1176,7 @@ public class MusicService
 
         List<QueuedTrack> list = handler.getPreviousTracks();
         int maxSize = handler.getQueue().getHistory().getMaxSize();
+        boolean disabled = maxSize == 0;
 
         long totalDuration = 0;
         String[] trackStrings = new String[list.size()];
@@ -1181,7 +1186,7 @@ public class MusicService
             trackStrings[i] = list.get(i).toString();
         }
 
-        return new HistoryInfo(trackStrings, totalDuration, maxSize);
+        return new HistoryInfo(trackStrings, totalDuration, maxSize, disabled);
     }
 
     /**
@@ -1203,6 +1208,10 @@ public class MusicService
         }
 
         var history = handler.getQueue().getHistory();
+        if (!requireHistoryEnabled(history, output))
+        {
+            return;
+        }
         if (history.isEmpty())
         {
             output.replyError("Playback history is empty!");
@@ -1254,6 +1263,10 @@ public class MusicService
         }
 
         var history = handler.getQueue().getHistory();
+        if (!requireHistoryEnabled(history, output))
+        {
+            return;
+        }
         if (history.isEmpty())
         {
             output.replyError("Playback history is empty!");
@@ -1321,6 +1334,10 @@ public class MusicService
         }
 
         var history = handler.getQueue().getHistory();
+        if (!requireHistoryEnabled(history, output))
+        {
+            return;
+        }
         if (history.isEmpty())
         {
             output.replyError("Playback history is empty!");
@@ -1639,6 +1656,12 @@ public class MusicService
             return;
         }
 
+        var history = handler.getQueue().getHistory();
+        if (!requireHistoryEnabled(history, output))
+        {
+            return;
+        }
+
         List<QueuedTrack> previous = handler.getPreviousTracks();
         List<String> uris = extractHttpUrisFromHistory(previous);
         if (uris.isEmpty())
@@ -1700,6 +1723,16 @@ public class MusicService
     private boolean isInvalidPosition(AbstractQueue<QueuedTrack> queue, int position)
     {
         return position < 1 || position > queue.size();
+    }
+
+    private boolean requireHistoryEnabled(PlaybackHistory<QueuedTrack> history, OutputAdapter output)
+    {
+        if (history.getMaxSize() == 0)
+        {
+            output.replyError(HISTORY_DISABLED_MESSAGE);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -1798,17 +1831,29 @@ public class MusicService
         public final String[] tracks;
         public final long totalDuration;
         public final int maxSize;
+        public final boolean disabled;
 
         public HistoryInfo(String[] tracks, long totalDuration, int maxSize)
+        {
+            this(tracks, totalDuration, maxSize, maxSize == 0);
+        }
+
+        public HistoryInfo(String[] tracks, long totalDuration, int maxSize, boolean disabled)
         {
             this.tracks = tracks;
             this.totalDuration = totalDuration;
             this.maxSize = maxSize;
+            this.disabled = disabled;
         }
 
         public boolean isEmpty()
         {
             return tracks.length == 0;
+        }
+
+        public boolean isDisabled()
+        {
+            return disabled;
         }
     }
 

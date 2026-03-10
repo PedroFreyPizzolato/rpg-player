@@ -64,7 +64,17 @@ public class HistorySlashCmd extends MusicSlashCommand
         int page = event.getOption("page") != null ? (int) event.getOption("page").getAsLong() : 1;
 
         MusicService.HistoryInfo historyInfo = musicService.getHistoryInfo(event.getGuild(), event.getJDA());
-        if (historyInfo == null || historyInfo.isEmpty())
+        if (historyInfo == null)
+        {
+            event.reply(event.getClient().getWarning() + " Playback history is empty!").setEphemeral(true).queue();
+            return;
+        }
+        if (historyInfo.isDisabled())
+        {
+            event.reply(event.getClient().getWarning() + " " + MusicService.HISTORY_DISABLED_MESSAGE).setEphemeral(true).queue();
+            return;
+        }
+        if (historyInfo.isEmpty())
         {
             event.reply(event.getClient().getWarning() + " Playback history is empty!").setEphemeral(true).queue();
             return;

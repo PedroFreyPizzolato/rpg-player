@@ -1380,6 +1380,7 @@ public class MusicServiceTest
         void queueFromHistory_repliesErrorWhenHistoryEmpty()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
             when(history.isEmpty()).thenReturn(true);
             when(fixture.getQueue().getHistory()).thenReturn(history);
             when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
@@ -1395,6 +1396,7 @@ public class MusicServiceTest
         void queueFromHistory_repliesErrorWhenPositionOutOfRange()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
             when(history.isEmpty()).thenReturn(false);
             when(history.size()).thenReturn(3);
             when(fixture.getQueue().getHistory()).thenReturn(history);
@@ -1411,6 +1413,7 @@ public class MusicServiceTest
         void queueAllFromHistory_requestsReconcile_whenTracksAddedAndPlayerActive()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
             when(history.isEmpty()).thenReturn(false);
             when(fixture.getQueue().getHistory()).thenReturn(history);
 
@@ -1448,6 +1451,7 @@ public class MusicServiceTest
         void queueAllFromHistory_preservesFirstReplayedTrackInHistory_afterIdleQueueAllAndSkipProgression()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
             when(fixture.getQueue().getHistory()).thenReturn(history);
 
             QueuedTrack qtOne = mock(QueuedTrack.class);
@@ -1519,6 +1523,7 @@ public class MusicServiceTest
         void playFromHistoryNow_repliesErrorWhenHistoryEmpty()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
             when(history.isEmpty()).thenReturn(true);
             when(fixture.getQueue().getHistory()).thenReturn(history);
             when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
@@ -1527,6 +1532,38 @@ public class MusicServiceTest
                     fixture.getTextChannel(), output);
 
             output.assertErrorMessageContains("empty");
+        }
+
+        @Test
+        @DisplayName("queueFromHistory() replies disabled when history feature disabled")
+        void queueFromHistory_repliesDisabledWhenHistoryDisabled()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(0);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+            when(fixture.getAudioHandler().getQueue()).thenReturn(fixture.getQueue());
+
+            musicService.queueFromHistory(fixture.getGuild(), fixture.getMember(), 1,
+                    fixture.getTextChannel(), output);
+
+            output.assertErrorMessageContains("disabled by config");
+        }
+
+        @Test
+        @DisplayName("getHistoryInfo() marks disabled when max history size is zero")
+        void getHistoryInfo_marksDisabledWhenMaxSizeZero()
+        {
+            when(fixture.getAudioHandler().getPreviousTracks()).thenReturn(List.of());
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(0);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+
+            MusicService.HistoryInfo info = musicService.getHistoryInfo(fixture.getGuild(), fixture.getJda());
+
+            assertNotNull(info);
+            assertTrue(info.isDisabled());
+            assertEquals(0, info.maxSize);
+            assertTrue(info.isEmpty());
         }
 
         @Test
@@ -1546,6 +1583,9 @@ public class MusicServiceTest
         void saveHistoryAsPlaylist_repliesErrorWhenPlaylistExists()
         {
             fixture.withDJPermission();
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.getMaxSize()).thenReturn(40);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
             QueuedTrack qt = mock(QueuedTrack.class);
             AudioTrack track = mock(AudioTrack.class);
             AudioTrackInfo info = new AudioTrackInfo("Title", "Author", 180000, "id", false, "https://example.com/1");

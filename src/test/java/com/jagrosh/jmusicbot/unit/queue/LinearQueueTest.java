@@ -71,6 +71,22 @@ public class LinearQueueTest {
         assertEquals(3L, queue.get(1).getIdentifier());
     }
 
+    @Test
+    public void testSwitchQueueAppliesNewHistoryMaxSize() {
+        LinearQueue<Q> original = new LinearQueue<>(null, DEFAULT_HISTORY_SIZE);
+        original.addToHistory(new Q(1));
+        original.addToHistory(new Q(2));
+        assertEquals(2, original.getHistory().size());
+
+        LinearQueue<Q> disabledHistory = new LinearQueue<>(original, 0);
+        assertEquals(0, disabledHistory.getHistory().getMaxSize());
+        assertTrue(disabledHistory.getHistory().isEmpty());
+
+        disabledHistory.getHistory().setMaxSize(2);
+        disabledHistory.addToHistory(new Q(3));
+        assertEquals(1, disabledHistory.getHistory().size());
+    }
+
     private static class Q implements Queueable {
         private final long id;
         Q(long id) { this.id = id; }

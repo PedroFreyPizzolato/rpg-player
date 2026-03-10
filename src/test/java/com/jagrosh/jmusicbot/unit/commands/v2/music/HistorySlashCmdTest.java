@@ -29,6 +29,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +71,19 @@ public class HistorySlashCmdTest
         command.doCommand(fixture.getEvent());
 
         verify(fixture.getEvent()).reply(any(String.class));
+        verify(fixture.getReplyAction()).setEphemeral(true);
+    }
+
+    @Test
+    void testDoCommand_DisabledHistory_ShowsDisabledWarning()
+    {
+        when(fixture.getEvent().getOption("page")).thenReturn(null);
+        MusicService.HistoryInfo disabled = new MusicService.HistoryInfo(new String[0], 0L, 0, true);
+        when(fixture.getMusicService().getHistoryInfo(fixture.getGuild(), fixture.getJda())).thenReturn(disabled);
+
+        command.doCommand(fixture.getEvent());
+
+        verify(fixture.getEvent()).reply(argThat((String s) -> s.contains("disabled by config")));
         verify(fixture.getReplyAction()).setEphemeral(true);
     }
 

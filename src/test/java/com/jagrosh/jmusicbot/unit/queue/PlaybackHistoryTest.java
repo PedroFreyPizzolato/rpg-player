@@ -76,10 +76,14 @@ public class PlaybackHistoryTest {
 
     @Test
     public void testSetZeroMaxSize() {
-        assertThrows(IllegalArgumentException.class, () -> new PlaybackHistory<String>(0));
-        
         PlaybackHistory<String> history = new PlaybackHistory<>(10);
-        assertThrows(IllegalArgumentException.class, () -> history.setMaxSize(0));
+        history.add("one");
+        history.add("two");
+        history.setMaxSize(0);
+
+        assertEquals(0, history.getMaxSize());
+        assertTrue(history.isEmpty());
+        assertEquals(0, history.size());
     }
 
     @Test
@@ -98,9 +102,55 @@ public class PlaybackHistoryTest {
     }
 
     @Test
-    public void testConstructorRequiresPositiveSize() {
-        assertThrows(IllegalArgumentException.class, () -> new PlaybackHistory<String>(0));
+    public void testConstructorRejectsNegativeSize() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(0);
+        assertEquals(0, history.getMaxSize());
+        assertTrue(history.isEmpty());
+
         assertThrows(IllegalArgumentException.class, () -> new PlaybackHistory<String>(-1));
+    }
+
+    @Test
+    public void testAddIsNoopWhenHistoryDisabled() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(0);
+        history.add("a");
+        history.add("b");
+
+        assertEquals(0, history.getMaxSize());
+        assertEquals(0, history.size());
+        assertTrue(history.getList().isEmpty());
+    }
+
+    @Test
+    public void testTransitionFromDisabledToEnabledCollectsEntries() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(0);
+        history.add("ignored");
+        history.setMaxSize(2);
+        history.add("a");
+        history.add("b");
+
+        assertEquals(2, history.getMaxSize());
+        assertEquals(2, history.size());
+        assertEquals("b", history.get(0));
+        assertEquals("a", history.get(1));
+    }
+
+    @Test
+    public void testTransitionPositiveToDisabledClearsAndDedupStateResets() {
+        PlaybackHistory<String> history = new PlaybackHistory<>(3, s -> s);
+        history.add("a");
+        history.add("b");
+        history.setMaxSize(0);
+        history.add("c");
+
+        assertEquals(0, history.getMaxSize());
+        assertTrue(history.isEmpty());
+
+        history.setMaxSize(2);
+        history.add("x");
+        history.add("x");
+        assertEquals(1, history.size());
+        assertEquals("x", history.get(0));
     }
 
     @Test

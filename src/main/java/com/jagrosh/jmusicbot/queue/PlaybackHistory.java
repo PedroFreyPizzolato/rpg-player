@@ -28,8 +28,8 @@ public class PlaybackHistory<T> {
     /**
      * Creates a new PlaybackHistory with the specified maximum size and no key-based de-dup.
      *
-     * @param maxSize The maximum number of items to keep in history (must be > 0)
-     * @throws IllegalArgumentException if maxSize is not positive
+     * @param maxSize The maximum number of items to keep in history (must be >= 0; 0 disables history storage)
+     * @throws IllegalArgumentException if maxSize is negative
      */
     public PlaybackHistory(int maxSize) {
         this(maxSize, null);
@@ -40,16 +40,16 @@ public class PlaybackHistory<T> {
      * When keyExtractor is non-null, adding an item will first remove any existing entry with
      * the same key, so at most one entry per key is kept (most recent at index 0).
      *
-     * @param maxSize The maximum number of items to keep in history (must be > 0)
+     * @param maxSize The maximum number of items to keep in history (must be >= 0; 0 disables history storage)
      * @param keyExtractor Extracts the key for de-dup; null to disable key-based de-dup
-     * @throws IllegalArgumentException if maxSize is not positive
+     * @throws IllegalArgumentException if maxSize is negative
      */
     public PlaybackHistory(int maxSize, Function<T, Object> keyExtractor) {
-        if (maxSize <= 0) {
-            throw new IllegalArgumentException("Max size must be positive, got: " + maxSize);
+        if (maxSize < 0) {
+            throw new IllegalArgumentException("Max size must be non-negative, got: " + maxSize);
         }
         this.maxSize = maxSize;
-        this.history = new IndexedDeque<>(maxSize);
+        this.history = new IndexedDeque<>(Math.max(1, maxSize));
         this.keyExtractor = keyExtractor;
         this.keySet = keyExtractor != null ? new HashSet<>() : null;
     }
@@ -64,6 +64,9 @@ public class PlaybackHistory<T> {
      */
     public void add(T item) {
         Objects.requireNonNull(item, "item");
+        if (maxSize == 0) {
+            return;
+        }
         if (keyExtractor != null) {
             removeByKey(keyExtractor.apply(item));
         }
@@ -97,12 +100,12 @@ public class PlaybackHistory<T> {
      * Sets the maximum number of items to keep in history.
      * If the current history size exceeds the new max size, oldest items are removed.
      *
-     * @param size The maximum number of items to keep (must be > 0)
-     * @throws IllegalArgumentException if size is not positive
+     * @param size The maximum number of items to keep (must be >= 0; 0 disables history storage)
+     * @throws IllegalArgumentException if size is negative
      */
     public void setMaxSize(int size) {
-        if (size <= 0) {
-            throw new IllegalArgumentException("Max size must be positive, got: " + size);
+        if (size < 0) {
+            throw new IllegalArgumentException("Max size must be non-negative, got: " + size);
         }
         this.maxSize = size;
         while (history.size() > maxSize) {

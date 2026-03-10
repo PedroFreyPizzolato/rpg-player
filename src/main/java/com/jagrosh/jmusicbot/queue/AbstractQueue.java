@@ -38,8 +38,10 @@ public abstract class AbstractQueue<T extends Queueable>
         // Use ArrayList for O(1) random access (display, shuffle, etc.)
         // Copy the list when switching queue types to avoid shared mutable state
         this.list = queue != null ? new ArrayList<>(queue.getList()) : new ArrayList<>();
-        // Reuse history when switching queue types, create new one for initial creation with key extractor for de-dup at add time (QueuedTrack uses track id; other Queueable use getIdentifier())
+        // Reuse history when switching queue types; always apply configured max size so transitions
+        // (including maxHistorySize=0 disabled mode) take effect immediately.
         this.history = queue != null ? queue.getHistory() : new PlaybackHistory<>(maxHistorySize, qt -> qt instanceof QueuedTrack ? ((QueuedTrack) qt).getTrack().getIdentifier() : qt.getIdentifier());
+        this.history.setMaxSize(maxHistorySize);
     }
 
     protected final List<T> list;

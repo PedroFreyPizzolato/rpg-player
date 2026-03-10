@@ -18,6 +18,7 @@ package com.jagrosh.jmusicbot.unit;
 import com.jagrosh.jmusicbot.listener.HistoryInteractionListener;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.listener.ListenerTestFixture;
+import net.dv8tion.jda.api.requests.restaction.interactions.MessageEditCallbackAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,5 +66,21 @@ public class HistoryInteractionListenerTest {
 
         verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("isn't on this page")));
         verify(fixture.getReplyAction()).setEphemeral(true);
+    }
+
+    @Test
+    @DisplayName("onButtonInteraction() shows disabled message when history is disabled")
+    void onButtonInteraction_historyDisabled_showsDisabledMessage() {
+        fixture.withButtonId("history_prev_1_0_" + fixture.getUser().getIdLong());
+        MusicService.HistoryInfo info = new MusicService.HistoryInfo(new String[0], 0L, 0, true);
+        when(fixture.getMusicService().getHistoryInfo(fixture.getGuild(), fixture.getJda())).thenReturn(info);
+        MessageEditCallbackAction editAction = mock(MessageEditCallbackAction.class);
+        when(fixture.getButtonInteractionEvent().editMessage(any(String.class))).thenReturn(editAction);
+        when(editAction.setEmbeds()).thenReturn(editAction);
+        when(editAction.setComponents()).thenReturn(editAction);
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getButtonInteractionEvent()).editMessage(argThat((String s) -> s.contains("disabled by config")));
     }
 }
