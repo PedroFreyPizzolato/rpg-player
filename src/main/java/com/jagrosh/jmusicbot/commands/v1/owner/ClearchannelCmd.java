@@ -25,8 +25,11 @@ import com.jagrosh.jmusicbot.utils.ChannelClearHelper;
  */
 public class ClearchannelCmd extends OwnerCommand
 {
+    private final Bot bot;
+
     public ClearchannelCmd(Bot bot)
     {
+        this.bot = bot;
         this.name = "clearchannel";
         this.help = "clears all messages in the command channel set with settc";
         this.aliases = bot.getConfig().getAliases(this.name);
@@ -36,9 +39,14 @@ public class ClearchannelCmd extends OwnerCommand
     @Override
     protected void execute(CommandEvent event)
     {
+        ChannelClearHelper.ClearPolicy clearPolicy = ChannelClearHelper.ClearPolicy.of(
+                bot.getConfig().getClearChannelDeleteLimit(),
+                bot.getConfig().getClearChannelAgeDays()
+        );
         ChannelClearHelper.clearConfiguredTextChannel(
                 event.getGuild(),
                 event.getClient().getSettingsFor(event.getGuild()),
+                clearPolicy,
                 new ChannelClearHelper.ClearChannelCallback()
                 {
                     @Override

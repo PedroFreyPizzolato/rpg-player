@@ -63,6 +63,8 @@ public enum ConfigOption {
     MAX_HISTORY_SIZE("playback.maxHistorySize", ConfigType.INT, false, "Maximum number of tracks to keep in history"),
     ALONE_TIME_UNTIL_STOP("voice.aloneTimeUntilStopSeconds", ConfigType.LONG, false, "Seconds to wait alone before leaving (0 = never)"),
     SKIP_RATIO("playback.skipRatio", ConfigType.DOUBLE, false, "Ratio of users needed to vote skip"),
+    CLEAR_CHANNEL_DELETE_LIMIT("commands.clearChannel.deleteLimit", ConfigType.INT, false, "Max messages deleted by clearchannel (0 = unlimited)"),
+    CLEAR_CHANNEL_AGE_DAYS("commands.clearChannel.ageDays", ConfigType.LONG, false, "Max message age in days for clearchannel (0 = unlimited)"),
     
     // Complex options - Nested configurations
     ALIASES("commands.aliases", ConfigType.CONFIG, false, "Command aliases configuration"),

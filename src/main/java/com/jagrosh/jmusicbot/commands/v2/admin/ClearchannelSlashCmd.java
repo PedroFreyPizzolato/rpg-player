@@ -40,6 +40,10 @@ public class ClearchannelSlashCmd extends OwnerSlashCommand
     {
         Settings settings = event.getClient().getSettingsFor(event.getGuild());
         TextChannel channel = settings.getTextChannel(event.getGuild());
+        ChannelClearHelper.ClearPolicy clearPolicy = ChannelClearHelper.ClearPolicy.of(
+                bot.getConfig().getClearChannelDeleteLimit(),
+                bot.getConfig().getClearChannelAgeDays()
+        );
 
         if (channel == null)
         {
@@ -55,7 +59,7 @@ public class ClearchannelSlashCmd extends OwnerSlashCommand
             return;
         }
 
-        event.deferReply().queue(hook ->
+        event.deferReply(true).queue(hook ->
                 ChannelClearHelper.purgeChannel(channel, new ChannelClearHelper.PurgeCallback()
                 {
                     @Override
@@ -70,6 +74,6 @@ public class ClearchannelSlashCmd extends OwnerSlashCommand
                         String msg = t.getMessage() != null ? t.getMessage() : t.toString();
                         hook.editOriginal(event.getClient().getError() + " Error: " + msg).queue();
                     }
-                }));
+                }, clearPolicy));
     }
 }

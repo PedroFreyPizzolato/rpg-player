@@ -63,7 +63,8 @@ public class BotConfig {
             evalEngine, guiTheme, youtubeDebugSaveResponsesDirectory;
     private boolean stayInChannel, songInGame, npImages, updateNpProgressBar, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
-    private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs, proxyPort;
+    private long clearChannelAgeDays;
+    private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs, proxyPort, clearChannelDeleteLimit;
     private String proxyHost;
     private boolean proxyLavaplayer, proxyJda, proxyGithub;
     private double skipratio;
@@ -277,6 +278,8 @@ public class BotConfig {
         loadAudioSources(config, migratedUserConfig);
         
         skipratio = SKIP_RATIO.getDouble(config);
+        clearChannelDeleteLimit = Math.max(0, CLEAR_CHANNEL_DELETE_LIMIT.getInt(config));
+        clearChannelAgeDays = Math.max(0L, CLEAR_CHANNEL_AGE_DAYS.getLong(config));
         dbots = owner == 113156185389092864L;
         
         // GUI options
@@ -403,6 +406,14 @@ public class BotConfig {
 
     public double getSkipRatio() {
         return skipratio;
+    }
+
+    public int getClearChannelDeleteLimit() {
+        return clearChannelDeleteLimit;
+    }
+
+    public long getClearChannelAgeDays() {
+        return clearChannelAgeDays;
     }
 
     public long getOwnerId() {
