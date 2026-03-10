@@ -31,7 +31,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -1181,6 +1184,113 @@ public class MusicServiceTest
         }
     }
 
+    // ==================== Playlist Operation Tests ====================
+
+    @Nested
+    @DisplayName("Playlist Operations")
+    class PlaylistOperationTests
+    {
+        @Test
+        @DisplayName("queuePlaylist() refreshes now playing when tracks were loaded and player is active")
+        void queuePlaylist_refreshesNowPlaying_whenTracksLoadedAndPlayerActive()
+        {
+            com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
+            when(fixture.getPlaylistLoader().getPlaylist("favorite")).thenReturn(playlist);
+            when(playlist.getName()).thenReturn("favorite");
+            when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class), mock(AudioTrack.class)));
+            when(playlist.getErrors()).thenReturn(List.of());
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(mock(AudioTrack.class));
+
+            doAnswer(invocation ->
+            {
+                Runnable callback = invocation.getArgument(2);
+                callback.run();
+                return null;
+            }).when(playlist).loadTracks(eq(fixture.getPlayerManager()), any(), any());
+
+            musicService.queuePlaylist(fixture.getGuild(), fixture.getMember(), "favorite",
+                    fixture.getTextChannel(), output);
+
+            verify(fixture.getNowPlayingHandler()).requestReconcile(eq(fixture.getGuild().getIdLong()), anyString());
+            output.assertSuccessMessageContains("Queued **2** track(s)");
+        }
+
+        @Test
+        @DisplayName("queuePlaylist() skips now playing refresh when tracks loaded but player still inactive")
+        void queuePlaylist_skipsRefresh_whenTracksLoadedButPlayerInactive()
+        {
+            com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
+            when(fixture.getPlaylistLoader().getPlaylist("favorite")).thenReturn(playlist);
+            when(playlist.getName()).thenReturn("favorite");
+            when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class), mock(AudioTrack.class)));
+            when(playlist.getErrors()).thenReturn(List.of());
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(null);
+
+            doAnswer(invocation ->
+            {
+                Runnable callback = invocation.getArgument(2);
+                callback.run();
+                return null;
+            }).when(playlist).loadTracks(eq(fixture.getPlayerManager()), any(), any());
+
+            musicService.queuePlaylist(fixture.getGuild(), fixture.getMember(), "favorite",
+                    fixture.getTextChannel(), output);
+
+            verify(fixture.getNowPlayingHandler(), never()).requestReconcile(anyLong(), anyString());
+            output.assertSuccessMessageContains("Queued **2** track(s)");
+        }
+
+        @Test
+        @DisplayName("queuePlaylist() does not refresh now playing when no tracks loaded")
+        void queuePlaylist_doesNotRefreshNowPlaying_whenNoTracksLoaded()
+        {
+            com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
+            when(fixture.getPlaylistLoader().getPlaylist("empty")).thenReturn(playlist);
+            when(playlist.getName()).thenReturn("empty");
+            when(playlist.getTracks()).thenReturn(List.of());
+            when(playlist.getErrors()).thenReturn(List.of(mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistLoadError.class)));
+
+            doAnswer(invocation ->
+            {
+                Runnable callback = invocation.getArgument(2);
+                callback.run();
+                return null;
+            }).when(playlist).loadTracks(eq(fixture.getPlayerManager()), any(), any());
+
+            musicService.queuePlaylist(fixture.getGuild(), fixture.getMember(), "empty",
+                    fixture.getTextChannel(), output);
+
+            verify(fixture.getNowPlayingHandler(), never()).requestReconcile(anyLong(), anyString());
+            output.assertWarningMessageContains("No tracks were loaded");
+        }
+
+        @Test
+        @DisplayName("playPlaylistNow() refreshes now playing after queue replacement")
+        void playPlaylistNow_refreshesNowPlaying_afterQueueReplacement()
+        {
+            com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
+            when(fixture.getPlaylistLoader().getPlaylist("mix")).thenReturn(playlist);
+            when(playlist.getName()).thenReturn("mix");
+            when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class)));
+            when(playlist.getErrors()).thenReturn(List.of());
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(mock(AudioTrack.class));
+
+            doAnswer(invocation ->
+            {
+                Runnable callback = invocation.getArgument(2);
+                callback.run();
+                return null;
+            }).when(playlist).loadTracks(eq(fixture.getPlayerManager()), any(), any());
+
+            musicService.playPlaylistNow(fixture.getGuild(), fixture.getMember(), "mix",
+                    fixture.getTextChannel(), output);
+
+            verify(fixture.getAudioHandler()).stopAndClearQueuePreserveHistory();
+            verify(fixture.getNowPlayingHandler()).requestReconcile(eq(fixture.getGuild().getIdLong()), anyString());
+            output.assertSuccessMessageContains("Now playing playlist `mix` (queue replaced)");
+        }
+    }
+
     // ==================== History Operation Tests ====================
 
     @Nested
@@ -1295,6 +1405,121 @@ public class MusicServiceTest
                     fixture.getTextChannel(), output);
 
             output.assertErrorMessageContains("1 and 3");
+        }
+
+        @Test
+        @DisplayName("queueAllFromHistory() requests reconcile when tracks added and player active")
+        void queueAllFromHistory_requestsReconcile_whenTracksAddedAndPlayerActive()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(history.isEmpty()).thenReturn(false);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+
+            QueuedTrack qtOne = mock(QueuedTrack.class);
+            QueuedTrack qtTwo = mock(QueuedTrack.class);
+            AudioTrack originalTrackOne = mock(AudioTrack.class);
+            AudioTrack originalTrackTwo = mock(AudioTrack.class);
+            AudioTrack clonedTrackOne = mock(AudioTrack.class);
+            AudioTrack clonedTrackTwo = mock(AudioTrack.class);
+            AudioTrackInfo infoOne = new AudioTrackInfo("History Song 1", "Artist", 180000, "id-1", false, "https://example.com/1");
+            AudioTrackInfo infoTwo = new AudioTrackInfo("History Song 2", "Artist", 180000, "id-2", false, "https://example.com/2");
+            when(qtOne.getTrack()).thenReturn(originalTrackOne);
+            when(qtTwo.getTrack()).thenReturn(originalTrackTwo);
+            when(originalTrackOne.makeClone()).thenReturn(clonedTrackOne);
+            when(originalTrackTwo.makeClone()).thenReturn(clonedTrackTwo);
+            when(originalTrackOne.getInfo()).thenReturn(infoOne);
+            when(originalTrackTwo.getInfo()).thenReturn(infoTwo);
+            when(originalTrackOne.getIdentifier()).thenReturn("id-1");
+            when(originalTrackTwo.getIdentifier()).thenReturn("id-2");
+            when(history.getList()).thenReturn(List.of(qtOne, qtTwo));
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(mock(AudioTrack.class));
+
+            musicService.queueAllFromHistory(fixture.getGuild(), fixture.getMember(), fixture.getTextChannel(), output);
+
+            verify(fixture.getAudioHandler(), times(2)).addTrack(any(QueuedTrack.class));
+            verify(fixture.getQueue(), times(2)).removeFromHistoryAt(0);
+            verify(fixture.getQueue(), times(2)).removeFromHistoryFirstMatch(any());
+            verify(fixture.getNowPlayingHandler()).requestReconcile(eq(fixture.getGuild().getIdLong()), eq("history-queueall-loaded"));
+            output.assertSuccessMessage("Added **2** track(s) to the queue.");
+        }
+
+        @Test
+        @DisplayName("queueAllFromHistory() avoids duplicate first track when idle and history mutates during add")
+        void queueAllFromHistory_avoidsDuplicateFirstTrack_whenIdleAndHistoryMutatesDuringAdd()
+        {
+            PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
+            when(fixture.getQueue().getHistory()).thenReturn(history);
+
+            QueuedTrack qtOne = mock(QueuedTrack.class);
+            QueuedTrack qtTwo = mock(QueuedTrack.class);
+            QueuedTrack qtThree = mock(QueuedTrack.class);
+            AudioTrack originalTrackOne = mock(AudioTrack.class);
+            AudioTrack originalTrackTwo = mock(AudioTrack.class);
+            AudioTrack originalTrackThree = mock(AudioTrack.class);
+            AudioTrack clonedTrackOne = mock(AudioTrack.class);
+            AudioTrack clonedTrackTwo = mock(AudioTrack.class);
+            AudioTrack clonedTrackThree = mock(AudioTrack.class);
+            AudioTrackInfo infoOne = new AudioTrackInfo("History Song 1", "Artist", 180000, "id-1", false, "https://example.com/1");
+            AudioTrackInfo infoTwo = new AudioTrackInfo("History Song 2", "Artist", 180000, "id-2", false, "https://example.com/2");
+            AudioTrackInfo infoThree = new AudioTrackInfo("History Song 3", "Artist", 180000, "id-3", false, "https://example.com/3");
+            when(qtOne.getTrack()).thenReturn(originalTrackOne);
+            when(qtTwo.getTrack()).thenReturn(originalTrackTwo);
+            when(qtThree.getTrack()).thenReturn(originalTrackThree);
+            when(originalTrackOne.makeClone()).thenReturn(clonedTrackOne);
+            when(originalTrackTwo.makeClone()).thenReturn(clonedTrackTwo);
+            when(originalTrackThree.makeClone()).thenReturn(clonedTrackThree);
+            when(originalTrackOne.getInfo()).thenReturn(infoOne);
+            when(originalTrackTwo.getInfo()).thenReturn(infoTwo);
+            when(originalTrackThree.getInfo()).thenReturn(infoThree);
+            when(originalTrackOne.getIdentifier()).thenReturn("id-1");
+            when(originalTrackTwo.getIdentifier()).thenReturn("id-2");
+            when(originalTrackThree.getIdentifier()).thenReturn("id-3");
+
+            List<QueuedTrack> liveHistory = new ArrayList<>(List.of(qtOne, qtTwo, qtThree));
+            when(history.isEmpty()).thenAnswer(invocation -> liveHistory.isEmpty());
+            when(history.getList()).thenAnswer(invocation -> List.copyOf(liveHistory));
+            doAnswer(invocation ->
+            {
+                int index = invocation.getArgument(0);
+                if (index < 0 || index >= liveHistory.size())
+                {
+                    return null;
+                }
+                return liveHistory.remove(index);
+            }).when(fixture.getQueue()).removeFromHistoryAt(anyInt());
+            doAnswer(invocation ->
+            {
+                Predicate<QueuedTrack> matcher = invocation.getArgument(0);
+                for (int i = 0; i < liveHistory.size(); i++)
+                {
+                    if (matcher.test(liveHistory.get(i)))
+                    {
+                        liveHistory.remove(i);
+                        return true;
+                    }
+                }
+                return false;
+            }).when(fixture.getQueue()).removeFromHistoryFirstMatch(any());
+
+            AtomicInteger addCalls = new AtomicInteger();
+            doAnswer(invocation ->
+            {
+                // Simulate idle addTrack starting playback and onTrackStart re-adding first entry to history.
+                if (addCalls.getAndIncrement() == 0)
+                {
+                    liveHistory.add(0, qtOne);
+                    return -1;
+                }
+                return addCalls.get();
+            }).when(fixture.getAudioHandler()).addTrack(any(QueuedTrack.class));
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(null);
+
+            musicService.queueAllFromHistory(fixture.getGuild(), fixture.getMember(), fixture.getTextChannel(), output);
+
+            verify(fixture.getNowPlayingHandler(), never()).requestReconcile(anyLong(), anyString());
+            verify(fixture.getAudioHandler(), times(3)).addTrack(any(QueuedTrack.class));
+            output.assertSuccessMessage("Added **3** track(s) to the queue.");
+            assertTrue(liveHistory.isEmpty(), "Expected processed history items to be removed");
         }
 
         @Test

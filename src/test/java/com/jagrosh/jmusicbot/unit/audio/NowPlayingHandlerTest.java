@@ -30,10 +30,14 @@ import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.managers.Presence;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -279,6 +283,68 @@ public class NowPlayingHandlerTest
 
             // Then
             verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
+        }
+
+        @Test
+        @DisplayName("onTrackUpdate() converges after pending reconcile once send callback arrives")
+        void onTrackUpdate_convergesAfterPendingReconcile_whenSendCallbackArrives()
+        {
+            // Given
+            AudioTrack track = fixture.createMockTrack("Race Song", "Artist", 180000);
+            RequestMetadata metadata = new RequestMetadata(null,
+                    new RequestMetadata.RequestInfo("playlist race", "https://example.com/race"),
+                    CHANNEL_ID);
+            when(track.getUserData(RequestMetadata.class)).thenReturn(metadata);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            AtomicReference<Consumer<Message>> sendSuccess = new AtomicReference<>();
+            doAnswer(invocation -> {
+                sendSuccess.set(invocation.getArgument(0));
+                return null;
+            }).when(fixture.getMessageCreateAction()).queue(any(), any());
+
+            // When
+            nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
+            nowPlayingHandler.requestReconcile(GUILD_ID, "playlist-loaded");
+            sendSuccess.get().accept(fixture.getMessage());
+
+            // Then - second reconcile pass edits the tracked message after send completes
+            verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
+            verify(fixture.getTextChannel()).editMessageById(eq(MESSAGE_ID), any(MessageEditData.class));
+        }
+
+        @Test
+        @DisplayName("stale send callback does not overwrite newer tracked location")
+        void staleSendCallback_doesNotOverwriteNewerLocation()
+        {
+            // Given
+            AudioTrack track = fixture.createMockTrack("Race Song", "Artist", 180000);
+            RequestMetadata metadata = new RequestMetadata(null,
+                    new RequestMetadata.RequestInfo("playlist race", "https://example.com/race"),
+                    CHANNEL_ID);
+            when(track.getUserData(RequestMetadata.class)).thenReturn(metadata);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            AtomicReference<Consumer<Message>> sendSuccess = new AtomicReference<>();
+            doAnswer(invocation -> {
+                sendSuccess.set(invocation.getArgument(0));
+                return null;
+            }).when(fixture.getMessageCreateAction()).queue(any(), any());
+
+            Message newerMessage = mock(Message.class);
+            when(newerMessage.getIdLong()).thenReturn(999999L);
+            when(newerMessage.getGuild()).thenReturn(fixture.getGuild());
+            when(newerMessage.getChannel()).thenReturn((MessageChannelUnion) fixture.getTextChannel());
+
+            // When - first reconcile is in-flight
+            nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
+            nowPlayingHandler.setLastNPMessage(newerMessage); // bumps version and tracked location
+            sendSuccess.get().accept(fixture.getMessage());   // stale callback from older version
+            nowPlayingHandler.requestReconcile(GUILD_ID, "manual-check");
+
+            // Then - edit uses newer tracked location, not stale callback's message id
+            verify(fixture.getTextChannel()).editMessageById(eq(999999L), any(MessageEditData.class));
+            verify(fixture.getTextChannel(), never()).editMessageById(eq(MESSAGE_ID), any(MessageEditData.class));
         }
     }
 

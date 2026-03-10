@@ -1264,9 +1264,10 @@ public class MusicService
         int added = 0;
         int skipped = 0;
 
-        while (!history.isEmpty())
+        // Iterate over a stable snapshot so onTrackStart history updates cannot requeue the same entry.
+        List<QueuedTrack> historySnapshot = new ArrayList<>(history.getList());
+        for (QueuedTrack qt : historySnapshot)
         {
-            QueuedTrack qt = history.get(0);
             handler.getQueue().removeFromHistoryAt(0);
 
             AudioTrack track = qt.getTrack().makeClone();
@@ -1281,6 +1282,11 @@ public class MusicService
                     channel.getIdLong());
             QueuedTrack newQt = new QueuedTrack(track, rm);
             handler.addTrack(newQt);
+            String identifier = qt.getTrack().getIdentifier();
+            handler.getQueue().removeFromHistoryFirstMatch(historyTrack ->
+                    historyTrack != null
+                            && historyTrack.getTrack() != null
+                            && Objects.equals(identifier, historyTrack.getTrack().getIdentifier()));
             added++;
         }
 
@@ -1295,6 +1301,10 @@ public class MusicService
             message += " Skipped " + skipped + " track(s) (too long).";
         }
         output.replySuccess(message);
+        if (handler.getPlayer().getPlayingTrack() != null)
+        {
+            bot.getNowplayingHandler().requestReconcile(guild.getIdLong(), "history-queueall-loaded");
+        }
     }
 
     /**
@@ -1406,6 +1416,10 @@ public class MusicService
                 msg.append(" Failed to load ").append(errorCount).append(" item(s).");
             }
             output.replySuccess(msg.toString());
+            if (finalHandler.getPlayer().getPlayingTrack() != null)
+            {
+                bot.getNowplayingHandler().requestReconcile(guild.getIdLong(), "playlist-loaded");
+            }
         });
     }
 
