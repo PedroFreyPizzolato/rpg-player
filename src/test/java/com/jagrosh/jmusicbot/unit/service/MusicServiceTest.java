@@ -34,7 +34,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -1437,15 +1436,16 @@ public class MusicServiceTest
             musicService.queueAllFromHistory(fixture.getGuild(), fixture.getMember(), fixture.getTextChannel(), output);
 
             verify(fixture.getAudioHandler(), times(2)).addTrack(any(QueuedTrack.class));
-            verify(fixture.getQueue(), times(2)).removeFromHistoryAt(0);
-            verify(fixture.getQueue(), times(2)).removeFromHistoryFirstMatch(any());
+            verify(fixture.getQueue()).clearHistory();
+            verify(fixture.getQueue(), never()).removeFromHistoryAt(anyInt());
+            verify(fixture.getQueue(), never()).removeFromHistoryFirstMatch(any());
             verify(fixture.getNowPlayingHandler()).requestReconcile(eq(fixture.getGuild().getIdLong()), eq("history-queueall-loaded"));
             output.assertSuccessMessage("Added **2** track(s) to the queue.");
         }
 
         @Test
-        @DisplayName("queueAllFromHistory() avoids duplicate first track when idle and history mutates during add")
-        void queueAllFromHistory_avoidsDuplicateFirstTrack_whenIdleAndHistoryMutatesDuringAdd()
+        @DisplayName("queueAllFromHistory() preserves first replayed track in history after idle queue-all and skip progression")
+        void queueAllFromHistory_preservesFirstReplayedTrackInHistory_afterIdleQueueAllAndSkipProgression()
         {
             PlaybackHistory<QueuedTrack> history = mock(PlaybackHistory.class);
             when(fixture.getQueue().getHistory()).thenReturn(history);
@@ -1480,26 +1480,9 @@ public class MusicServiceTest
             when(history.getList()).thenAnswer(invocation -> List.copyOf(liveHistory));
             doAnswer(invocation ->
             {
-                int index = invocation.getArgument(0);
-                if (index < 0 || index >= liveHistory.size())
-                {
-                    return null;
-                }
-                return liveHistory.remove(index);
-            }).when(fixture.getQueue()).removeFromHistoryAt(anyInt());
-            doAnswer(invocation ->
-            {
-                Predicate<QueuedTrack> matcher = invocation.getArgument(0);
-                for (int i = 0; i < liveHistory.size(); i++)
-                {
-                    if (matcher.test(liveHistory.get(i)))
-                    {
-                        liveHistory.remove(i);
-                        return true;
-                    }
-                }
-                return false;
-            }).when(fixture.getQueue()).removeFromHistoryFirstMatch(any());
+                liveHistory.clear();
+                return null;
+            }).when(fixture.getQueue()).clearHistory();
 
             AtomicInteger addCalls = new AtomicInteger();
             doAnswer(invocation ->
@@ -1518,8 +1501,17 @@ public class MusicServiceTest
 
             verify(fixture.getNowPlayingHandler(), never()).requestReconcile(anyLong(), anyString());
             verify(fixture.getAudioHandler(), times(3)).addTrack(any(QueuedTrack.class));
+            verify(fixture.getQueue()).clearHistory();
+            verify(fixture.getQueue(), never()).removeFromHistoryAt(anyInt());
+            verify(fixture.getQueue(), never()).removeFromHistoryFirstMatch(any());
             output.assertSuccessMessage("Added **3** track(s) to the queue.");
-            assertTrue(liveHistory.isEmpty(), "Expected processed history items to be removed");
+            assertEquals(1, liveHistory.size(), "Expected currently playing replayed track to remain in history");
+            assertSame(qtOne, liveHistory.get(0), "Expected first replayed track at history front");
+
+            // Simulate skipping through the remaining queued tracks; each started track should appear in history.
+            liveHistory.add(0, qtTwo);
+            liveHistory.add(0, qtThree);
+            assertEquals(3, liveHistory.size(), "Expected all replayed tracks to be retained in history");
         }
 
         @Test

@@ -75,6 +75,14 @@ public abstract class AbstractQueue<T extends Queueable>
         history.setMaxSize(size);
     }
 
+    /**
+     * Clears playback history entries.
+     */
+    public void clearHistory()
+    {
+        history.clear();
+    }
+
     public T removeLastPlayed()
     {
         return history.removeFirst();

@@ -1264,12 +1264,12 @@ public class MusicService
         int added = 0;
         int skipped = 0;
 
-        // Iterate over a stable snapshot so onTrackStart history updates cannot requeue the same entry.
+        // Work from a stable snapshot and clear source entries before adding tracks so
+        // onTrackStart history updates cannot be accidentally removed by this operation.
         List<QueuedTrack> historySnapshot = new ArrayList<>(history.getList());
+        handler.getQueue().clearHistory();
         for (QueuedTrack qt : historySnapshot)
         {
-            handler.getQueue().removeFromHistoryAt(0);
-
             AudioTrack track = qt.getTrack().makeClone();
             if (isTooLong(track))
             {
@@ -1282,11 +1282,6 @@ public class MusicService
                     channel.getIdLong());
             QueuedTrack newQt = new QueuedTrack(track, rm);
             handler.addTrack(newQt);
-            String identifier = qt.getTrack().getIdentifier();
-            handler.getQueue().removeFromHistoryFirstMatch(historyTrack ->
-                    historyTrack != null
-                            && historyTrack.getTrack() != null
-                            && Objects.equals(identifier, historyTrack.getTrack().getIdentifier()));
             added++;
         }
 
