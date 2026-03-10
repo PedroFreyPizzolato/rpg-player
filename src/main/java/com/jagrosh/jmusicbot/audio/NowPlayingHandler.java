@@ -17,7 +17,9 @@ package com.jagrosh.jmusicbot.audio;
 
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
+import com.jagrosh.jmusicbot.utils.MessageFormatter;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
@@ -28,6 +30,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -41,11 +44,13 @@ public class NowPlayingHandler
 
     private final Bot bot;
     private final Map<Long, NPLocation> lastNP; // guild -> channel,message
+    private final Set<Long> missingCommandChannelAlertedGuilds;
     
     public NowPlayingHandler(Bot bot)
     {
         this.bot = bot;
         this.lastNP = new ConcurrentHashMap<>();
+        this.missingCommandChannelAlertedGuilds = ConcurrentHashMap.newKeySet();
     }
     
     public void init()
@@ -105,18 +110,24 @@ public class NowPlayingHandler
         }
 
         AudioHandler handler = (AudioHandler) guild.getAudioManager().getSendingHandler();
+        AudioTrack currentTrack = handler.getPlayer().getPlayingTrack();
+        if (currentTrack == null)
+            return;
+
         MessageCreateData msg = handler.getNowPlaying(bot.getJDA());
-        if (msg == null) return;
+        if (msg == null)
+        {
+            msg = MessageFormatter.buildNowPlayingMessage(bot, handler.getNowPlayingInfo(bot.getJDA()));
+        }
 
         NPLocation loc = lastNP.get(guildId);
         TextChannel tc;
         if(loc == null)
         {
             // If we don't have a last NP message, try to use the channel from the current track's metadata
-            AudioTrack track = handler.getPlayer().getPlayingTrack();
-            if (track != null && track.getUserData(RequestMetadata.class) != null)
+            if (currentTrack.getUserData(RequestMetadata.class) != null)
             {
-                long channelId = track.getUserData(RequestMetadata.class).channelId;
+                long channelId = currentTrack.getUserData(RequestMetadata.class).channelId;
                 tc = guild.getTextChannelById(channelId);
             }
             else
@@ -129,6 +140,10 @@ public class NowPlayingHandler
             tc = guild.getTextChannelById(loc.channelId());
         }
 
+        if (tc == null)
+        {
+            tc = resolveFallbackChannel(guild);
+        }
         if (tc == null) {
             lastNP.remove(guildId);
             return;
@@ -141,6 +156,50 @@ public class NowPlayingHandler
         tc.sendMessage(msg).queue(
                 m -> setLastNPMessage(m),
                 throwable -> handleUpdateError(guildId, throwable)
+        );
+    }
+
+    private TextChannel resolveFallbackChannel(Guild guild)
+    {
+        TextChannel commandChannel = bot.getSettingsManager().getSettings(guild).getTextChannel(guild);
+        if (commandChannel == null)
+        {
+            notifyOwnerMissingCommandChannel(guild, "is not set");
+            return null;
+        }
+
+        if (!guild.getSelfMember().hasPermission(commandChannel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND))
+        {
+            notifyOwnerMissingCommandChannel(guild, "is set but the bot cannot send messages there");
+            return null;
+        }
+
+        missingCommandChannelAlertedGuilds.remove(guild.getIdLong());
+        return commandChannel;
+    }
+
+    private void notifyOwnerMissingCommandChannel(Guild guild, String reason)
+    {
+        long guildId = guild.getIdLong();
+        if (!missingCommandChannelAlertedGuilds.add(guildId))
+            return;
+
+        long ownerId = bot.getConfig().getOwnerId();
+        if (ownerId <= 0L)
+            return;
+
+        String msg = "NowPlaying fallback failed for guild **" + guild.getName() + "** (`" + guild.getId() + "`): "
+                + "the command channel " + reason + ". Please set it with `/settc`.";
+
+
+        var ownerLookup = bot.getJDA().retrieveUserById(ownerId);
+
+        ownerLookup.queue(
+                user -> user.openPrivateChannel().queue(
+                        pc -> pc.sendMessage(msg).queue(),
+                        throwable -> {}
+                ),
+                throwable -> {}
         );
     }
 

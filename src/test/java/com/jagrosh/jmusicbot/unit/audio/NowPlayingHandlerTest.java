@@ -17,12 +17,18 @@ package com.jagrosh.jmusicbot.unit.audio;
 
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
+import com.jagrosh.jmusicbot.audio.NowPlayingInfo;
+import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.testutil.audio.AudioTestFixture;
+import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.RoleColors;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.managers.Presence;
+import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,6 +65,16 @@ public class NowPlayingHandlerTest
         audioHandler = mock(AudioHandler.class);
         when(fixture.getAudioManager().getSendingHandler()).thenReturn(audioHandler);
         when(audioHandler.getPlayer()).thenReturn(fixture.getAudioPlayer());
+
+        // Message formatter expects self member colors
+        RoleColors roleColors = mock(RoleColors.class);
+        when(roleColors.getPrimary()).thenReturn(java.awt.Color.WHITE);
+        when(fixture.getSelfMember().getColors()).thenReturn(roleColors);
+
+        // Fallback alert path can look up owner user; return a mock action to avoid null behavior in tests
+        @SuppressWarnings("unchecked")
+        CacheRestAction<User> ownerLookup = mock(CacheRestAction.class);
+        when(fixture.getJda().retrieveUserById(anyLong())).thenReturn(ownerLookup);
         
         // Create handler
         nowPlayingHandler = new NowPlayingHandler(fixture.getBot());
@@ -237,6 +253,32 @@ public class NowPlayingHandlerTest
 
             // Then
             verify(presence, never()).setActivity(any());
+        }
+
+        @Test
+        @DisplayName("onTrackUpdate() sends now playing when track is active even if getNowPlaying() is null")
+        void onTrackUpdate_sendsNowPlaying_whenTrackPlayingEvenIfGetNowPlayingReturnsNull()
+        {
+            // Given
+            AudioTrack track = fixture.createMockTrack("Race Song", "Artist", 180000);
+            RequestMetadata metadata = new RequestMetadata(null,
+                    new RequestMetadata.RequestInfo("playlist race", "https://example.com/race"),
+                    CHANNEL_ID);
+            when(track.getUserData(RequestMetadata.class)).thenReturn(metadata);
+            AudioSourceManager sourceManager = mock(AudioSourceManager.class);
+            when(sourceManager.getSourceName()).thenReturn("youtube");
+            when(track.getSourceManager()).thenReturn(sourceManager);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(null);
+            NowPlayingInfo info = new NowPlayingInfo(track, fixture.getGuild(), false, 100, 0, "Testing");
+            when(audioHandler.getNowPlayingInfo(fixture.getJda())).thenReturn(info);
+
+            // When
+            nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
+
+            // Then
+            verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
         }
     }
 
