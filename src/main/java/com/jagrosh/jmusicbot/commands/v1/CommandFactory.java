@@ -12,6 +12,7 @@ import com.jagrosh.jmusicbot.commands.v1.dj.*;
 import com.jagrosh.jmusicbot.commands.v1.general.SettingsCmd;
 import com.jagrosh.jmusicbot.commands.v1.music.*;
 import com.jagrosh.jmusicbot.commands.v1.owner.*;
+import com.jagrosh.jmusicbot.commands.v2.admin.ClearchannelSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.PrefixSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.QueuetypeSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.SetdjSlashCmd;
@@ -99,7 +100,8 @@ public class CommandFactory {
                     new SetgameCmd(bot),
                     new SetnameCmd(bot),
                     new SetstatusCmd(bot),
-                    new ShutdownCmd(bot)
+                    new ShutdownCmd(bot),
+                    new ClearchannelCmd(bot)
             ).addSlashCommands(
                     // Music commands
                     new NowPlayingSlashCmd(bot),
@@ -130,7 +132,9 @@ public class CommandFactory {
                     new SetdjSlashCmd(bot),
                     new SettcSlashCmd(bot),
                     new SetvcSlashCmd(bot),
-                    new SkipratioSlashCmd(bot)
+                    new SkipratioSlashCmd(bot),
+                    // Owner commands
+                    new ClearchannelSlashCmd(bot)
             ).setManualUpsert(true);
 
         if (config.useEval())
