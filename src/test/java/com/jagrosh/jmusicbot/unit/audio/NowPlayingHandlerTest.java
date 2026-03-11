@@ -96,7 +96,7 @@ public class NowPlayingHandlerTest
         {
             // Given - images off and progress bar on (both conditions required)
             when(fixture.getConfig().useNPImages()).thenReturn(false);
-            when(fixture.getConfig().updateNpProgressBar()).thenReturn(true);
+            when(fixture.getConfig().showNpProgressBar()).thenReturn(true);
 
             // When
             nowPlayingHandler.init();
@@ -111,7 +111,7 @@ public class NowPlayingHandlerTest
         {
             // Given - images off but progress bar disabled
             when(fixture.getConfig().useNPImages()).thenReturn(false);
-            when(fixture.getConfig().updateNpProgressBar()).thenReturn(false);
+            when(fixture.getConfig().showNpProgressBar()).thenReturn(false);
 
             // When
             nowPlayingHandler.init();

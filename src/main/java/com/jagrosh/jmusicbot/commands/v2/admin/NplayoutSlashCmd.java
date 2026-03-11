@@ -10,9 +10,9 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
 import java.util.Collections;
 
-public class NplayoutSlashCmd extends AdminSlashCommand
+public class NpLayoutSlashCmd extends AdminSlashCommand
 {
-    public NplayoutSlashCmd(Bot bot)
+    public NpLayoutSlashCmd(Bot bot)
     {
         super(bot);
         this.name = "nplayout";

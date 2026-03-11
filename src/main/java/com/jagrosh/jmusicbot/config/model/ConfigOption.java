@@ -53,7 +53,7 @@ public enum ConfigOption {
     NP_IMAGES("nowPlaying.images", ConfigType.BOOLEAN, false, "Whether to show YouTube thumbnails in nowplaying"),
     NP_MINIMAL_MESSAGE("nowPlaying.minimalMessage", ConfigType.BOOLEAN, false, "Whether to render now-playing messages in a compact/minimal layout"),
     NP_SHOW_BUTTONS("nowPlaying.showButtons", ConfigType.BOOLEAN, false, "Whether to include interactive playback buttons in now-playing messages"),
-    NP_UPDATE_PROGRESS_BAR("nowPlaying.updateProgressBar", ConfigType.BOOLEAN, false, "Whether to show and periodically update the now-playing progress bar (update thread runs every 10s only when images are disabled)"),
+    NP_SHOW_PROGRESS_BAR("nowPlaying.showProgressBar", ConfigType.BOOLEAN, false, "Whether to show the now-playing progress bar"),
     UPDATE_ALERTS("updates.alerts", ConfigType.BOOLEAN, false, "Whether to alert owner about updates"),
     USE_EVAL("dangerous.eval", ConfigType.BOOLEAN, false, "Whether to enable eval command (DANGEROUS)"),
     USE_YOUTUBE_OAUTH("playback.youtube.useOAuth", ConfigType.BOOLEAN, false, "Whether to use YouTube OAuth2 for playback"),

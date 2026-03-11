@@ -10,9 +10,9 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
 import java.util.Collections;
 
-public class NpbuttonsSlashCmd extends AdminSlashCommand
+public class NpButtonsSlashCmd extends AdminSlashCommand
 {
-    public NpbuttonsSlashCmd(Bot bot)
+    public NpButtonsSlashCmd(Bot bot)
     {
         super(bot);
         this.name = "npbuttons";

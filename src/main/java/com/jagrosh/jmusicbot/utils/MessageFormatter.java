@@ -55,7 +55,7 @@ public class MessageFormatter {
         StringBuilder description = new StringBuilder();
         
         // Add progress bar if enabled
-        if (bot.getConfig().updateNpProgressBar()) {
+        if (bot.getConfig().showNpProgressBar()) {
             String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
             double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
             description.append(statusEmoji)
@@ -118,12 +118,19 @@ public class MessageFormatter {
             eb.setTitle(title);
         }
 
-        double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
-        String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-        String description = statusEmoji + " " + FormatUtil.progressBar(progress)
-                + " `[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]` "
-                + FormatUtil.volumeIcon(info.volume)
-                + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+        String description;
+        if (bot.getConfig().showNpProgressBar()) {
+            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
+            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+            description = statusEmoji + " " + FormatUtil.progressBar(progress)
+                    + " `[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]` "
+                    + FormatUtil.volumeIcon(info.volume)
+                    + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+        } else {
+            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+            description = statusEmoji + " " + FormatUtil.volumeIcon(info.volume)
+                    + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+        }
         eb.setDescription(description);
 
         if (info.footerInfo != null && !info.footerInfo.isEmpty())
@@ -148,7 +155,7 @@ public class MessageFormatter {
         }
 
         String descriptionText;
-        if (bot.getConfig().updateNpProgressBar()) {
+        if (bot.getConfig().showNpProgressBar()) {
             // Show progress bar in "no music" state (all segments empty)
             descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume);
         } else {
@@ -165,8 +172,13 @@ public class MessageFormatter {
     }
 
     private static MessageCreateData buildNoMusicPlayingMessageMinimal(Bot bot, NowPlayingInfo info) {
-        String descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1)
-                + " " + FormatUtil.volumeIcon(info.volume);
+        String descriptionText;
+        if (bot.getConfig().showNpProgressBar()) {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1)
+                    + " " + FormatUtil.volumeIcon(info.volume);
+        } else {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
+        }
         return new MessageCreateBuilder()
                 .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info)))
                 .setEmbeds(new EmbedBuilder()

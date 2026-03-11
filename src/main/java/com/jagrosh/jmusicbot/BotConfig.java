@@ -61,7 +61,7 @@ public class BotConfig {
     private String token, prefix, altprefix, helpWord, playlistsFolder, logLevel,
             successEmoji, warningEmoji, errorEmoji, loadingEmoji, searchingEmoji,
             evalEngine, guiTheme, youtubeDebugSaveResponsesDirectory;
-    private boolean stayInChannel, songInGame, npImages, npMinimalMessage, npShowButtons, updateNpProgressBar, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
+    private boolean stayInChannel, songInGame, npImages, npMinimalMessage, npShowButtons, showNpProgressBar, updatealerts, useEval, dbots, useYouTubeOauth, guiEnabled;
     private long owner, maxSeconds, aloneTimeUntilStop;
     private long clearChannelAgeDays;
     private int maxYTPlaylistPages, maxHistorySize, guiFontSize, nasBufferMs, frameBufferMs, proxyPort, clearChannelDeleteLimit;
@@ -260,7 +260,7 @@ public class BotConfig {
         npImages = NP_IMAGES.getBoolean(config);
         npMinimalMessage = NP_MINIMAL_MESSAGE.getBoolean(config);
         npShowButtons = NP_SHOW_BUTTONS.getBoolean(config);
-        updateNpProgressBar = NP_UPDATE_PROGRESS_BAR.getBoolean(config);
+        showNpProgressBar = NP_SHOW_PROGRESS_BAR.getBoolean(config);
         updatealerts = UPDATE_ALERTS.getBoolean(config);
         logLevel = LOG_LEVEL.getString(config);
         useEval = USE_EVAL.getBoolean(config);
@@ -502,8 +502,8 @@ public class BotConfig {
         return npShowButtons;
     }
 
-    public boolean updateNpProgressBar() {
-        return updateNpProgressBar;
+    public boolean showNpProgressBar() {
+        return showNpProgressBar;
     }
 
     public long getMaxSeconds() {

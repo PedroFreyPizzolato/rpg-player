@@ -227,7 +227,7 @@ class ConfigRendererTest {
             // The content should be parseable and have correct structure
             Config parsed = ConfigFactory.parseString(content);
             assertTrue(parsed.hasPath("meta.configVersion"));
-            assertEquals(1, parsed.getInt("meta.configVersion"));
+            assertEquals(2, parsed.getInt("meta.configVersion"));
             assertEquals("test_token", parsed.getString("discord.token"));
         }
         

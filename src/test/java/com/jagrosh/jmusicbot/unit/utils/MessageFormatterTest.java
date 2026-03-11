@@ -67,7 +67,45 @@ class MessageFormatterTest
         assertTrue(findField(embed, "Author").isEmpty());
     }
 
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout hides progress bar when disabled")
+    void buildNowPlayingMessage_minimalLayout_hidesProgressBarWhenDisabled()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false);
+
+        assertFalse(embed.getDescription().contains("`["));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout shows progress bar when enabled")
+    void buildNowPlayingMessage_minimalLayout_showsProgressBarWhenEnabled()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, true);
+
+        assertTrue(embed.getDescription().contains("`["));
+    }
+
+    @Test
+    @DisplayName("buildNoMusicPlayingMessage() minimal/full obey show progress bar toggle")
+    void buildNoMusicPlayingMessage_obeysShowProgressBarToggle()
+    {
+        MessageEmbed fullDisabled = buildNoMusicPlayingEmbed(false, false);
+        MessageEmbed fullEnabled = buildNoMusicPlayingEmbed(false, true);
+        MessageEmbed minimalDisabled = buildNoMusicPlayingEmbed(true, false);
+        MessageEmbed minimalEnabled = buildNoMusicPlayingEmbed(true, true);
+
+        assertFalse(fullDisabled.getDescription().contains("▬"));
+        assertTrue(fullEnabled.getDescription().contains("▬"));
+        assertFalse(minimalDisabled.getDescription().contains("▬"));
+        assertTrue(minimalEnabled.getDescription().contains("▬"));
+    }
+
     private static MessageEmbed buildNowPlayingEmbed(String title, String author)
+    {
+        return buildNowPlayingEmbed(title, author, false, false);
+    }
+
+    private static MessageEmbed buildNowPlayingEmbed(String title, String author, boolean minimalMessage, boolean showProgressBar)
     {
         Bot bot = mock(Bot.class);
         BotConfig config = mock(BotConfig.class);
@@ -76,7 +114,7 @@ class MessageFormatterTest
 
         when(bot.getConfig()).thenReturn(config);
         when(bot.getSettingsManager()).thenReturn(settingsManager);
-        when(config.updateNpProgressBar()).thenReturn(false);
+        when(config.showNpProgressBar()).thenReturn(showProgressBar);
         when(config.useNPImages()).thenReturn(false);
 
         Guild guild = mock(Guild.class, RETURNS_DEEP_STUBS);
@@ -84,6 +122,8 @@ class MessageFormatterTest
         when(guild.getIconUrl()).thenReturn(null);
         when(guild.getSelfMember().getColors().getPrimary()).thenReturn(Color.BLUE);
         when(settingsManager.getSettings(guild)).thenReturn(settings);
+        when(settings.useMinimalNowPlayingMessage(config)).thenReturn(minimalMessage);
+        when(settings.showNowPlayingButtons(config)).thenReturn(false);
         when(settings.getRepeatMode()).thenReturn(RepeatMode.OFF);
 
         AudioTrack track = mock(AudioTrack.class, RETURNS_DEEP_STUBS);
@@ -96,6 +136,27 @@ class MessageFormatterTest
 
         NowPlayingInfo info = new NowPlayingInfo(track, guild, false, 50, 0, "");
         return MessageFormatter.buildNowPlayingMessage(bot, info).getEmbeds().get(0);
+    }
+
+    private static MessageEmbed buildNoMusicPlayingEmbed(boolean minimalMessage, boolean showProgressBar)
+    {
+        Bot bot = mock(Bot.class);
+        BotConfig config = mock(BotConfig.class);
+        SettingsManager settingsManager = mock(SettingsManager.class);
+        Settings settings = mock(Settings.class);
+        Guild guild = mock(Guild.class, RETURNS_DEEP_STUBS);
+
+        when(bot.getConfig()).thenReturn(config);
+        when(bot.getSettingsManager()).thenReturn(settingsManager);
+        when(config.getSuccess()).thenReturn("ok");
+        when(config.showNpProgressBar()).thenReturn(showProgressBar);
+        when(settingsManager.getSettings(guild)).thenReturn(settings);
+        when(settings.useMinimalNowPlayingMessage(config)).thenReturn(minimalMessage);
+        when(guild.getSelfMember().getColors().getPrimary()).thenReturn(Color.BLUE);
+        when(guild.getName()).thenReturn("Test Guild");
+
+        NowPlayingInfo info = new NowPlayingInfo(null, guild, false, 50, 0, "");
+        return MessageFormatter.buildNoMusicPlayingMessage(bot, info).getEmbeds().get(0);
     }
 
     private static Optional<MessageEmbed.Field> findField(MessageEmbed embed, String fieldName)

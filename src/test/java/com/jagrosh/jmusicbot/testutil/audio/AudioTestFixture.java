@@ -215,7 +215,7 @@ public class AudioTestFixture
         // Config defaults
         when(config.getOwnerId()).thenReturn(OWNER_ID);
         when(config.useNPImages()).thenReturn(false);
-        when(config.updateNpProgressBar()).thenReturn(true);
+        when(config.showNpProgressBar()).thenReturn(true);
         when(config.getSongInStatus()).thenReturn(false);
         when(config.getMaxHistorySize()).thenReturn(10);
         
@@ -426,7 +426,7 @@ public class AudioTestFixture
      */
     public AudioTestFixture withNpProgressBar()
     {
-        when(config.updateNpProgressBar()).thenReturn(true);
+        when(config.showNpProgressBar()).thenReturn(true);
         return this;
     }
 
@@ -435,7 +435,7 @@ public class AudioTestFixture
      */
     public AudioTestFixture withoutNpProgressBar()
     {
-        when(config.updateNpProgressBar()).thenReturn(false);
+        when(config.showNpProgressBar()).thenReturn(false);
         return this;
     }
 
