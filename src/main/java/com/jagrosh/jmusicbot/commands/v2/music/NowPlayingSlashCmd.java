@@ -10,9 +10,14 @@ public class NowPlayingSlashCmd extends MusicSlashCommand
 {
     public NowPlayingSlashCmd(Bot bot)
     {
+        this(bot, "nowplaying", "shows the song that is currently playing");
+    }
+
+    protected NowPlayingSlashCmd(Bot bot, String commandName, String helpText)
+    {
         super(bot);
-        this.name = "nowplaying";
-        this.help = "shows the song that is currently playing";
+        this.name = commandName;
+        this.help = helpText;
         this.aliases = bot.getConfig().getAliases(this.name);
     }
 

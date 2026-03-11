@@ -30,6 +30,7 @@ import com.jagrosh.jmusicbot.commands.v2.dj.StopSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.dj.VolumeSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.HistorySlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.NowPlayingSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.music.NpSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.PlaySlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.PlaylistsSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.music.QueueSlashCmd;
@@ -105,6 +106,7 @@ public class CommandFactory {
             ).addSlashCommands(
                     // Music commands
                     new NowPlayingSlashCmd(bot),
+                    new NpSlashCmd(bot),
                     new PlaySlashCmd(bot),
                     new PlaylistsSlashCmd(bot),
                     new QueueSlashCmd(bot),
