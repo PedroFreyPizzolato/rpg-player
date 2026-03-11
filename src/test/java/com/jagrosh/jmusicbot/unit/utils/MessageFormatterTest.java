@@ -68,12 +68,13 @@ class MessageFormatterTest
     }
 
     @Test
-    @DisplayName("buildNowPlayingMessage() minimal layout hides progress bar when disabled")
-    void buildNowPlayingMessage_minimalLayout_hidesProgressBarWhenDisabled()
+    @DisplayName("buildNowPlayingMessage() minimal layout without progress bar still shows elapsed/total time")
+    void buildNowPlayingMessage_minimalLayout_withoutProgressBar_showsElapsedAndTotalTime()
     {
         MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false);
 
-        assertFalse(embed.getDescription().contains("`["));
+        assertFalse(embed.getDescription().contains("▬"));
+        assertTrue(embed.getDescription().contains("`["));
     }
 
     @Test
@@ -86,24 +87,70 @@ class MessageFormatterTest
     }
 
     @Test
-    @DisplayName("buildNowPlayingMessage() minimal layout moves source into footer")
-    void buildNowPlayingMessage_minimalLayout_movesSourceIntoFooter()
+    @DisplayName("buildNowPlayingMessage() minimal layout footer shows source and plural queued text")
+    void buildNowPlayingMessage_minimalLayout_footerShowsSourceAndQueue()
     {
-        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "Playing next song.");
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "Playing next song.",
+                RepeatMode.OFF, 3, false, 0L);
 
         assertFalse(embed.getDescription().contains("Source: "));
         assertNotNull(embed.getFooter());
-        assertEquals("Source: youtube • Playing next song.", embed.getFooter().getText());
+        assertEquals("Source: youtube • 3 songs queued", embed.getFooter().getText());
     }
 
     @Test
-    @DisplayName("buildNowPlayingMessage() minimal layout shows source-only footer when no reason")
-    void buildNowPlayingMessage_minimalLayout_showsSourceOnlyFooterWhenNoReason()
+    @DisplayName("buildNowPlayingMessage() minimal layout footer uses singular queued text for one")
+    void buildNowPlayingMessage_minimalLayout_footerShowsSingularQueueText()
     {
-        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "");
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "",
+                RepeatMode.OFF, 1, false, 0L);
+
+        assertNotNull(embed.getFooter());
+        assertEquals("Source: youtube • 1 song queued", embed.getFooter().getText());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout footer omits queue text when empty")
+    void buildNowPlayingMessage_minimalLayout_footerOmitsQueueWhenEmpty()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "",
+                RepeatMode.OFF, 0, false, 0L);
 
         assertNotNull(embed.getFooter());
         assertEquals("Source: youtube", embed.getFooter().getText());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout footer omits last reason text")
+    void buildNowPlayingMessage_minimalLayout_footerOmitsLastReasonText()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "Playing next song.",
+                RepeatMode.OFF, 1, false, 0L);
+
+        assertNotNull(embed.getFooter());
+        assertFalse(embed.getFooter().getText().contains("Playing next song."));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout footer includes repeat when ALL")
+    void buildNowPlayingMessage_minimalLayout_footerIncludesRepeatAll()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "",
+                RepeatMode.ALL, 2, false, 0L);
+
+        assertNotNull(embed.getFooter());
+        assertEquals("Source: youtube • 2 songs queued • Repeat: All", embed.getFooter().getText());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout footer includes repeat when SINGLE")
+    void buildNowPlayingMessage_minimalLayout_footerIncludesRepeatSingle()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "",
+                RepeatMode.SINGLE, 2, false, 0L);
+
+        assertNotNull(embed.getFooter());
+        assertEquals("Source: youtube • 2 songs queued • Repeat: Single", embed.getFooter().getText());
     }
 
     @Test
@@ -133,6 +180,20 @@ class MessageFormatterTest
 
     private static MessageEmbed buildNowPlayingEmbed(String title, String author, boolean minimalMessage, boolean showProgressBar, String footerInfo)
     {
+        return buildNowPlayingEmbed(title, author, minimalMessage, showProgressBar, footerInfo, RepeatMode.OFF, 0, false, 0L);
+    }
+
+    private static MessageEmbed buildNowPlayingEmbed(
+            String title,
+            String author,
+            boolean minimalMessage,
+            boolean showProgressBar,
+            String footerInfo,
+            RepeatMode repeatMode,
+            int queueSize,
+            boolean paused,
+            long positionMs)
+    {
         Bot bot = mock(Bot.class);
         BotConfig config = mock(BotConfig.class);
         SettingsManager settingsManager = mock(SettingsManager.class);
@@ -150,17 +211,17 @@ class MessageFormatterTest
         when(settingsManager.getSettings(guild)).thenReturn(settings);
         when(settings.useMinimalNowPlayingMessage(config)).thenReturn(minimalMessage);
         when(settings.showNowPlayingButtons(config)).thenReturn(false);
-        when(settings.getRepeatMode()).thenReturn(RepeatMode.OFF);
+        when(settings.getRepeatMode()).thenReturn(repeatMode);
 
         AudioTrack track = mock(AudioTrack.class, RETURNS_DEEP_STUBS);
         AudioTrackInfo trackInfo = new AudioTrackInfo(title, author, 243000L, "id-1", false, "https://example.com/track");
         when(track.getInfo()).thenReturn(trackInfo);
-        when(track.getPosition()).thenReturn(0L);
+        when(track.getPosition()).thenReturn(positionMs);
         when(track.getDuration()).thenReturn(243000L);
         when(track.getSourceManager().getSourceName()).thenReturn("youtube");
         when(track.getUserData(RequestMetadata.class)).thenReturn(null);
 
-        NowPlayingInfo info = new NowPlayingInfo(track, guild, false, 50, 0, footerInfo);
+        NowPlayingInfo info = new NowPlayingInfo(track, guild, paused, 50, queueSize, footerInfo);
         return MessageFormatter.buildNowPlayingMessage(bot, info).getEmbeds().get(0);
     }
 

@@ -118,32 +118,14 @@ public class MessageFormatter {
             eb.setTitle(title);
         }
 
-        String description;
-        if (bot.getConfig().showNpProgressBar()) {
-            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
-            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            description = statusEmoji + " " + FormatUtil.progressBar(progress)
-                    + " `[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]` "
-                    + FormatUtil.volumeIcon(info.volume);
-        } else {
-            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            description = statusEmoji + " " + FormatUtil.volumeIcon(info.volume);
-        }
-        eb.setDescription(description);
+        RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
+        eb.setDescription(buildMinimalPlaybackDescription(bot, info));
 
-        String sourceName = info.track.getSourceManager() != null
-                ? info.track.getSourceManager().getSourceName()
-                : "Unknown";
-        String footerText = "Source: " + sourceName;
-        if (info.footerInfo != null && !info.footerInfo.isEmpty()) {
-            footerText += " • " + info.footerInfo;
-        }
-        eb.setFooter(footerText);
+        eb.setFooter(buildMinimalFooter(info, repeatMode));
 
         mb.setEmbeds(eb.build());
 
         if (showButtons) {
-            RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
             applyNowPlayingButtons(mb, info, repeatMode);
         }
 
@@ -191,6 +173,32 @@ public class MessageFormatter {
                         .setColor(info.guild.getSelfMember().getColors().getPrimary())
                         .build())
                 .build();
+    }
+
+    private static String buildMinimalPlaybackDescription(Bot bot, NowPlayingInfo info) {
+        String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+        String timeDisplay = "`[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]`";
+        if (bot.getConfig().showNpProgressBar()) {
+            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
+            return statusEmoji + " " + FormatUtil.progressBar(progress) + " " + timeDisplay + " " + FormatUtil.volumeIcon(info.volume);
+        }
+        return statusEmoji + " " + timeDisplay + " " + FormatUtil.volumeIcon(info.volume);
+    }
+
+    private static String buildMinimalFooter(NowPlayingInfo info, RepeatMode repeatMode) {
+        String sourceName = info.track.getSourceManager() != null
+                ? info.track.getSourceManager().getSourceName()
+                : "Unknown";
+        StringBuilder footer = new StringBuilder("Source: ")
+                .append(sourceName);
+        if (info.queueSize > 0) {
+            String queuedLabel = info.queueSize == 1 ? "1 song queued" : info.queueSize + " songs queued";
+            footer.append(" • ").append(queuedLabel);
+        }
+        if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.SINGLE) {
+            footer.append(" • Repeat: ").append(repeatMode.getUserFriendlyName());
+        }
+        return footer.toString();
     }
 
     private static String getNowPlayingLocationName(NowPlayingInfo info) {
