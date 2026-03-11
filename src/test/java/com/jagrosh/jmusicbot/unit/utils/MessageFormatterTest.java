@@ -86,6 +86,27 @@ class MessageFormatterTest
     }
 
     @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout moves source into footer")
+    void buildNowPlayingMessage_minimalLayout_movesSourceIntoFooter()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "Playing next song.");
+
+        assertFalse(embed.getDescription().contains("Source: "));
+        assertNotNull(embed.getFooter());
+        assertEquals("Source: youtube • Playing next song.", embed.getFooter().getText());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() minimal layout shows source-only footer when no reason")
+    void buildNowPlayingMessage_minimalLayout_showsSourceOnlyFooterWhenNoReason()
+    {
+        MessageEmbed embed = buildNowPlayingEmbed("Test Title", "Test Author", true, false, "");
+
+        assertNotNull(embed.getFooter());
+        assertEquals("Source: youtube", embed.getFooter().getText());
+    }
+
+    @Test
     @DisplayName("buildNoMusicPlayingMessage() minimal/full obey show progress bar toggle")
     void buildNoMusicPlayingMessage_obeysShowProgressBarToggle()
     {
@@ -106,6 +127,11 @@ class MessageFormatterTest
     }
 
     private static MessageEmbed buildNowPlayingEmbed(String title, String author, boolean minimalMessage, boolean showProgressBar)
+    {
+        return buildNowPlayingEmbed(title, author, minimalMessage, showProgressBar, "");
+    }
+
+    private static MessageEmbed buildNowPlayingEmbed(String title, String author, boolean minimalMessage, boolean showProgressBar, String footerInfo)
     {
         Bot bot = mock(Bot.class);
         BotConfig config = mock(BotConfig.class);
@@ -134,7 +160,7 @@ class MessageFormatterTest
         when(track.getSourceManager().getSourceName()).thenReturn("youtube");
         when(track.getUserData(RequestMetadata.class)).thenReturn(null);
 
-        NowPlayingInfo info = new NowPlayingInfo(track, guild, false, 50, 0, "");
+        NowPlayingInfo info = new NowPlayingInfo(track, guild, false, 50, 0, footerInfo);
         return MessageFormatter.buildNowPlayingMessage(bot, info).getEmbeds().get(0);
     }
 

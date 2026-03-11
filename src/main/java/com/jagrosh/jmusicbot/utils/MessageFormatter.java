@@ -124,17 +124,21 @@ public class MessageFormatter {
             String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
             description = statusEmoji + " " + FormatUtil.progressBar(progress)
                     + " `[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]` "
-                    + FormatUtil.volumeIcon(info.volume)
-                    + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+                    + FormatUtil.volumeIcon(info.volume);
         } else {
             String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            description = statusEmoji + " " + FormatUtil.volumeIcon(info.volume)
-                    + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+            description = statusEmoji + " " + FormatUtil.volumeIcon(info.volume);
         }
         eb.setDescription(description);
 
-        if (info.footerInfo != null && !info.footerInfo.isEmpty())
-            eb.setFooter(info.footerInfo);
+        String sourceName = info.track.getSourceManager() != null
+                ? info.track.getSourceManager().getSourceName()
+                : "Unknown";
+        String footerText = "Source: " + sourceName;
+        if (info.footerInfo != null && !info.footerInfo.isEmpty()) {
+            footerText += " • " + info.footerInfo;
+        }
+        eb.setFooter(footerText);
 
         mb.setEmbeds(eb.build());
 
