@@ -16,7 +16,7 @@
 package com.jagrosh.jmusicbot.unit.commands.v2.music;
 
 import com.jagrosh.jmusicbot.commands.v2.music.PlaylistsSlashCmd;
-import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
+import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,25 +38,24 @@ class PlaylistsSlashCmdTest
 {
     private SlashCommandTestFixture fixture;
     private PlaylistsSlashCmd command;
-    private PlaylistLoader playlistLoader;
+    private MusicService musicService;
 
     @BeforeEach
     void setUp()
     {
         fixture = SlashCommandTestFixture.create();
         command = new PlaylistsSlashCmd(fixture.getBot());
-        playlistLoader = mock(PlaylistLoader.class);
-        when(fixture.getBot().getPlaylistLoader()).thenReturn(playlistLoader);
+        musicService = fixture.getMusicService();
     }
 
     @Test
-    void doCommand_folderMissingAndCreateFails_repliesEphemeralWarning()
+    void doCommand_storageUnavailable_repliesEphemeralWarning()
     {
-        when(playlistLoader.folderExists()).thenReturn(false);
+        when(musicService.getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.error("Playlists storage is unavailable."));
 
         command.doCommand(fixture.getEvent());
 
-        verify(playlistLoader).createFolder();
         verify(fixture.getEvent()).reply(any(String.class));
         verify(fixture.getReplyAction()).setEphemeral(true);
     }
@@ -65,8 +63,8 @@ class PlaylistsSlashCmdTest
     @Test
     void doCommand_emptyPlaylists_repliesEphemeralWarning()
     {
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of());
+        when(musicService.getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of()));
 
         command.doCommand(fixture.getEvent());
 
@@ -77,8 +75,8 @@ class PlaylistsSlashCmdTest
     @Test
     void doCommand_hasPlaylists_repliesEmbedAndComponents()
     {
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of("favorite", "night_drive"));
+        when(musicService.getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite", "night_drive")));
 
         command.doCommand(fixture.getEvent());
 

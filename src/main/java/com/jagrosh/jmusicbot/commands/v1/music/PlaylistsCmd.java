@@ -44,20 +44,14 @@ public class PlaylistsCmd extends MusicCommand
     @Override
     public void doCommand(CommandEvent event) 
     {
-        if(!bot.getPlaylistLoader().folderExists())
-            bot.getPlaylistLoader().createFolder();
-        if(!bot.getPlaylistLoader().folderExists())
-        {
-            event.reply(event.getClient().getWarning()+" Playlists folder does not exist and could not be created!");
-            return;
-        }
-        List<String> list = bot.getPlaylistLoader().getPlaylistNames();
-        if(list==null)
-            event.reply(event.getClient().getError()+" Failed to load available playlists!");
-        else if(list.isEmpty())
+        var playlistNamesInfo = bot.getMusicService().getAvailablePlaylistNames();
+        if(playlistNamesInfo.hasError())
+            event.reply(event.getClient().getError()+" " + playlistNamesInfo.errorMessage);
+        else if(playlistNamesInfo.names.isEmpty())
             event.reply(event.getClient().getWarning()+" There are no playlists in the Playlists folder!");
         else
         {
+            List<String> list = playlistNamesInfo.names;
             int page = 1;
             int totalPages = PlaylistsSlashCmd.getTotalPages(list.size());
             int playlistsOnPage = PlaylistsSlashCmd.getPlaylistsOnPage(page, list.size());

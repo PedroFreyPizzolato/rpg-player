@@ -72,8 +72,14 @@ public class PlaylistsInteractionListener extends ListenerAdapter
             return;
         }
 
-        List<String> playlists = loadPlaylistNames();
-        if (playlists == null || playlists.isEmpty())
+        MusicService.PlaylistNamesInfo playlistNamesInfo = loadPlaylistNames();
+        if (playlistNamesInfo.hasError())
+        {
+            event.reply(playlistNamesInfo.errorMessage).setEphemeral(true).queue();
+            return;
+        }
+        List<String> playlists = playlistNamesInfo.names;
+        if (playlists.isEmpty())
         {
             event.editMessage("There are no playlists in the Playlists folder!").setEmbeds().setComponents().queue();
             return;
@@ -190,17 +196,9 @@ public class PlaylistsInteractionListener extends ListenerAdapter
         }
     }
 
-    private List<String> loadPlaylistNames()
+    private MusicService.PlaylistNamesInfo loadPlaylistNames()
     {
-        if (!bot.getPlaylistLoader().folderExists())
-        {
-            bot.getPlaylistLoader().createFolder();
-        }
-        if (!bot.getPlaylistLoader().folderExists())
-        {
-            return null;
-        }
-        return bot.getPlaylistLoader().getPlaylistNames();
+        return bot.getMusicService().getAvailablePlaylistNames();
     }
 
     private void updatePlaylistsEmbed(ButtonInteractionEvent event, List<String> playlists,

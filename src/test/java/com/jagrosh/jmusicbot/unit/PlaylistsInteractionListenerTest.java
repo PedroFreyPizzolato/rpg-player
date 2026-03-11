@@ -16,7 +16,6 @@
 package com.jagrosh.jmusicbot.unit;
 
 import com.jagrosh.jmusicbot.listener.PlaylistsInteractionListener;
-import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.listener.ListenerTestFixture;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -38,15 +37,12 @@ class PlaylistsInteractionListenerTest
 {
     private ListenerTestFixture fixture;
     private PlaylistsInteractionListener listener;
-    private PlaylistLoader playlistLoader;
 
     @BeforeEach
     void setUp()
     {
         fixture = ListenerTestFixture.create();
         listener = new PlaylistsInteractionListener(fixture.getBot());
-        playlistLoader = mock(PlaylistLoader.class);
-        when(fixture.getBot().getPlaylistLoader()).thenReturn(playlistLoader);
         when(fixture.getButtonInteractionEvent().getUser()).thenReturn(fixture.getUser());
     }
 
@@ -83,8 +79,8 @@ class PlaylistsInteractionListenerTest
         fixture.withButtonId("playlists_queue_1_1_" + fixture.getUser().getIdLong())
                 .withMemberInVoiceChannel();
 
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of("favorite"));
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
 
         MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
         when(channelUnion.asTextChannel()).thenReturn(fixture.getTextChannel());
@@ -111,10 +107,9 @@ class PlaylistsInteractionListenerTest
     void onButtonInteraction_selectOutsidePage_repliesError()
     {
         fixture.withButtonId("playlists_select11_1_0_" + fixture.getUser().getIdLong());
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of(
+        when(fixture.getMusicService().getAvailablePlaylistNames()).thenReturn(MusicService.PlaylistNamesInfo.success(List.of(
                 "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"
-        ));
+        )));
 
         listener.onButtonInteraction(fixture.getButtonInteractionEvent());
 

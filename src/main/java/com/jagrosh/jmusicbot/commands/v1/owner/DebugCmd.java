@@ -19,7 +19,6 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -171,15 +170,37 @@ public class DebugCmd extends OwnerCommand
     {
         PlaylistLoader loader = bot.getPlaylistLoader();
         appendSectionHeader(sb, "PLAYLISTS");
-        
-        boolean folderExists = loader.folderExists();
+
+        PlaylistLoader.PlaylistResult<java.nio.file.Path> storage = loader.checkStorageReady();
+        boolean folderExists = storage.isSuccess();
         sb.append("  Folder: ").append(bot.getConfig().getPlaylistsFolder()).append("\n");
         sb.append("  Folder Exists: ").append(folderExists).append("\n");
-        
+
+        if (!storage.isSuccess())
+        {
+            PlaylistLoader.PlaylistError error = storage.getError();
+            sb.append("  Storage Status: ").append(error.getType()).append("\n");
+            sb.append("  Storage Error: ").append(error.getMessage()).append("\n");
+        }
+
+        loader.getLastStorageError().ifPresent(error ->
+        {
+            sb.append("  Last Failure Type: ").append(error.getType()).append("\n");
+            sb.append("  Last Failure: ").append(error.getMessage()).append("\n");
+        });
+
         if (folderExists)
         {
-            List<String> playlists = loader.getPlaylistNames();
-            sb.append("  Playlists: ").append(playlists.size()).append("\n");
+            var playlistsResult = loader.getPlaylistNamesResult();
+            if (playlistsResult.isSuccess())
+            {
+                sb.append("  Playlists: ").append(playlistsResult.getValue().size()).append("\n");
+            }
+            else
+            {
+                sb.append("  Playlists: unavailable\n");
+                sb.append("  List Error: ").append(playlistsResult.getError().getMessage()).append("\n");
+            }
         }
     }
     

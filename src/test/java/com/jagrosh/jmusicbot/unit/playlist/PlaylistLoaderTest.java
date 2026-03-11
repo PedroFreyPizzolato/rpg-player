@@ -109,4 +109,49 @@ class PlaylistLoaderTest
         assertEquals(1, callbackCount.get());
         verify(manager, never()).loadItemOrdered(anyString(), anyString(), any(AudioLoadResultHandler.class));
     }
+
+    @Test
+    @DisplayName("ensureStorageReady() creates nested directories")
+    void ensureStorageReady_createsNestedDirectories()
+    {
+        BotConfig nestedConfig = mock(BotConfig.class);
+        when(nestedConfig.getPlaylistsFolder()).thenReturn(tempDir.resolve("a").resolve("b").toString());
+        PlaylistLoader nestedLoader = new PlaylistLoader(nestedConfig);
+
+        PlaylistLoader.PlaylistResult<Path> result = nestedLoader.ensureStorageReady();
+
+        assertTrue(result.isSuccess());
+        assertTrue(Files.isDirectory(result.getValue()));
+    }
+
+    @Test
+    @DisplayName("ensureStorageReady() fails for blank path")
+    void ensureStorageReady_failsForBlankPath()
+    {
+        BotConfig invalidConfig = mock(BotConfig.class);
+        when(invalidConfig.getPlaylistsFolder()).thenReturn("   ");
+        PlaylistLoader invalidLoader = new PlaylistLoader(invalidConfig);
+
+        PlaylistLoader.PlaylistResult<Path> result = invalidLoader.ensureStorageReady();
+
+        assertFalse(result.isSuccess());
+        assertEquals(PlaylistLoader.PlaylistErrorType.INVALID_CONFIG, result.getError().getType());
+    }
+
+    @Test
+    @DisplayName("ensureStorageReady() fails when parent path is file")
+    void ensureStorageReady_failsWhenStorageInaccessible() throws IOException
+    {
+        Path parentFile = tempDir.resolve("not-a-directory");
+        Files.writeString(parentFile, "x");
+
+        BotConfig inaccessibleConfig = mock(BotConfig.class);
+        when(inaccessibleConfig.getPlaylistsFolder()).thenReturn(parentFile.resolve("child").toString());
+        PlaylistLoader inaccessibleLoader = new PlaylistLoader(inaccessibleConfig);
+
+        PlaylistLoader.PlaylistResult<Path> result = inaccessibleLoader.ensureStorageReady();
+
+        assertFalse(result.isSuccess());
+        assertEquals(PlaylistLoader.PlaylistErrorType.STORAGE_UNAVAILABLE, result.getError().getType());
+    }
 }

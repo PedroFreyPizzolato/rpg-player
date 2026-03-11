@@ -20,6 +20,7 @@ import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.QueuedTrack;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.commands.v1.DJCommand;
+import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist;
 import com.jagrosh.jmusicbot.queue.AbstractQueue;
 import com.jagrosh.jmusicbot.queue.PlaybackHistory;
@@ -1374,6 +1375,33 @@ public class MusicService
         output.replySuccess("Now playing **" + FormatUtil.filter(title) + "**");
     }
 
+    private String mapPlaylistErrorToMessage(PlaylistLoader.PlaylistError error)
+    {
+        if (error == null)
+        {
+            return "Playlist storage is unavailable.";
+        }
+        String path = error.getConfiguredPath() == null ? "(not configured)" : error.getConfiguredPath();
+        return switch (error.getType())
+        {
+            case INVALID_CONFIG ->
+                    "Playlists storage is misconfigured (`" + path + "`). " + error.getMessage();
+            case STORAGE_UNAVAILABLE ->
+                    "Playlists storage is unavailable (`" + path + "`). " + error.getMessage();
+            case PLAYLIST_NOT_FOUND -> error.getMessage();
+        };
+    }
+
+    public PlaylistNamesInfo getAvailablePlaylistNames()
+    {
+        PlaylistLoader.PlaylistResult<List<String>> result = bot.getPlaylistLoader().getPlaylistNamesResult();
+        if (!result.isSuccess())
+        {
+            return PlaylistNamesInfo.error(mapPlaylistErrorToMessage(result.getError()));
+        }
+        return PlaylistNamesInfo.success(result.getValue());
+    }
+
     /**
      * Queues all tracks from a named saved playlist.
      *
@@ -1385,12 +1413,13 @@ public class MusicService
      */
     public void queuePlaylist(Guild guild, Member member, String playlistName, TextChannel channel, OutputAdapter output)
     {
-        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
-        if (playlist == null)
+        PlaylistLoader.PlaylistResult<Playlist> playlistResult = bot.getPlaylistLoader().getPlaylistResult(playlistName);
+        if (!playlistResult.isSuccess())
         {
-            output.replyError("I could not find `" + playlistName + ".txt` in the Playlists folder.");
+            output.replyError(mapPlaylistErrorToMessage(playlistResult.getError()));
             return;
         }
+        Playlist playlist = playlistResult.getValue();
 
         AudioHandler handler = getHandler(guild);
         if (handler == null)
@@ -1446,10 +1475,10 @@ public class MusicService
      */
     public void playPlaylistNow(Guild guild, Member member, String playlistName, TextChannel channel, OutputAdapter output)
     {
-        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
-        if (playlist == null)
+        PlaylistLoader.PlaylistResult<Playlist> playlistResult = bot.getPlaylistLoader().getPlaylistResult(playlistName);
+        if (!playlistResult.isSuccess())
         {
-            output.replyError("I could not find `" + playlistName + ".txt` in the Playlists folder.");
+            output.replyError(mapPlaylistErrorToMessage(playlistResult.getError()));
             return;
         }
 
@@ -1520,11 +1549,12 @@ public class MusicService
      */
     public PlaylistDetailsInfo getPlaylistDetails(String playlistName)
     {
-        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
-        if (playlist == null)
+        PlaylistLoader.PlaylistResult<Playlist> playlistResult = bot.getPlaylistLoader().getPlaylistResult(playlistName);
+        if (!playlistResult.isSuccess())
         {
             return null;
         }
+        Playlist playlist = playlistResult.getValue();
 
         List<String> items = playlist.getItems();
         int previewLimit = Math.min(5, items.size());
@@ -1547,12 +1577,13 @@ public class MusicService
     public void loadPlaylistPreviewWithTracks(String playlistName, int maxPreview,
                                              Consumer<PlaylistPreviewWithTracks> callback)
     {
-        Playlist playlist = bot.getPlaylistLoader().getPlaylist(playlistName);
-        if (playlist == null)
+        PlaylistLoader.PlaylistResult<Playlist> playlistResult = bot.getPlaylistLoader().getPlaylistResult(playlistName);
+        if (!playlistResult.isSuccess())
         {
             callback.accept(null);
             return;
         }
+        Playlist playlist = playlistResult.getValue();
         List<String> items = playlist.getItems();
         if (items.isEmpty())
         {
@@ -1677,24 +1708,27 @@ public class MusicService
             return;
         }
 
-        if (bot.getPlaylistLoader().getPlaylist(sanitized) != null)
+        if (bot.getPlaylistLoader().getPlaylistResult(sanitized).isSuccess())
         {
             output.replyError("Playlist `" + sanitized + "` already exists! Choose a different name.");
             return;
         }
 
-        try
+        PlaylistLoader.PlaylistResult<Void> createResult = bot.getPlaylistLoader().createPlaylistResult(sanitized);
+        if (!createResult.isSuccess())
         {
-            bot.getPlaylistLoader().createPlaylist(sanitized);
-            String content = String.join("\r\n", uris);
-            bot.getPlaylistLoader().writePlaylist(sanitized, content);
-            output.replySuccess("Saved " + uris.size() + " tracks from history to playlist `" + sanitized + "`!");
+            output.replyError(mapPlaylistErrorToMessage(createResult.getError()));
+            return;
         }
-        catch (java.io.IOException e)
+
+        String content = String.join("\r\n", uris);
+        PlaylistLoader.PlaylistResult<Void> writeResult = bot.getPlaylistLoader().writePlaylistResult(sanitized, content);
+        if (!writeResult.isSuccess())
         {
-            LOG.warn("Failed to save history as playlist: {}", e.getMessage());
-            output.replyError("Failed to save playlist: " + e.getLocalizedMessage());
+            output.replyError(mapPlaylistErrorToMessage(writeResult.getError()));
+            return;
         }
+        output.replySuccess("Saved " + uris.size() + " tracks from history to playlist `" + sanitized + "`!");
     }
 
     private boolean canSaveHistoryAsPlaylist(Guild guild, Member member)
@@ -1854,6 +1888,36 @@ public class MusicService
         public boolean isDisabled()
         {
             return disabled;
+        }
+    }
+
+    /**
+     * Result for listing playlists where storage errors are explicit.
+     */
+    public static class PlaylistNamesInfo
+    {
+        public final List<String> names;
+        public final String errorMessage;
+
+        private PlaylistNamesInfo(List<String> names, String errorMessage)
+        {
+            this.names = names;
+            this.errorMessage = errorMessage;
+        }
+
+        public static PlaylistNamesInfo success(List<String> names)
+        {
+            return new PlaylistNamesInfo(names, null);
+        }
+
+        public static PlaylistNamesInfo error(String errorMessage)
+        {
+            return new PlaylistNamesInfo(List.of(), errorMessage);
+        }
+
+        public boolean hasError()
+        {
+            return errorMessage != null;
         }
     }
 

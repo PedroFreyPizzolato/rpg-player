@@ -53,29 +53,20 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
     @Override
     public void doCommand(SlashCommandEvent event)
     {
-        if (!bot.getPlaylistLoader().folderExists())
-            bot.getPlaylistLoader().createFolder();
-
-        if (!bot.getPlaylistLoader().folderExists())
+        MusicService.PlaylistNamesInfo playlistNamesInfo = bot.getMusicService().getAvailablePlaylistNames();
+        if (playlistNamesInfo.hasError())
         {
-            event.reply(event.getClient().getWarning() + " Playlists folder does not exist and could not be created!")
-                    .setEphemeral(true).queue();
-            return;
-        }
-
-        List<String> list = bot.getPlaylistLoader().getPlaylistNames();
-        if (list == null)
-        {
-            event.reply(event.getClient().getError() + " Failed to load available playlists!")
+            event.reply(event.getClient().getError() + " " + playlistNamesInfo.errorMessage)
                     .setEphemeral(true).queue();
         }
-        else if (list.isEmpty())
+        else if (playlistNamesInfo.names.isEmpty())
         {
             event.reply(event.getClient().getWarning() + " There are no playlists in the Playlists folder!")
                     .setEphemeral(true).queue();
         }
         else
         {
+            List<String> list = playlistNamesInfo.names;
             int totalPages = getTotalPages(list.size());
             int page = 1;
             long userId = event.getUser().getIdLong();

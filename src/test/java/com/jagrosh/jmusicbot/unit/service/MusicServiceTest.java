@@ -1190,11 +1190,29 @@ public class MusicServiceTest
     class PlaylistOperationTests
     {
         @Test
+        @DisplayName("getAvailablePlaylistNames() returns explicit storage error")
+        void getAvailablePlaylistNames_returnsStorageError()
+        {
+            com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistError error =
+                    com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistError.of(
+                            com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistErrorType.STORAGE_UNAVAILABLE,
+                            "Access denied", "Playlists", null);
+            when(fixture.getPlaylistLoader().getPlaylistNamesResult())
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.failure(error));
+
+            MusicService.PlaylistNamesInfo info = musicService.getAvailablePlaylistNames();
+
+            assertTrue(info.hasError());
+            assertTrue(info.errorMessage.contains("unavailable"));
+        }
+
+        @Test
         @DisplayName("queuePlaylist() refreshes now playing when tracks were loaded and player is active")
         void queuePlaylist_refreshesNowPlaying_whenTracksLoadedAndPlayerActive()
         {
             com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
-            when(fixture.getPlaylistLoader().getPlaylist("favorite")).thenReturn(playlist);
+            when(fixture.getPlaylistLoader().getPlaylistResult("favorite"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(playlist));
             when(playlist.getName()).thenReturn("favorite");
             when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class), mock(AudioTrack.class)));
             when(playlist.getErrors()).thenReturn(List.of());
@@ -1219,7 +1237,8 @@ public class MusicServiceTest
         void queuePlaylist_skipsRefresh_whenTracksLoadedButPlayerInactive()
         {
             com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
-            when(fixture.getPlaylistLoader().getPlaylist("favorite")).thenReturn(playlist);
+            when(fixture.getPlaylistLoader().getPlaylistResult("favorite"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(playlist));
             when(playlist.getName()).thenReturn("favorite");
             when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class), mock(AudioTrack.class)));
             when(playlist.getErrors()).thenReturn(List.of());
@@ -1244,7 +1263,8 @@ public class MusicServiceTest
         void queuePlaylist_doesNotRefreshNowPlaying_whenNoTracksLoaded()
         {
             com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
-            when(fixture.getPlaylistLoader().getPlaylist("empty")).thenReturn(playlist);
+            when(fixture.getPlaylistLoader().getPlaylistResult("empty"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(playlist));
             when(playlist.getName()).thenReturn("empty");
             when(playlist.getTracks()).thenReturn(List.of());
             when(playlist.getErrors()).thenReturn(List.of(mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistLoadError.class)));
@@ -1268,7 +1288,8 @@ public class MusicServiceTest
         void playPlaylistNow_refreshesNowPlaying_afterQueueReplacement()
         {
             com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist playlist = mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class);
-            when(fixture.getPlaylistLoader().getPlaylist("mix")).thenReturn(playlist);
+            when(fixture.getPlaylistLoader().getPlaylistResult("mix"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(playlist));
             when(playlist.getName()).thenReturn("mix");
             when(playlist.getTracks()).thenReturn(List.of(mock(AudioTrack.class)));
             when(playlist.getErrors()).thenReturn(List.of());
@@ -1288,6 +1309,7 @@ public class MusicServiceTest
             verify(fixture.getNowPlayingHandler()).requestReconcile(eq(fixture.getGuild().getIdLong()), anyString());
             output.assertSuccessMessageContains("Now playing playlist `mix` (queue replaced)");
         }
+
     }
 
     // ==================== History Operation Tests ====================
@@ -1592,8 +1614,9 @@ public class MusicServiceTest
             when(track.getInfo()).thenReturn(info);
             when(qt.getTrack()).thenReturn(track);
             when(fixture.getAudioHandler().getPreviousTracks()).thenReturn(List.of(qt));
-            when(fixture.getBot().getPlaylistLoader().getPlaylist("existing"))
-                    .thenReturn(mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class));
+            when(fixture.getBot().getPlaylistLoader().getPlaylistResult("existing"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(
+                            mock(com.jagrosh.jmusicbot.playlist.PlaylistLoader.Playlist.class)));
 
             musicService.saveHistoryAsPlaylist(fixture.getGuild(), fixture.getMember(), "existing", output);
 

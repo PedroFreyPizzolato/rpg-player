@@ -19,7 +19,7 @@ import com.jagrosh.jdautilities.command.CommandClient;
 import com.jagrosh.jdautilities.command.CommandEvent;
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.commands.v1.music.PlaylistsCmd;
-import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
+import com.jagrosh.jmusicbot.service.MusicService;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -37,20 +37,20 @@ class PlaylistsCmdTest
 {
     private Bot bot;
     private PlaylistsCmd command;
-    private PlaylistLoader playlistLoader;
+    private MusicService musicService;
     private CommandEvent event;
 
     @BeforeEach
     void setUp()
     {
         bot = mock(Bot.class);
-        playlistLoader = mock(PlaylistLoader.class);
+        musicService = mock(MusicService.class);
         event = mock(CommandEvent.class);
         CommandClient client = mock(CommandClient.class);
         Member member = mock(Member.class);
         User user = mock(User.class);
 
-        when(bot.getPlaylistLoader()).thenReturn(playlistLoader);
+        when(bot.getMusicService()).thenReturn(musicService);
         when(bot.getConfig()).thenReturn(mock(com.jagrosh.jmusicbot.BotConfig.class));
         when(bot.getConfig().getAliases(any())).thenReturn(new String[0]);
 
@@ -68,8 +68,7 @@ class PlaylistsCmdTest
     @Test
     void doCommand_emptyPlaylists_repliesWarningText()
     {
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of());
+        when(musicService.getAvailablePlaylistNames()).thenReturn(MusicService.PlaylistNamesInfo.success(List.of()));
 
         command.doCommand(event);
 
@@ -79,8 +78,8 @@ class PlaylistsCmdTest
     @Test
     void doCommand_hasPlaylists_repliesInteractiveMessage()
     {
-        when(playlistLoader.folderExists()).thenReturn(true);
-        when(playlistLoader.getPlaylistNames()).thenReturn(List.of("favorite", "workout"));
+        when(musicService.getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite", "workout")));
 
         command.doCommand(event);
 
