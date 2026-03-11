@@ -21,7 +21,8 @@ import java.util.Optional;
  * Parsing and validation for component IDs used by queue and history interactions.
  * Format contracts: queue_{action}_{page}_{selectedTrack}_{userId}, history_{action}_{page}_{selectedTrack}_{userId},
  * playlists_{action}_{page}_{selectedIndex}_{userId}, queue_move_select_{fromPosition}_{page}_{userId},
- * history_save_{userId}.
+ * history_save_{userId}, settings_{action}_{key}_{value?}_{userId}, settings_modal_{key}_{userId},
+ * settings_entity_{key}_{userId}.
  */
 public final class ComponentIdParsers {
 
@@ -30,6 +31,9 @@ public final class ComponentIdParsers {
     private static final String PLAYLISTS_PREFIX = "playlists_";
     private static final String QUEUE_MOVE_SELECT_PREFIX = "queue_move_select_";
     private static final String HISTORY_SAVE_PREFIX = "history_save_";
+    private static final String SETTINGS_PREFIX = "settings_";
+    private static final String SETTINGS_MODAL_PREFIX = "settings_modal_";
+    private static final String SETTINGS_ENTITY_PREFIX = "settings_entity_";
 
     private ComponentIdParsers() {
     }
@@ -44,6 +48,24 @@ public final class ComponentIdParsers {
      * Parsed queue move select ID: fromPosition, page, userId.
      */
     public record QueueMoveSelectId(int fromPosition, int page, long userId) {
+    }
+
+    /**
+     * Parsed settings button ID: action, key, value (optional), userId.
+     */
+    public record SettingsButtonId(String action, String key, String value, long userId) {
+    }
+
+    /**
+     * Parsed settings modal ID: key, userId.
+     */
+    public record SettingsModalId(String key, long userId) {
+    }
+
+    /**
+     * Parsed settings entity-select ID: key, userId.
+     */
+    public record SettingsEntitySelectId(String key, Long originalPanelMessageId, long userId) {
     }
 
     /**
@@ -145,5 +167,95 @@ public final class ComponentIdParsers {
         } catch (NumberFormatException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Parses settings button IDs.
+     * Supported formats:
+     * - settings_enum_key_value_userId
+     * - settings_open_key_userId
+     * - settings_clear_key_userId
+     * - settings_refresh_key_userId
+     */
+    public static Optional<SettingsButtonId> parseSettingsButtonId(String componentId) {
+        if (!componentId.startsWith(SETTINGS_PREFIX) || componentId.startsWith(SETTINGS_MODAL_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length == 5) {
+            try {
+                String action = parts[1];
+                String key = parts[2];
+                String value = parts[3];
+                long userId = Long.parseLong(parts[4]);
+                return Optional.of(new SettingsButtonId(action, key, value, userId));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        if (parts.length == 4) {
+            try {
+                String action = parts[1];
+                String key = parts[2];
+                long userId = Long.parseLong(parts[3]);
+                return Optional.of(new SettingsButtonId(action, key, null, userId));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Parses settings modal IDs.
+     * Expected format: settings_modal_key_userId.
+     */
+    public static Optional<SettingsModalId> parseSettingsModalId(String modalId) {
+        if (!modalId.startsWith(SETTINGS_MODAL_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = modalId.split("_");
+        if (parts.length != 4) {
+            return Optional.empty();
+        }
+        try {
+            String key = parts[2];
+            long userId = Long.parseLong(parts[3]);
+            return Optional.of(new SettingsModalId(key, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses settings entity-select IDs.
+     * Expected format: settings_entity_key_userId.
+     * New format: settings_entity_key_originalPanelMessageId_userId.
+     */
+    public static Optional<SettingsEntitySelectId> parseSettingsEntitySelectId(String componentId) {
+        if (!componentId.startsWith(SETTINGS_ENTITY_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length == 4) {
+            try {
+                String key = parts[2];
+                long userId = Long.parseLong(parts[3]);
+                return Optional.of(new SettingsEntitySelectId(key, null, userId));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        if (parts.length == 5) {
+            try {
+                String key = parts[2];
+                long originalPanelMessageId = Long.parseLong(parts[3]);
+                long userId = Long.parseLong(parts[4]);
+                return Optional.of(new SettingsEntitySelectId(key, originalPanelMessageId, userId));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
     }
 }

@@ -20,6 +20,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.exceptions.PermissionException;
 
@@ -50,6 +51,13 @@ public final class InteractionGuards {
      * Ensures the interaction is from a guild with a non-null member. If not, replies with an error and returns false.
      */
     public static boolean requireGuildAndMember(ModalInteractionEvent event) {
+        return requireGuildAndMemberImpl(event.getGuild(), event.getMember(), () -> event.reply("This can only be used in a server!").setEphemeral(true).queue());
+    }
+
+    /**
+     * Ensures the interaction is from a guild with a non-null member. If not, replies with an error and returns false.
+     */
+    public static boolean requireGuildAndMember(EntitySelectInteractionEvent event) {
         return requireGuildAndMemberImpl(event.getGuild(), event.getMember(), () -> event.reply("This can only be used in a server!").setEphemeral(true).queue());
     }
 

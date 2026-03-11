@@ -18,6 +18,7 @@ import com.jagrosh.jmusicbot.commands.v2.admin.NpLayoutSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.PrefixSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.QueuetypeSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.SetdjSlashCmd;
+import com.jagrosh.jmusicbot.commands.v2.admin.SettingsSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.SettcSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.SetvcSlashCmd;
 import com.jagrosh.jmusicbot.commands.v2.admin.SkipratioSlashCmd;
@@ -141,6 +142,7 @@ public class CommandFactory {
                     new SettcSlashCmd(bot),
                     new SetvcSlashCmd(bot),
                     new SkipratioSlashCmd(bot),
+                    new SettingsSlashCmd(bot),
                     // Owner commands
                     new ClearchannelSlashCmd(bot)
             ).setManualUpsert(true);
