@@ -51,6 +51,8 @@ public enum ConfigOption {
     STAY_IN_CHANNEL("voice.stayInChannel", ConfigType.BOOLEAN, false, "Whether to stay in voice channel after queue ends"),
     SONG_IN_GAME("presence.songInStatus", ConfigType.BOOLEAN, false, "Whether to show current song in bot status"),
     NP_IMAGES("nowPlaying.images", ConfigType.BOOLEAN, false, "Whether to show YouTube thumbnails in nowplaying"),
+    NP_MINIMAL_MESSAGE("nowPlaying.minimalMessage", ConfigType.BOOLEAN, false, "Whether to render now-playing messages in a compact/minimal layout"),
+    NP_SHOW_BUTTONS("nowPlaying.showButtons", ConfigType.BOOLEAN, false, "Whether to include interactive playback buttons in now-playing messages"),
     NP_UPDATE_PROGRESS_BAR("nowPlaying.updateProgressBar", ConfigType.BOOLEAN, false, "Whether to show and periodically update the now-playing progress bar (update thread runs every 10s only when images are disabled)"),
     UPDATE_ALERTS("updates.alerts", ConfigType.BOOLEAN, false, "Whether to alert owner about updates"),
     USE_EVAL("dangerous.eval", ConfigType.BOOLEAN, false, "Whether to enable eval command (DANGEROUS)"),

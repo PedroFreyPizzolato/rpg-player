@@ -4,6 +4,7 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingInfo;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
+import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioTrack;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -20,6 +21,16 @@ public class MessageFormatter {
         if (info.track == null)
             return buildNoMusicPlayingMessage(bot, info);
 
+        Settings settings = bot.getSettingsManager().getSettings(info.guild);
+        boolean minimalMessage = settings.useMinimalNowPlayingMessage(bot.getConfig());
+        boolean showButtons = settings.showNowPlayingButtons(bot.getConfig());
+
+        return minimalMessage
+                ? buildMinimalNowPlayingMessage(bot, info, showButtons)
+                : buildFullNowPlayingMessage(bot, info, showButtons);
+    }
+
+    private static MessageCreateData buildFullNowPlayingMessage(Bot bot, NowPlayingInfo info, boolean showButtons) {
         MessageCreateBuilder mb = new MessageCreateBuilder();
 
         EmbedBuilder eb = new EmbedBuilder();
@@ -86,7 +97,96 @@ public class MessageFormatter {
 
         mb.setEmbeds(eb.build());
 
-        // Add interactive buttons using ActionRow.of for better compatibility
+        if (showButtons) {
+            applyNowPlayingButtons(mb, info, repeatMode);
+        }
+
+        return mb.build();
+    }
+
+    private static MessageCreateData buildMinimalNowPlayingMessage(Bot bot, NowPlayingInfo info, boolean showButtons) {
+        MessageCreateBuilder mb = new MessageCreateBuilder();
+        mb.setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info)));
+
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setColor(info.guild.getSelfMember().getColors().getPrimary());
+
+        String title = FormatUtil.getTrackTitle(info.track);
+        try {
+            eb.setTitle(title, info.track.getInfo().uri);
+        } catch (Exception e) {
+            eb.setTitle(title);
+        }
+
+        double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
+        String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+        String description = statusEmoji + " " + FormatUtil.progressBar(progress)
+                + " `[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]` "
+                + FormatUtil.volumeIcon(info.volume)
+                + "\n\nSource: " + info.track.getSourceManager().getSourceName();
+        eb.setDescription(description);
+
+        if (info.footerInfo != null && !info.footerInfo.isEmpty())
+            eb.setFooter(info.footerInfo);
+
+        mb.setEmbeds(eb.build());
+
+        if (showButtons) {
+            RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
+            applyNowPlayingButtons(mb, info, repeatMode);
+        }
+
+        return mb.build();
+    }
+
+    public static MessageCreateData buildNoMusicPlayingMessage(Bot bot, NowPlayingInfo info) {
+        Settings settings = bot.getSettingsManager().getSettings(info.guild);
+        boolean minimalMessage = settings.useMinimalNowPlayingMessage(bot.getConfig());
+
+        if (minimalMessage) {
+            return buildNoMusicPlayingMessageMinimal(bot, info);
+        }
+
+        String descriptionText;
+        if (bot.getConfig().updateNpProgressBar()) {
+            // Show progress bar in "no music" state (all segments empty)
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume);
+        } else {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
+        }
+        
+        return new MessageCreateBuilder()
+                .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**"))
+                .setEmbeds(new EmbedBuilder()
+                        .setTitle("No music playing")
+                        .setDescription(descriptionText)
+                        .setColor(info.guild.getSelfMember().getColors().getPrimary())
+                        .build()).build();
+    }
+
+    private static MessageCreateData buildNoMusicPlayingMessageMinimal(Bot bot, NowPlayingInfo info) {
+        String descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1)
+                + " " + FormatUtil.volumeIcon(info.volume);
+        return new MessageCreateBuilder()
+                .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info)))
+                .setEmbeds(new EmbedBuilder()
+                        .setTitle("No music playing")
+                        .setDescription(descriptionText)
+                        .setColor(info.guild.getSelfMember().getColors().getPrimary())
+                        .build())
+                .build();
+    }
+
+    private static String getNowPlayingLocationName(NowPlayingInfo info) {
+        if (info.guild.getSelfMember() != null
+                && info.guild.getSelfMember().getVoiceState() != null
+                && info.guild.getSelfMember().getVoiceState().getChannel() != null) {
+            return info.guild.getSelfMember().getVoiceState().getChannel().getName();
+        }
+        return info.guild.getName();
+    }
+
+    private static void applyNowPlayingButtons(MessageCreateBuilder mb, NowPlayingInfo info, RepeatMode repeatMode) {
         Button repeatButton = switch (repeatMode) {
             case ALL -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
             case SINGLE -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
@@ -109,25 +209,5 @@ public class MessageFormatter {
                         Button.secondary("volup", Emoji.fromUnicode("\uD83D\uDD0A")) // Vol Up 🔊
                 )
         );
-
-        return mb.build();
-    }
-
-    public static MessageCreateData buildNoMusicPlayingMessage(Bot bot, NowPlayingInfo info) {
-        String descriptionText;
-        if (bot.getConfig().updateNpProgressBar()) {
-            // Show progress bar in "no music" state (all segments empty)
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume);
-        } else {
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
-        }
-        
-        return new MessageCreateBuilder()
-                .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**"))
-                .setEmbeds(new EmbedBuilder()
-                        .setTitle("No music playing")
-                        .setDescription(descriptionText)
-                        .setColor(info.guild.getSelfMember().getColors().getPrimary())
-                        .build()).build();
     }
 }

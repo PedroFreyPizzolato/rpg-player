@@ -2,6 +2,8 @@ package com.jagrosh.jmusicbot.unit.settings;
 
 import com.jagrosh.jmusicbot.settings.QueueType;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
+import com.jagrosh.jmusicbot.settings.NowPlayingButtonsMode;
+import com.jagrosh.jmusicbot.settings.NowPlayingLayoutMode;
 import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +21,20 @@ public class SettingsTest {
     public void setUp() {
         // Mock manager to prevent NPE when setters call writeSettings()
         manager = mock(SettingsManager.class);
-        settings = new Settings(manager, 0, 0, 0, 100, null, RepeatMode.OFF, null, -1, QueueType.FAIR);
+        settings = new Settings(
+                manager,
+                0,
+                0,
+                0,
+                100,
+                null,
+                RepeatMode.OFF,
+                null,
+                -1,
+                QueueType.FAIR,
+                NowPlayingLayoutMode.INHERIT,
+                NowPlayingButtonsMode.INHERIT
+        );
     }
 
     @Test
@@ -109,7 +124,20 @@ public class SettingsTest {
 
     @Test
     public void testConstructorWithStringIds() {
-        Settings s = new Settings(manager, "123", "456", "789", 75, "playlist", RepeatMode.ALL, "?", 0.6, QueueType.LINEAR);
+        Settings s = new Settings(
+                manager,
+                "123",
+                "456",
+                "789",
+                75,
+                "playlist",
+                RepeatMode.ALL,
+                "?",
+                0.6,
+                QueueType.LINEAR,
+                NowPlayingLayoutMode.INHERIT,
+                NowPlayingButtonsMode.INHERIT
+        );
         
         assertEquals(75, s.getVolume());
         assertEquals("playlist", s.getDefaultPlaylist());
@@ -122,7 +150,20 @@ public class SettingsTest {
     @Test
     public void testConstructorWithInvalidStringIds() {
         // Invalid IDs should default to 0 without throwing
-        Settings s = new Settings(manager, "invalid", "also_invalid", "nope", 100, null, RepeatMode.OFF, null, -1, QueueType.FAIR);
+        Settings s = new Settings(
+                manager,
+                "invalid",
+                "also_invalid",
+                "nope",
+                100,
+                null,
+                RepeatMode.OFF,
+                null,
+                -1,
+                QueueType.FAIR,
+                NowPlayingLayoutMode.INHERIT,
+                NowPlayingButtonsMode.INHERIT
+        );
         
         assertEquals(100, s.getVolume());
         assertEquals(RepeatMode.OFF, s.getRepeatMode());
