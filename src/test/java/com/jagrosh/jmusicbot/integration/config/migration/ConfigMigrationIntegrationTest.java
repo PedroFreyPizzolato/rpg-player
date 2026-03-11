@@ -65,7 +65,7 @@ class ConfigMigrationIntegrationTest extends BaseConfigTest {
             
             // Verify migration occurred
             assertTrue(merged.hasPath("meta.configVersion"));
-            assertEquals(1, merged.getInt("meta.configVersion"));
+            assertEquals(2, merged.getInt("meta.configVersion"));
             
             // Verify values migrated correctly
             assertEquals("integration_test_token", merged.getString("discord.token"));

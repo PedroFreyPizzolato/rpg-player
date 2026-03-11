@@ -21,8 +21,8 @@ import com.jagrosh.jmusicbot.MockUserInteraction;
 import com.jagrosh.jmusicbot.audio.AudioSource;
 import com.jagrosh.jmusicbot.config.io.ConfigIO;
 import com.jagrosh.jmusicbot.entities.UserInteraction.Level;
-import com.jagrosh.jmusicbot.testutil.config.V1ConfigBuilder;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -203,12 +203,10 @@ class BotConfigMigrationIntegrationTest extends BaseConfigTest {
             Path configFile = createTempConfigFile(legacyConfig);
             setConfigFileProperty(configFile);
             
-            // Create a defaults config that claims version 2 (no migration path from 1->2)
-            Config fakeDefaults = V1ConfigBuilder.create()
-                .withMetaVersion(2)
-                .withDiscordToken("BOT_TOKEN_HERE")
-                .withDiscordOwner(0L)
-                .build();
+            // Create defaults that claim a future version with no migration path (2->3 missing)
+            Config fakeDefaults = ConfigIO.loadDefaults().withValue(
+                    "meta.configVersion",
+                    ConfigValueFactory.fromAnyRef(3));
             
             // Mock ConfigIO.loadDefaults() to return our fake defaults
             try (MockedStatic<ConfigIO> mockedConfigIO = Mockito.mockStatic(ConfigIO.class)) {
