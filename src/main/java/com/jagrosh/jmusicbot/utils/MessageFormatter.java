@@ -4,18 +4,28 @@ import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingInfo;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
-import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.settings.RepeatMode;
+import com.jagrosh.jmusicbot.settings.Settings;
 import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioTrack;
-import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.components.MessageTopLevelComponent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.container.ContainerChildComponent;
+import net.dv8tion.jda.api.components.section.Section;
+import net.dv8tion.jda.api.components.separator.Separator;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MessageFormatter {
+    private static final String NP_PREFIX = "np_";
 
     public static MessageCreateData buildNowPlayingMessage(Bot bot, NowPlayingInfo info) {
         if (info.track == null)
@@ -31,105 +41,128 @@ public class MessageFormatter {
     }
 
     private static MessageCreateData buildFullNowPlayingMessage(Bot bot, NowPlayingInfo info, boolean showButtons) {
-        MessageCreateBuilder mb = new MessageCreateBuilder();
+        List<ContainerChildComponent> children = new ArrayList<>();
 
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setColor(info.guild.getSelfMember().getColors().getPrimary());
-        eb.setAuthor(info.guild.getName(), null, info.guild.getIconUrl());
-
-        // Handle local file names using the util method
-        String title = FormatUtil.getTrackTitle(info.track);
-
-        try {
-            eb.setTitle(title, info.track.getInfo().uri);
-        } catch (Exception e) {
-            eb.setTitle(title);
-        }
+        String title = FormatUtil.filter(FormatUtil.getTrackTitle(info.track));
+        String uri = info.track.getInfo().uri;
+        String titleLine = (uri != null && !uri.isBlank())
+                ? "[" + title + "](" + uri + ")"
+                : title;
+        String titleDisplay = "## " + titleLine;
+        StringBuilder metadataDetails = new StringBuilder("**Playing from:** ").append(sourceNameForTrack(info));
 
         String rawAuthor = info.track.getInfo().author;
         String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
         if (author != null && (!author.isEmpty() && !author.equalsIgnoreCase("unknown artist"))) {
-            eb.addField("Author", author, false);
+            metadataDetails.append("\n**Author:** ").append(author);
         }
 
-        StringBuilder description = new StringBuilder();
-        
-        // Add progress bar if enabled
+        StringBuilder playbackLine = new StringBuilder();
         if (bot.getConfig().showNpProgressBar()) {
             String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
             double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
-            description.append(statusEmoji)
+            playbackLine.append(statusEmoji)
                     .append(" ").append(FormatUtil.progressBar(progress))
                     .append(" `[").append(TimeUtil.formatTime(info.position))
                     .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
-                    .append(FormatUtil.volumeIcon(info.volume))
-                    .append("\n\n");
+                    .append(FormatUtil.volumeIcon(info.volume));
+        } else {
+            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
+            playbackLine.append(statusEmoji)
+                    .append(" `[").append(TimeUtil.formatTime(info.position))
+                    .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
+                    .append(FormatUtil.volumeIcon(info.volume));
         }
-        
-        description.append("**Playing from:** ").append(info.track.getSourceManager().getSourceName());
-        eb.setDescription(description.toString());
-
-        eb.addField("Duration", TimeUtil.formatTime(info.duration), true);
-        eb.addField("Queue", String.valueOf(info.queueSize), true);
-        eb.addField("Volume", info.volume + "%", true);
-
         RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
-        if (repeatMode != RepeatMode.OFF) {
-            eb.addField("Repeat", repeatMode.getEmoji() + " " + repeatMode.getUserFriendlyName(), true);
+
+        StringBuilder stats = new StringBuilder()
+                .append("**Duration:** ").append(TimeUtil.formatTime(info.duration))
+                .append("\n**Queue:** ").append(info.queueSize)
+                .append("\n**Volume:** ").append(info.volume).append("%");
+        if (repeatMode != RepeatMode.OFF)
+            stats.append("\n**Repeat:** ").append(repeatMode.getUserFriendlyName());
+
+        String requesterDetails = buildRequesterDetails(info);
+        String artworkUrl = resolveArtworkUrl(bot, info);
+        if (artworkUrl != null)
+        {
+            try
+            {
+                Thumbnail artwork = Thumbnail.fromUrl(artworkUrl);
+                if (requesterDetails == null)
+                {
+                    children.add(Section.of(
+                            artwork,
+                            TextDisplay.of(titleDisplay),
+                            TextDisplay.of(metadataDetails.toString())
+                    ));
+                }
+                else
+                {
+                    children.add(Section.of(
+                            artwork,
+                            TextDisplay.of(titleDisplay),
+                            TextDisplay.of(metadataDetails.toString()),
+                            TextDisplay.of("**Requester:** " + requesterDetails)
+                    ));
+                }
+                children.add(TextDisplay.of(playbackLine.toString()));
+                children.add(TextDisplay.of(stats.toString()));
+            }
+            catch (RuntimeException ignored)
+            {
+                // Keep rendering stable if source metadata provides an invalid artwork URL.
+                children.add(TextDisplay.of(titleDisplay));
+                children.add(TextDisplay.of(metadataDetails.toString()));
+                if (requesterDetails != null)
+                    children.add(TextDisplay.of("**Requester:** " + requesterDetails));
+                children.add(TextDisplay.of(playbackLine.toString()));
+                children.add(TextDisplay.of(stats.toString()));
+            }
         }
-
-        RequestMetadata rm = info.track.getUserData(RequestMetadata.class);
-        if (rm != null && rm.getOwner() != 0L) {
-            User u = info.guild.getJDA().getUserById(rm.user.id);
-            String requester = (u == null) ? FormatUtil.formatUsername(rm.user) : u.getAsMention();
-            eb.addField("Requester", requester, false);
+        else
+        {
+            children.add(TextDisplay.of(titleDisplay));
+            children.add(TextDisplay.of(metadataDetails.toString()));
+            if (requesterDetails != null)
+                children.add(TextDisplay.of("**Requester:** " + requesterDetails));
+            children.add(TextDisplay.of(playbackLine.toString()));
+            children.add(TextDisplay.of(stats.toString()));
         }
-
-        if (!(info.track instanceof LocalAudioTrack)  && bot.getConfig().useNPImages()) {
-            var thumbnailUrl = info.track.getInfo().artworkUrl;
-            if (thumbnailUrl == null || thumbnailUrl.isEmpty())
-                thumbnailUrl = "https://img.youtube.com/vi/" + info.track.getIdentifier() + "/mqdefault.jpg";
-            eb.setThumbnail(thumbnailUrl);
-        }
-
-        if (info.footerInfo != null && !info.footerInfo.isEmpty())
-            eb.setFooter(info.footerInfo);
-
-        mb.setEmbeds(eb.build());
 
         if (showButtons) {
-            applyNowPlayingButtons(mb, info, repeatMode);
+            children.add(Separator.createDivider(Separator.Spacing.SMALL));
+            addNowPlayingButtonRows(children, info, repeatMode);
         }
 
-        return mb.build();
+        return new MessageCreateBuilder()
+                .setComponents(List.of(Container.of(children)))
+                .useComponentsV2()
+                .build();
     }
 
     private static MessageCreateData buildMinimalNowPlayingMessage(Bot bot, NowPlayingInfo info, boolean showButtons) {
-        MessageCreateBuilder mb = new MessageCreateBuilder();
-        mb.setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info)));
-
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setColor(info.guild.getSelfMember().getColors().getPrimary());
-
-        String title = FormatUtil.getTrackTitle(info.track);
-        try {
-            eb.setTitle(title, info.track.getInfo().uri);
-        } catch (Exception e) {
-            eb.setTitle(title);
-        }
-
+        List<ContainerChildComponent> children = new ArrayList<>();
+        children.add(TextDisplay.of(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info))));
+        String title = FormatUtil.filter(FormatUtil.getTrackTitle(info.track));
+        String uri = info.track.getInfo().uri;
+        String titleLine = (uri != null && !uri.isBlank())
+                ? "[" + title + "](" + uri + ")"
+                : title;
+        children.add(TextDisplay.of(titleLine));
         RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
-        eb.setDescription(buildMinimalPlaybackDescription(bot, info));
-
-        eb.setFooter(buildMinimalFooter(info, repeatMode));
-
-        mb.setEmbeds(eb.build());
+        children.add(TextDisplay.of(buildMinimalPlaybackDescription(bot, info)));
+        children.add(TextDisplay.of(buildMinimalFooter(info, repeatMode)));
 
         if (showButtons) {
-            applyNowPlayingButtons(mb, info, repeatMode);
+            children.add(Separator.createDivider(Separator.Spacing.SMALL));
+            addNowPlayingButtonRows(children, info, repeatMode);
         }
 
-        return mb.build();
+        return new MessageCreateBuilder()
+                .setComponents(List.of(Container.of(children)))
+                .useComponentsV2()
+                .build();
     }
 
     public static MessageCreateData buildNoMusicPlayingMessage(Bot bot, NowPlayingInfo info) {
@@ -140,38 +173,16 @@ public class MessageFormatter {
             return buildNoMusicPlayingMessageMinimal(bot, info);
         }
 
-        String descriptionText;
-        if (bot.getConfig().showNpProgressBar()) {
-            // Show progress bar in "no music" state (all segments empty)
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1) + " " + FormatUtil.volumeIcon(info.volume);
-        } else {
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
-        }
-        
         return new MessageCreateBuilder()
-                .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**"))
-                .setEmbeds(new EmbedBuilder()
-                        .setTitle("No music playing")
-                        .setDescription(descriptionText)
-                        .setColor(info.guild.getSelfMember().getColors().getPrimary())
-                        .build()).build();
+                .setComponents(buildNoMusicComponents(bot, info, false))
+                .useComponentsV2()
+                .build();
     }
 
     private static MessageCreateData buildNoMusicPlayingMessageMinimal(Bot bot, NowPlayingInfo info) {
-        String descriptionText;
-        if (bot.getConfig().showNpProgressBar()) {
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1)
-                    + " " + FormatUtil.volumeIcon(info.volume);
-        } else {
-            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
-        }
         return new MessageCreateBuilder()
-                .setContent(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info)))
-                .setEmbeds(new EmbedBuilder()
-                        .setTitle("No music playing")
-                        .setDescription(descriptionText)
-                        .setColor(info.guild.getSelfMember().getColors().getPrimary())
-                        .build())
+                .setComponents(buildNoMusicComponents(bot, info, true))
+                .useComponentsV2()
                 .build();
     }
 
@@ -210,28 +221,77 @@ public class MessageFormatter {
         return info.guild.getName();
     }
 
-    private static void applyNowPlayingButtons(MessageCreateBuilder mb, NowPlayingInfo info, RepeatMode repeatMode) {
-        Button repeatButton = switch (repeatMode) {
-            case ALL -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
-            case SINGLE -> Button.primary("repeat", Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
-            default -> Button.secondary("repeat", Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
-        };
+    private static String sourceNameForTrack(NowPlayingInfo info)
+    {
+        return info.track.getSourceManager() != null
+                ? info.track.getSourceManager().getSourceName()
+                : "Unknown";
+    }
 
-        mb.setComponents(
-                ActionRow.of(
-                        Button.secondary("previous", Emoji.fromUnicode("\u23EE")), // Previous ⏮
-                        info.isPaused
-                                ? Button.primary("pause", Emoji.fromUnicode("\u25B6"))    // Pause ⏸
-                                : Button.secondary("pause", Emoji.fromUnicode("\u23F8")), // or Resume ▶
-                        Button.secondary("skip", Emoji.fromUnicode("\u23ED")), // Skip ⏭
-                        Button.secondary("stop", Emoji.fromUnicode("\u23F9")) // Stop ⏹
-                ),
-                ActionRow.of(
-                        Button.secondary("shuffle", Emoji.fromUnicode("\uD83D\uDD00")), // Shuffle 🔀
-                        repeatButton, // Repeat cycle
-                        Button.secondary("voldown", Emoji.fromUnicode("\uD83D\uDD09")), // Vol Down 🔉
-                        Button.secondary("volup", Emoji.fromUnicode("\uD83D\uDD0A")) // Vol Up 🔊
-                )
-        );
+    private static String resolveArtworkUrl(Bot bot, NowPlayingInfo info)
+    {
+        if (info.track instanceof LocalAudioTrack || !bot.getConfig().useNPImages())
+            return null;
+        var artworkUrl = info.track.getInfo().artworkUrl;
+        if (artworkUrl == null || artworkUrl.isEmpty())
+            artworkUrl = "https://img.youtube.com/vi/" + info.track.getIdentifier() + "/mqdefault.jpg";
+        return artworkUrl;
+    }
+
+    private static String buildRequesterDetails(NowPlayingInfo info)
+    {
+        RequestMetadata rm = info.track.getUserData(RequestMetadata.class);
+        if (rm != null && rm.getOwner() != 0L)
+        {
+            User u = info.guild.getJDA().getUserById(rm.user.id);
+            return (u == null) ? FormatUtil.formatUsername(rm.user) : u.getAsMention();
+        }
+        return null;
+    }
+
+    private static List<MessageTopLevelComponent> buildNoMusicComponents(Bot bot, NowPlayingInfo info, boolean minimal) {
+        String descriptionText;
+        if (bot.getConfig().showNpProgressBar()) {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.progressBar(-1)
+                    + " " + FormatUtil.volumeIcon(info.volume);
+        } else {
+            descriptionText = AudioHandler.STOP_EMOJI + " " + FormatUtil.volumeIcon(info.volume);
+        }
+
+        List<ContainerChildComponent> children = new ArrayList<>();
+        if (minimal) {
+            children.add(TextDisplay.of(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing in** " + getNowPlayingLocationName(info))));
+        } else {
+            children.add(TextDisplay.of(FormatUtil.filter(bot.getConfig().getSuccess() + " **Now Playing...**")));
+        }
+        children.add(TextDisplay.of("No music playing"));
+        children.add(TextDisplay.of(descriptionText));
+        return List.of(Container.of(children));
+    }
+
+    private static void addNowPlayingButtonRows(List<ContainerChildComponent> children, NowPlayingInfo info, RepeatMode repeatMode) {
+        Button repeatButton = switch (repeatMode) {
+            case ALL -> Button.primary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+            case SINGLE -> Button.primary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
+            default -> Button.secondary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+        };
+        children.add(ActionRow.of(
+                Button.secondary(nowPlayingButtonId("previous"), Emoji.fromUnicode("\u23EE")), // Previous ⏮
+                info.isPaused
+                        ? Button.primary(nowPlayingButtonId("pause"), Emoji.fromUnicode("\u25B6"))    // Resume ▶
+                        : Button.secondary(nowPlayingButtonId("pause"), Emoji.fromUnicode("\u23F8")), // Pause ⏸
+                Button.secondary(nowPlayingButtonId("skip"), Emoji.fromUnicode("\u23ED")), // Skip ⏭
+                Button.secondary(nowPlayingButtonId("stop"), Emoji.fromUnicode("\u23F9")) // Stop ⏹
+        ));
+        children.add(ActionRow.of(
+                Button.secondary(nowPlayingButtonId("shuffle"), Emoji.fromUnicode("\uD83D\uDD00")), // Shuffle 🔀
+                repeatButton, // Repeat cycle
+                Button.secondary(nowPlayingButtonId("voldown"), Emoji.fromUnicode("\uD83D\uDD09")), // Vol Down 🔉
+                Button.secondary(nowPlayingButtonId("volup"), Emoji.fromUnicode("\uD83D\uDD0A")) // Vol Up 🔊
+        ));
+    }
+
+    private static String nowPlayingButtonId(String action) {
+        return NP_PREFIX + action;
     }
 }

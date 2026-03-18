@@ -17,6 +17,9 @@ package com.jagrosh.jmusicbot.unit.commands.v2;
 
 import com.jagrosh.jmusicbot.commands.v2.SlashOutputAdapters;
 import com.jagrosh.jmusicbot.testutil.commands.SlashCommandTestFixture;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -39,14 +43,16 @@ public class SlashOutputAdaptersTest
 
     @Mock
     private MessageCreateData messageCreateData;
-    @Mock
-    private MessageEditData messageEditData;
 
     @BeforeEach
     void setUp()
     {
         MockitoAnnotations.openMocks(this);
         fixture = SlashCommandTestFixture.create();
+        messageCreateData = new MessageCreateBuilder()
+                .setComponents(List.of(Container.of(List.of(TextDisplay.of("NP")))))
+                .useComponentsV2()
+                .build();
     }
 
     // ==================== SlashEventOutputAdapter Tests ====================

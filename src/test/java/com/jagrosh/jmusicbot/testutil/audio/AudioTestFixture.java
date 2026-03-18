@@ -185,6 +185,7 @@ public class AudioTestFixture
         // Guild relationships
         when(guild.getIdLong()).thenReturn(GUILD_ID);
         when(guild.getId()).thenReturn(String.valueOf(GUILD_ID));
+        when(guild.getName()).thenReturn("Test Guild");
         when(guild.getSelfMember()).thenReturn(selfMember);
         when(guild.getAudioManager()).thenReturn(audioManager);
         when(guild.getTextChannelById(CHANNEL_ID)).thenReturn(textChannel);

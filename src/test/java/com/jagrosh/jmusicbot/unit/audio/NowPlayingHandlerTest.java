@@ -22,6 +22,8 @@ import com.jagrosh.jmusicbot.audio.RequestMetadata;
 import com.jagrosh.jmusicbot.testutil.audio.AudioTestFixture;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.RoleColors;
@@ -29,6 +31,7 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.managers.Presence;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -218,7 +222,7 @@ public class NowPlayingHandlerTest
             fixture.withSongInStatus();
             AudioTrack track = fixture.createMockTrack("Test Song", "Artist", 180000);
             when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
-            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createComponentV2Message());
 
             // When
             nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
@@ -250,7 +254,7 @@ public class NowPlayingHandlerTest
             // Given - song in status is disabled by default in fixture
             AudioTrack track = fixture.createMockTrack("Test Song", "Artist", 180000);
             when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
-            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createComponentV2Message());
 
             // When
             nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
@@ -296,7 +300,7 @@ public class NowPlayingHandlerTest
                     CHANNEL_ID);
             when(track.getUserData(RequestMetadata.class)).thenReturn(metadata);
             when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
-            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createComponentV2Message());
             AtomicReference<Consumer<Message>> sendSuccess = new AtomicReference<>();
             doAnswer(invocation -> {
                 sendSuccess.set(invocation.getArgument(0));
@@ -324,7 +328,7 @@ public class NowPlayingHandlerTest
                     CHANNEL_ID);
             when(track.getUserData(RequestMetadata.class)).thenReturn(metadata);
             when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
-            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(mock(MessageCreateData.class));
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createComponentV2Message());
             AtomicReference<Consumer<Message>> sendSuccess = new AtomicReference<>();
             doAnswer(invocation -> {
                 sendSuccess.set(invocation.getArgument(0));
@@ -382,5 +386,13 @@ public class NowPlayingHandlerTest
             // Then - should not throw
             assertDoesNotThrow(() -> nowPlayingHandler.clearLastNPMessage(fixture.getGuild()));
         }
+    }
+
+    private static MessageCreateData createComponentV2Message()
+    {
+        return new MessageCreateBuilder()
+                .setComponents(List.of(Container.of(List.of(TextDisplay.of("NP")))))
+                .useComponentsV2()
+                .build();
     }
 }

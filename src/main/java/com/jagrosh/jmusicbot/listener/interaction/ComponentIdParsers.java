@@ -22,7 +22,7 @@ import java.util.Optional;
  * Format contracts: queue_{action}_{page}_{selectedTrack}_{userId}, history_{action}_{page}_{selectedTrack}_{userId},
  * playlists_{action}_{page}_{selectedIndex}_{userId}, queue_move_select_{fromPosition}_{page}_{userId},
  * history_save_{userId}, settings_{action}_{key}_{value?}_{userId}, settings_modal_{key}_{userId},
- * settings_entity_{key}_{userId}.
+ * settings_entity_{key}_{userId}, np_{action}.
  */
 public final class ComponentIdParsers {
 
@@ -34,6 +34,7 @@ public final class ComponentIdParsers {
     private static final String SETTINGS_PREFIX = "settings_";
     private static final String SETTINGS_MODAL_PREFIX = "settings_modal_";
     private static final String SETTINGS_ENTITY_PREFIX = "settings_entity_";
+    private static final String NOW_PLAYING_PREFIX = "np_";
 
     private ComponentIdParsers() {
     }
@@ -66,6 +67,12 @@ public final class ComponentIdParsers {
      * Parsed settings entity-select ID: key, userId.
      */
     public record SettingsEntitySelectId(String key, Long originalPanelMessageId, long userId) {
+    }
+
+    /**
+     * Parsed now-playing button ID: action.
+     */
+    public record NowPlayingButtonId(String action) {
     }
 
     /**
@@ -257,5 +264,20 @@ public final class ComponentIdParsers {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Parses now-playing button IDs.
+     * Expected format: np_action.
+     */
+    public static Optional<NowPlayingButtonId> parseNowPlayingButtonId(String componentId) {
+        if (!componentId.startsWith(NOW_PLAYING_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length != 2 || parts[1].isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(new NowPlayingButtonId(parts[1]));
     }
 }

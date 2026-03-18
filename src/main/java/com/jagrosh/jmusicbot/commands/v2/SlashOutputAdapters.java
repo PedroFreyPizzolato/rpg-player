@@ -21,6 +21,8 @@ import com.jagrosh.jmusicbot.commands.BaseOutputAdapter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.function.Consumer;
@@ -144,13 +146,13 @@ public final class SlashOutputAdapters
         @Override
         public void editNowPlaying(AudioHandler handler)
         {
-            hook.editOriginal(MessageEditData.fromCreateData(handler.getNowPlaying(jda))).queue();
+            hook.editOriginal(asComponentV2Edit(handler.getNowPlaying(jda))).queue();
         }
 
         @Override
         public void editNoMusic(AudioHandler handler)
         {
-            hook.editOriginal(MessageEditData.fromCreateData(handler.getNoMusicPlaying(jda))).queue();
+            hook.editOriginal(asComponentV2Edit(handler.getNoMusicPlaying(jda))).queue();
         }
 
         @Override
@@ -158,5 +160,15 @@ public final class SlashOutputAdapters
         {
             hook.editOriginal(warningEmoji + " Please include a song title or URL!").queue();
         }
+    }
+
+    private static MessageEditData asComponentV2Edit(MessageCreateData source)
+    {
+        return new MessageEditBuilder()
+                .setContent("")
+                .setEmbeds(java.util.List.of())
+                .setComponents(source.getComponents())
+                .useComponentsV2()
+                .build();
     }
 }

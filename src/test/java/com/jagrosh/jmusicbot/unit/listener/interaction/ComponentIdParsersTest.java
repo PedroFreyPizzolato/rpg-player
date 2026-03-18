@@ -102,4 +102,20 @@ class ComponentIdParsersTest
         assertTrue(ComponentIdParsers.parseSettingsEntitySelectId("settings_modal_setvc_1").isEmpty());
         assertTrue(ComponentIdParsers.parseSettingsEntitySelectId("settings_entity_setvc_1_bad").isEmpty());
     }
+
+    @Test
+    void parseNowPlayingButtonId_validId_returnsParsedValues()
+    {
+        var parsed = ComponentIdParsers.parseNowPlayingButtonId("np_pause");
+        assertTrue(parsed.isPresent());
+        assertEquals("pause", parsed.get().action());
+    }
+
+    @Test
+    void parseNowPlayingButtonId_invalidId_returnsEmpty()
+    {
+        assertTrue(ComponentIdParsers.parseNowPlayingButtonId("pause").isEmpty());
+        assertTrue(ComponentIdParsers.parseNowPlayingButtonId("np_").isEmpty());
+        assertTrue(ComponentIdParsers.parseNowPlayingButtonId("np_pause_more").isEmpty());
+    }
 }

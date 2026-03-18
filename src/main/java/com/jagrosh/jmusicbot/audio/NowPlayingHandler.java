@@ -27,6 +27,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.Map;
@@ -247,7 +248,7 @@ public class NowPlayingHandler
         }
 
         boolean clearOnSuccess = !isPlaying;
-        tc.editMessageById(loc.messageId(), MessageEditData.fromCreateData(targetMsg)).queue(
+        tc.editMessageById(loc.messageId(), asComponentV2Edit(targetMsg)).queue(
                 success -> {
                     if (clearOnSuccess)
                     {
@@ -452,5 +453,15 @@ public class NowPlayingHandler
                     break;
             }
         }
+    }
+
+    private static MessageEditData asComponentV2Edit(MessageCreateData source)
+    {
+        return new MessageEditBuilder()
+                .setContent("")
+                .setEmbeds(java.util.List.of())
+                .setComponents(source.getComponents())
+                .useComponentsV2()
+                .build();
     }
 }

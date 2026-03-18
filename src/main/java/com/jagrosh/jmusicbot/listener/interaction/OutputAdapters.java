@@ -17,6 +17,8 @@ package com.jagrosh.jmusicbot.listener.interaction;
 
 import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.service.MusicService;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.util.function.Consumer;
@@ -61,12 +63,12 @@ public final class OutputAdapters {
 
             @Override
             public void editNowPlaying(AudioHandler handler) {
-                event.editMessage(MessageEditData.fromCreateData(handler.getNowPlaying(event.getJDA()))).queue();
+                event.editMessage(asComponentV2Edit(handler.getNowPlaying(event.getJDA()))).queue();
             }
 
             @Override
             public void editNoMusic(AudioHandler handler) {
-                event.editMessage(MessageEditData.fromCreateData(handler.getNoMusicPlaying(event.getJDA()))).queue();
+                event.editMessage(asComponentV2Edit(handler.getNoMusicPlaying(event.getJDA()))).queue();
             }
 
             @Override
@@ -281,5 +283,14 @@ public final class OutputAdapters {
             public void onShowHelp() {
             }
         };
+    }
+
+    private static MessageEditData asComponentV2Edit(MessageCreateData source) {
+        return new MessageEditBuilder()
+                .setContent("")
+                .setEmbeds(java.util.List.of())
+                .setComponents(source.getComponents())
+                .useComponentsV2()
+                .build();
     }
 }

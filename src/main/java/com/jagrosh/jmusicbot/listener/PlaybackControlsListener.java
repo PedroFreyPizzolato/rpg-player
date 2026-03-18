@@ -17,6 +17,7 @@ package com.jagrosh.jmusicbot.listener;
 
 import com.jagrosh.jmusicbot.Bot;
 import com.jagrosh.jmusicbot.audio.AudioHandler;
+import com.jagrosh.jmusicbot.listener.interaction.ComponentIdParsers;
 import com.jagrosh.jmusicbot.listener.interaction.OutputAdapters;
 import com.jagrosh.jmusicbot.service.MusicService;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -35,12 +36,8 @@ public class PlaybackControlsListener extends ListenerAdapter {
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
-        String componentId = event.getComponentId();
-
-        if (!componentId.equals("stop") && !componentId.equals("pause") && !componentId.equals("skip")
-                && !componentId.equals("previous") && !componentId.equals("shuffle")
-                && !componentId.equals("repeat") && !componentId.equals("voldown")
-                && !componentId.equals("volup")) {
+        var parsedId = ComponentIdParsers.parseNowPlayingButtonId(event.getComponentId());
+        if (parsedId.isEmpty()) {
             return;
         }
 
@@ -63,7 +60,7 @@ public class PlaybackControlsListener extends ListenerAdapter {
         MusicService musicService = bot.getMusicService();
         MusicService.OutputAdapter adapter = OutputAdapters.forPlaybackButton(event);
 
-        switch (event.getComponentId()) {
+        switch (parsedId.get().action()) {
             case "previous":
                 musicService.previous(event.getGuild(), event.getMember(), adapter);
                 break;
@@ -87,6 +84,8 @@ public class PlaybackControlsListener extends ListenerAdapter {
                 break;
             case "skip":
                 musicService.skip(event.getGuild(), event.getMember(), adapter);
+                break;
+            default:
                 break;
         }
     }
