@@ -97,10 +97,6 @@ public class MessageFormatter {
         }
         RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
         eb.setDescription(buildPlaybackStatusDescription(bot, info, repeatMode, true));
-        String footer = buildContextFooter(info);
-        if (footer != null) {
-            eb.setFooter(footer);
-        }
 
         if (showButtons) {
             applyNowPlayingButtons(mb, info, repeatMode);
@@ -167,7 +163,7 @@ public class MessageFormatter {
         if (queuedLabel != null) {
             summary.append(" • ").append(queuedLabel);
         }
-        summary.append(" • **Volume:** ").append(info.volume).append("%");
+        summary.append("\n**Volume:** ").append(info.volume).append("%");
         if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.SINGLE) {
             summary.append(" • **Repeat:** ").append(repeatMode.getUserFriendlyName());
         }
@@ -176,13 +172,6 @@ public class MessageFormatter {
 
     private static String buildPlaybackStatusDescription(Bot bot, NowPlayingInfo info, RepeatMode repeatMode, boolean minimalLayout) {
         return buildPlaybackStatusLine(bot, info) + "\n" + buildMetadataSummaryLine(info, repeatMode, minimalLayout);
-    }
-
-    private static String buildContextFooter(NowPlayingInfo info) {
-        if (info.footerInfo == null || info.footerInfo.isEmpty()) {
-            return null;
-        }
-        return info.footerInfo;
     }
 
     private static String formatQueuedLabel(int queueSize) {

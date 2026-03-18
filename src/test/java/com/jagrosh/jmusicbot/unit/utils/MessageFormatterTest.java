@@ -77,11 +77,8 @@ class MessageFormatterTest
                 RepeatMode.ALL, 2, false, 0L, false, false, "id-1");
         MessageEmbed embed = getSingleEmbed(message);
         assertNotNull(embed.getDescription());
-        assertTrue(embed.getDescription().contains("**Source:** youtube"));
-        assertTrue(embed.getDescription().contains("2 songs queued"));
-        assertTrue(embed.getDescription().contains("**Volume:** 50%"));
-        assertTrue(embed.getDescription().contains("**Repeat:** All"));
-        assertEquals("Playing next song.", embed.getFooter().getText());
+        assertTrue(embed.getDescription().contains("**Source:** youtube • 2 songs queued\n**Volume:** 50% • **Repeat:** All"));
+        assertNull(embed.getFooter());
     }
 
     @Test
