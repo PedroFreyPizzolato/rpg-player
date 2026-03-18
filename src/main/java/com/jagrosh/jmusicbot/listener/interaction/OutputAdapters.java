@@ -63,12 +63,12 @@ public final class OutputAdapters {
 
             @Override
             public void editNowPlaying(AudioHandler handler) {
-                event.editMessage(asComponentV2Edit(handler.getNowPlaying(event.getJDA()))).queue();
+                event.editMessage(asEditData(handler.getNowPlaying(event.getJDA()))).queue();
             }
 
             @Override
             public void editNoMusic(AudioHandler handler) {
-                event.editMessage(asComponentV2Edit(handler.getNoMusicPlaying(event.getJDA()))).queue();
+                event.editMessage(asEditData(handler.getNoMusicPlaying(event.getJDA()))).queue();
             }
 
             @Override
@@ -285,12 +285,11 @@ public final class OutputAdapters {
         };
     }
 
-    private static MessageEditData asComponentV2Edit(MessageCreateData source) {
+    private static MessageEditData asEditData(MessageCreateData source) {
         return new MessageEditBuilder()
-                .setContent("")
-                .setEmbeds(java.util.List.of())
+                .setContent(source.getContent() == null ? "" : source.getContent())
+                .setEmbeds(source.getEmbeds())
                 .setComponents(source.getComponents())
-                .useComponentsV2()
                 .build();
     }
 }
