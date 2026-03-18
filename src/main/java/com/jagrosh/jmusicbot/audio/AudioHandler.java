@@ -443,6 +443,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             audioPlayer.isPaused(),
             audioPlayer.getVolume(),
             queue.size(),
+            queue.getHistory().size(),
             lastReason
         );
     }

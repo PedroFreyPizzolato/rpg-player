@@ -11,6 +11,8 @@ import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.utils.MessageFormatter;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
+import net.dv8tion.jda.api.components.buttons.ButtonStyle;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -68,13 +70,18 @@ class MessageFormatterTest
     }
 
     @Test
-    @DisplayName("buildNowPlayingMessage() minimal layout footer includes source, queue and repeat")
-    void buildNowPlayingMessage_minimalFooterIncludesSourceQueueAndRepeat()
+    @DisplayName("buildNowPlayingMessage() minimal layout surfaces source/queue/repeat in description and footerInfo in footer")
+    void buildNowPlayingMessage_minimalLayout_surfacesMetadataInDescriptionAndFooterInfoInFooter()
     {
-        MessageCreateData message = buildNowPlayingMessage("Test Title", "Test Author", true, false, "ignored",
+        MessageCreateData message = buildNowPlayingMessage("Test Title", "Test Author", true, false, "Playing next song.",
                 RepeatMode.ALL, 2, false, 0L, false, false, "id-1");
         MessageEmbed embed = getSingleEmbed(message);
-        assertEquals("Source: youtube • 2 songs queued • Repeat: All", embed.getFooter().getText());
+        assertNotNull(embed.getDescription());
+        assertTrue(embed.getDescription().contains("**Source:** youtube"));
+        assertTrue(embed.getDescription().contains("2 songs queued"));
+        assertTrue(embed.getDescription().contains("**Volume:** 50%"));
+        assertTrue(embed.getDescription().contains("**Repeat:** All"));
+        assertEquals("Playing next song.", embed.getFooter().getText());
     }
 
     @Test
@@ -122,7 +129,10 @@ class MessageFormatterTest
         MessageEmbed embed = getSingleEmbed(message);
         assertEquals("https://img.youtube.com/vi/id-1/mqdefault.jpg", embed.getThumbnail().getUrl());
         assertNotNull(embed.getDescription());
-        assertTrue(embed.getDescription().contains("**Playing from:** youtube"));
+        assertTrue(embed.getDescription().contains("**Source:** youtube"));
+        assertFalse(embed.getDescription().contains("songs queued"));
+        assertFalse(embed.getDescription().contains("**Volume:**"));
+        assertFalse(embed.getDescription().contains("**Repeat:**"));
         MessageEmbed.Field authorField = getField(embed, "Author");
         assertNotNull(authorField);
         assertEquals("Test Author", authorField.getValue());
@@ -170,9 +180,61 @@ class MessageFormatterTest
         String withProgressDescription = getSingleEmbed(withProgress).getDescription();
         assertNotNull(noProgressDescription);
         assertNotNull(withProgressDescription);
-        assertFalse(noProgressDescription.contains("`["));
+        assertTrue(noProgressDescription.contains("`["));
+        assertFalse(noProgressDescription.contains("▬"));
         assertTrue(withProgressDescription.contains("`["));
         assertTrue(withProgressDescription.contains("▬"));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() now-playing buttons expose clearer labels and styles")
+    void buildNowPlayingMessage_buttons_useClearLabelsAndStyles()
+    {
+        MessageCreateData message = buildNowPlayingMessage("Test Title", "Test Author", false, true, "",
+                RepeatMode.OFF, 5, false, 20_000L, true);
+        Button pause = getButton(message, "np_pause");
+        Button stop = getButton(message, "np_stop");
+        Button repeat = getButton(message, "np_repeat");
+        assertNotNull(pause);
+        assertNotNull(stop);
+        assertNotNull(repeat);
+        assertEquals("Pause", pause.getLabel());
+        assertEquals(ButtonStyle.PRIMARY, pause.getStyle());
+        assertEquals("Stop", stop.getLabel());
+        assertEquals(ButtonStyle.DANGER, stop.getStyle());
+        assertEquals("Repeat", repeat.getLabel());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() now-playing buttons disable boundary actions")
+    void buildNowPlayingMessage_buttons_disableBoundaryActions()
+    {
+        MessageCreateData message = buildNowPlayingMessage("Test Title", "Test Author", true, true, "",
+                RepeatMode.OFF, 1, false, 3_000L, true, false, "id-1", 0);
+        assertTrue(getButton(message, "np_previous").isDisabled());
+        assertTrue(getButton(message, "np_shuffle").isDisabled());
+        assertFalse(getButton(message, "np_voldown").isDisabled());
+        assertFalse(getButton(message, "np_volup").isDisabled());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() now-playing buttons enable previous with history and disable volume edges")
+    void buildNowPlayingMessage_buttons_enablePreviousWithHistoryAndDisableVolumeEdges()
+    {
+        MessageCreateData minVolMessage = buildNowPlayingMessage("Test Title", "Test Author", false, true, "",
+                RepeatMode.ALL, 3, false, 2_000L, true, false, "id-1", 2, 0);
+        assertFalse(getButton(minVolMessage, "np_previous").isDisabled());
+        assertTrue(getButton(minVolMessage, "np_voldown").isDisabled());
+        assertFalse(getButton(minVolMessage, "np_volup").isDisabled());
+        assertEquals("Repeat All", getButton(minVolMessage, "np_repeat").getLabel());
+
+        MessageCreateData maxVolMessage = buildNowPlayingMessage("Test Title", "Test Author", false, true, "",
+                RepeatMode.SINGLE, 3, true, 2_000L, true, false, "id-1", 2, 150);
+        assertFalse(getButton(maxVolMessage, "np_previous").isDisabled());
+        assertFalse(getButton(maxVolMessage, "np_voldown").isDisabled());
+        assertTrue(getButton(maxVolMessage, "np_volup").isDisabled());
+        assertEquals("Resume", getButton(maxVolMessage, "np_pause").getLabel());
+        assertEquals("Repeat One", getButton(maxVolMessage, "np_repeat").getLabel());
     }
 
     private static MessageCreateData buildNowPlayingMessage(
@@ -188,7 +250,7 @@ class MessageFormatterTest
             boolean showButtons)
     {
         return buildNowPlayingMessage(title, author, minimalMessage, showProgressBar, footerInfo, repeatMode,
-                queueSize, paused, positionMs, showButtons, false, "id-1");
+                queueSize, paused, positionMs, showButtons, false, "id-1", 0, 50);
     }
 
     private static MessageCreateData buildNowPlayingMessage(
@@ -204,6 +266,45 @@ class MessageFormatterTest
             boolean showButtons,
             boolean useNpImages,
             String trackIdentifier)
+    {
+        return buildNowPlayingMessage(title, author, minimalMessage, showProgressBar, footerInfo, repeatMode,
+                queueSize, paused, positionMs, showButtons, useNpImages, trackIdentifier, 0, 50);
+    }
+
+    private static MessageCreateData buildNowPlayingMessage(
+            String title,
+            String author,
+            boolean minimalMessage,
+            boolean showProgressBar,
+            String footerInfo,
+            RepeatMode repeatMode,
+            int queueSize,
+            boolean paused,
+            long positionMs,
+            boolean showButtons,
+            boolean useNpImages,
+            String trackIdentifier,
+            int previousTrackCount)
+    {
+        return buildNowPlayingMessage(title, author, minimalMessage, showProgressBar, footerInfo, repeatMode,
+                queueSize, paused, positionMs, showButtons, useNpImages, trackIdentifier, previousTrackCount, 50);
+    }
+
+    private static MessageCreateData buildNowPlayingMessage(
+            String title,
+            String author,
+            boolean minimalMessage,
+            boolean showProgressBar,
+            String footerInfo,
+            RepeatMode repeatMode,
+            int queueSize,
+            boolean paused,
+            long positionMs,
+            boolean showButtons,
+            boolean useNpImages,
+            String trackIdentifier,
+            int previousTrackCount,
+            int volume)
     {
         Bot bot = mock(Bot.class);
         BotConfig config = mock(BotConfig.class);
@@ -233,7 +334,7 @@ class MessageFormatterTest
         when(track.getSourceManager().getSourceName()).thenReturn("youtube");
         when(track.getUserData(RequestMetadata.class)).thenReturn(null);
 
-        NowPlayingInfo info = new NowPlayingInfo(track, guild, paused, 50, queueSize, footerInfo);
+        NowPlayingInfo info = new NowPlayingInfo(track, guild, paused, volume, queueSize, previousTrackCount, footerInfo);
         return MessageFormatter.buildNowPlayingMessage(bot, info);
     }
 
@@ -271,5 +372,14 @@ class MessageFormatterTest
                 .filter(f -> fieldName.equals(f.getName()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static Button getButton(MessageCreateData message, String customId)
+    {
+        return message.getComponents().stream()
+                .flatMap(row -> row.asActionRow().getButtons().stream())
+                .filter(button -> customId.equals(button.getCustomId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Expected button with id: " + customId));
     }
 }

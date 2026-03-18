@@ -17,6 +17,8 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 public class MessageFormatter {
     private static final String NP_PREFIX = "np_";
+    private static final int MIN_VOLUME = 0;
+    private static final int MAX_VOLUME = 150;
 
     public static MessageCreateData buildNowPlayingMessage(Bot bot, NowPlayingInfo info) {
         if (info.track == null)
@@ -44,19 +46,8 @@ public class MessageFormatter {
             eb.setTitle(title);
         }
 
-        StringBuilder description = new StringBuilder();
-        if (bot.getConfig().showNpProgressBar()) {
-            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
-            description.append(statusEmoji)
-                    .append(" ").append(FormatUtil.progressBar(progress))
-                    .append(" `[").append(TimeUtil.formatTime(info.position))
-                    .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
-                    .append(FormatUtil.volumeIcon(info.volume))
-                    .append("\n\n");
-        }
-        description.append("**Playing from:** ").append(sourceNameForTrack(info));
-        eb.setDescription(description.toString());
+        RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
+        eb.setDescription(buildPlaybackStatusDescription(bot, info, repeatMode, false));
 
         String rawAuthor = info.track.getInfo().author;
         String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
@@ -68,7 +59,6 @@ public class MessageFormatter {
         eb.addField("Queue", String.valueOf(info.queueSize), true);
         eb.addField("Volume", info.volume + "%", true);
 
-        RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
         if (repeatMode != RepeatMode.OFF) {
             eb.addField("Repeat", repeatMode.getEmoji() + " " + repeatMode.getUserFriendlyName(), true);
         }
@@ -106,8 +96,11 @@ public class MessageFormatter {
             eb.setTitle(title);
         }
         RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
-        eb.setDescription(buildMinimalPlaybackDescription(bot, info));
-        eb.setFooter(buildMinimalFooter(info, repeatMode));
+        eb.setDescription(buildPlaybackStatusDescription(bot, info, repeatMode, true));
+        String footer = buildContextFooter(info);
+        if (footer != null) {
+            eb.setFooter(footer);
+        }
 
         if (showButtons) {
             applyNowPlayingButtons(mb, info, repeatMode);
@@ -154,7 +147,7 @@ public class MessageFormatter {
                 .build();
     }
 
-    private static String buildMinimalPlaybackDescription(Bot bot, NowPlayingInfo info) {
+    private static String buildPlaybackStatusLine(Bot bot, NowPlayingInfo info) {
         String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
         String timeDisplay = "`[" + TimeUtil.formatTime(info.position) + "/" + TimeUtil.formatTime(info.duration) + "]`";
         if (bot.getConfig().showNpProgressBar()) {
@@ -164,20 +157,32 @@ public class MessageFormatter {
         return statusEmoji + " " + timeDisplay + " " + FormatUtil.volumeIcon(info.volume);
     }
 
-    private static String buildMinimalFooter(NowPlayingInfo info, RepeatMode repeatMode) {
-        String sourceName = info.track.getSourceManager() != null
-                ? info.track.getSourceManager().getSourceName()
-                : "Unknown";
-        StringBuilder footer = new StringBuilder("Source: ")
-                .append(sourceName);
+    private static String buildMetadataSummaryLine(NowPlayingInfo info, RepeatMode repeatMode, boolean minimalLayout) {
+        StringBuilder summary = new StringBuilder("**Source:** ").append(sourceNameForTrack(info));
+        if (!minimalLayout) {
+            return summary.toString();
+        }
+
         String queuedLabel = formatQueuedLabel(info.queueSize);
         if (queuedLabel != null) {
-            footer.append(" • ").append(queuedLabel);
+            summary.append(" • ").append(queuedLabel);
         }
+        summary.append(" • **Volume:** ").append(info.volume).append("%");
         if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.SINGLE) {
-            footer.append(" • Repeat: ").append(repeatMode.getUserFriendlyName());
+            summary.append(" • **Repeat:** ").append(repeatMode.getUserFriendlyName());
         }
-        return footer.toString();
+        return summary.toString();
+    }
+
+    private static String buildPlaybackStatusDescription(Bot bot, NowPlayingInfo info, RepeatMode repeatMode, boolean minimalLayout) {
+        return buildPlaybackStatusLine(bot, info) + "\n" + buildMetadataSummaryLine(info, repeatMode, minimalLayout);
+    }
+
+    private static String buildContextFooter(NowPlayingInfo info) {
+        if (info.footerInfo == null || info.footerInfo.isEmpty()) {
+            return null;
+        }
+        return info.footerInfo;
     }
 
     private static String formatQueuedLabel(int queueSize) {
@@ -225,25 +230,41 @@ public class MessageFormatter {
     }
 
     private static void applyNowPlayingButtons(MessageCreateBuilder mb, NowPlayingInfo info, RepeatMode repeatMode) {
+        boolean canGoPrevious = info.position > 5000 || info.previousTrackCount > 0;
+        boolean canShuffle = info.queueSize > 1;
+        boolean canVolDown = info.volume > MIN_VOLUME;
+        boolean canVolUp = info.volume < MAX_VOLUME;
+
         Button repeatButton = switch (repeatMode) {
-            case ALL -> Button.primary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
-            case SINGLE -> Button.primary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
-            default -> Button.secondary(nowPlayingButtonId("repeat"), Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+            case ALL -> Button.primary(nowPlayingButtonId("repeat"), "Repeat All").withEmoji(Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
+            case SINGLE -> Button.primary(nowPlayingButtonId("repeat"), "Repeat One").withEmoji(Emoji.fromUnicode("\uD83D\uDD02")); // 🔂
+            default -> Button.secondary(nowPlayingButtonId("repeat"), "Repeat").withEmoji(Emoji.fromUnicode("\uD83D\uDD01")); // 🔁
         };
+
+        Button previousButton = Button.secondary(nowPlayingButtonId("previous"), "Prev").withEmoji(Emoji.fromUnicode("\u23EE")) // ⏮
+                .withDisabled(!canGoPrevious);
+        Button pauseButton = info.isPaused
+                ? Button.primary(nowPlayingButtonId("pause"), "Resume").withEmoji(Emoji.fromUnicode("\u25B6")) // ▶
+                : Button.primary(nowPlayingButtonId("pause"), "Pause").withEmoji(Emoji.fromUnicode("\u23F8")); // ⏸
+        Button shuffleButton = Button.secondary(nowPlayingButtonId("shuffle"), "Shuffle").withEmoji(Emoji.fromUnicode("\uD83D\uDD00")) // 🔀
+                .withDisabled(!canShuffle);
+        Button volumeDownButton = Button.secondary(nowPlayingButtonId("voldown"), "Vol -").withEmoji(Emoji.fromUnicode("\uD83D\uDD09")) // 🔉
+                .withDisabled(!canVolDown);
+        Button volumeUpButton = Button.secondary(nowPlayingButtonId("volup"), "Vol +").withEmoji(Emoji.fromUnicode("\uD83D\uDD0A")) // 🔊
+                .withDisabled(!canVolUp);
+
         mb.setComponents(
                 ActionRow.of(
-                        Button.secondary(nowPlayingButtonId("previous"), Emoji.fromUnicode("\u23EE")), // Previous ⏮
-                        info.isPaused
-                                ? Button.primary(nowPlayingButtonId("pause"), Emoji.fromUnicode("\u25B6"))    // Resume ▶
-                                : Button.secondary(nowPlayingButtonId("pause"), Emoji.fromUnicode("\u23F8")), // Pause ⏸
-                        Button.secondary(nowPlayingButtonId("skip"), Emoji.fromUnicode("\u23ED")), // Skip ⏭
-                        Button.secondary(nowPlayingButtonId("stop"), Emoji.fromUnicode("\u23F9")) // Stop ⏹
+                        previousButton,
+                        pauseButton,
+                        Button.secondary(nowPlayingButtonId("skip"), "Skip").withEmoji(Emoji.fromUnicode("\u23ED")), // ⏭
+                        Button.danger(nowPlayingButtonId("stop"), "Stop").withEmoji(Emoji.fromUnicode("\u23F9")) // ⏹
                 ),
                 ActionRow.of(
-                        Button.secondary(nowPlayingButtonId("shuffle"), Emoji.fromUnicode("\uD83D\uDD00")), // Shuffle 🔀
-                        repeatButton, // Repeat cycle
-                        Button.secondary(nowPlayingButtonId("voldown"), Emoji.fromUnicode("\uD83D\uDD09")), // Vol Down 🔉
-                        Button.secondary(nowPlayingButtonId("volup"), Emoji.fromUnicode("\uD83D\uDD0A")) // Vol Up 🔊
+                        shuffleButton,
+                        repeatButton,
+                        volumeDownButton,
+                        volumeUpButton
                 )
         );
     }
