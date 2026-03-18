@@ -195,10 +195,10 @@ class MessageFormatterTest
         String combined = String.join("\n", textDisplays);
         assertTrue(textDisplays.stream().noneMatch(t -> t.startsWith("Artwork: ")));
         assertTrue(combined.contains("## [Test Title](https://example.com/track)"));
-        assertTrue(combined.contains("**Playing from:** youtube"));
-        assertTrue(combined.contains("**Duration:** "));
-        assertTrue(combined.contains("**Queue:** 2"));
-        assertTrue(combined.contains("**Volume:** 50%"));
+        assertTrue(combined.contains("**Source:** youtube • **Author:** Test Author"));
+        assertFalse(combined.contains("**Duration:** "));
+        assertTrue(combined.contains("2 songs queued"));
+        assertTrue(combined.contains("Volume: 50%"));
         assertFalse(combined.contains("## Now Playing"));
         assertFalse(combined.contains("Server: "));
     }
@@ -215,14 +215,60 @@ class MessageFormatterTest
         int sectionIndex = findComponentIndex(components, c -> c.getType() == Component.Type.SECTION);
         int playbackIndex = findComponentIndex(components, c -> c.getType() == Component.Type.TEXT_DISPLAY
                 && ((net.dv8tion.jda.api.components.textdisplay.TextDisplay) c).getContent().contains("`["));
-        int statsIndex = findComponentIndex(components, c -> c.getType() == Component.Type.TEXT_DISPLAY
-                && ((net.dv8tion.jda.api.components.textdisplay.TextDisplay) c).getContent().startsWith("**Duration:** "));
+        int statusIndex = findComponentIndex(components, c -> c.getType() == Component.Type.TEXT_DISPLAY
+                && ((net.dv8tion.jda.api.components.textdisplay.TextDisplay) c).getContent().contains("Volume: 50%"));
         String combined = String.join("\n", extractTextDisplays(message));
 
         assertEquals(0, sectionIndex);
         assertTrue(playbackIndex > sectionIndex);
-        assertTrue(statsIndex > playbackIndex);
+        assertTrue(statusIndex > playbackIndex);
         assertFalse(combined.contains("Playing next song."));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() full layout keeps metadata in a single source/author line")
+    void buildNowPlayingMessage_fullLayout_singleMetadataLine()
+    {
+        List<String> textDisplays = buildNowPlayingText("Test Title", "Test Author", false, true, "",
+                RepeatMode.OFF, 2, false, 120_000L);
+        long metadataLines = textDisplays.stream()
+                .filter(t -> t.startsWith("**Source:** "))
+                .count();
+
+        assertEquals(1L, metadataLines);
+        assertTrue(textDisplays.stream().anyMatch(t -> t.equals("**Source:** youtube • **Author:** Test Author")));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() full layout uses one compact status line and omits redundant duration label")
+    void buildNowPlayingMessage_fullLayout_singleStatusLineWithoutRedundantDuration()
+    {
+        List<String> textDisplays = buildNowPlayingText("Test Title", "Test Author", false, true, "",
+                RepeatMode.ALL, 3, false, 120_000L);
+        List<String> statusLines = textDisplays.stream()
+                .filter(t -> t.contains("Volume: 50%"))
+                .toList();
+        String combined = String.join("\n", textDisplays);
+
+        assertEquals(1, statusLines.size());
+        assertTrue(statusLines.get(0).contains("3 songs queued"));
+        assertTrue(statusLines.get(0).contains("Repeat: All"));
+        assertFalse(combined.contains("**Duration:** "));
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() full layout includes total duration in status line when progress bar is off")
+    void buildNowPlayingMessage_fullLayout_includesDurationWhenProgressBarDisabled()
+    {
+        List<String> textDisplays = buildNowPlayingText("Test Title", "Test Author", false, false, "",
+                RepeatMode.OFF, 3, false, 120_000L);
+        String statusLine = textDisplays.stream()
+                .filter(t -> t.contains("Volume: 50%"))
+                .findFirst()
+                .orElse("");
+
+        assertTrue(statusLine.contains("3 songs queued"));
+        assertTrue(statusLine.contains("04:03"));
     }
 
     @Test

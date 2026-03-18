@@ -23,6 +23,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 
 public class MessageFormatter {
     private static final String NP_PREFIX = "np_";
@@ -49,38 +50,11 @@ public class MessageFormatter {
                 ? "[" + title + "](" + uri + ")"
                 : title;
         String titleDisplay = "## " + titleLine;
-        StringBuilder metadataDetails = new StringBuilder("**Playing from:** ").append(sourceNameForTrack(info));
+        String metadataLine = buildFullMetadataLine(info);
+        String playbackLine = buildMinimalPlaybackDescription(bot, info);
 
-        String rawAuthor = info.track.getInfo().author;
-        String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
-        if (author != null && (!author.isEmpty() && !author.equalsIgnoreCase("unknown artist"))) {
-            metadataDetails.append("\n**Author:** ").append(author);
-        }
-
-        StringBuilder playbackLine = new StringBuilder();
-        if (bot.getConfig().showNpProgressBar()) {
-            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            double progress = info.duration > 0 ? (double) info.position / info.duration : 0;
-            playbackLine.append(statusEmoji)
-                    .append(" ").append(FormatUtil.progressBar(progress))
-                    .append(" `[").append(TimeUtil.formatTime(info.position))
-                    .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
-                    .append(FormatUtil.volumeIcon(info.volume));
-        } else {
-            String statusEmoji = info.isPaused ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
-            playbackLine.append(statusEmoji)
-                    .append(" `[").append(TimeUtil.formatTime(info.position))
-                    .append("/").append(TimeUtil.formatTime(info.duration)).append("]` ")
-                    .append(FormatUtil.volumeIcon(info.volume));
-        }
         RepeatMode repeatMode = bot.getSettingsManager().getSettings(info.guild).getRepeatMode();
-
-        StringBuilder stats = new StringBuilder()
-                .append("**Duration:** ").append(TimeUtil.formatTime(info.duration))
-                .append("\n**Queue:** ").append(info.queueSize)
-                .append("\n**Volume:** ").append(info.volume).append("%");
-        if (repeatMode != RepeatMode.OFF)
-            stats.append("\n**Repeat:** ").append(repeatMode.getUserFriendlyName());
+        String statusLine = buildFullStatusLine(bot, info, repeatMode);
 
         String requesterDetails = buildRequesterDetails(info);
         String artworkUrl = resolveArtworkUrl(bot, info);
@@ -94,7 +68,7 @@ public class MessageFormatter {
                     children.add(Section.of(
                             artwork,
                             TextDisplay.of(titleDisplay),
-                            TextDisplay.of(metadataDetails.toString())
+                            TextDisplay.of(metadataLine)
                     ));
                 }
                 else
@@ -102,32 +76,35 @@ public class MessageFormatter {
                     children.add(Section.of(
                             artwork,
                             TextDisplay.of(titleDisplay),
-                            TextDisplay.of(metadataDetails.toString()),
+                            TextDisplay.of(metadataLine),
                             TextDisplay.of("**Requester:** " + requesterDetails)
                     ));
                 }
-                children.add(TextDisplay.of(playbackLine.toString()));
-                children.add(TextDisplay.of(stats.toString()));
+                children.add(TextDisplay.of(playbackLine));
+                children.add(Separator.createDivider(Separator.Spacing.SMALL));
+                children.add(TextDisplay.of(statusLine));
             }
             catch (RuntimeException ignored)
             {
                 // Keep rendering stable if source metadata provides an invalid artwork URL.
                 children.add(TextDisplay.of(titleDisplay));
-                children.add(TextDisplay.of(metadataDetails.toString()));
+                children.add(TextDisplay.of(metadataLine));
                 if (requesterDetails != null)
                     children.add(TextDisplay.of("**Requester:** " + requesterDetails));
-                children.add(TextDisplay.of(playbackLine.toString()));
-                children.add(TextDisplay.of(stats.toString()));
+                children.add(TextDisplay.of(playbackLine));
+                children.add(Separator.createDivider(Separator.Spacing.SMALL));
+                children.add(TextDisplay.of(statusLine));
             }
         }
         else
         {
             children.add(TextDisplay.of(titleDisplay));
-            children.add(TextDisplay.of(metadataDetails.toString()));
+            children.add(TextDisplay.of(metadataLine));
             if (requesterDetails != null)
                 children.add(TextDisplay.of("**Requester:** " + requesterDetails));
-            children.add(TextDisplay.of(playbackLine.toString()));
-            children.add(TextDisplay.of(stats.toString()));
+            children.add(TextDisplay.of(playbackLine));
+            children.add(Separator.createDivider(Separator.Spacing.SMALL));
+            children.add(TextDisplay.of(statusLine));
         }
 
         if (showButtons) {
@@ -202,14 +179,47 @@ public class MessageFormatter {
                 : "Unknown";
         StringBuilder footer = new StringBuilder("Source: ")
                 .append(sourceName);
-        if (info.queueSize > 0) {
-            String queuedLabel = info.queueSize == 1 ? "1 song queued" : info.queueSize + " songs queued";
+        String queuedLabel = formatQueuedLabel(info.queueSize);
+        if (queuedLabel != null) {
             footer.append(" • ").append(queuedLabel);
         }
         if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.SINGLE) {
             footer.append(" • Repeat: ").append(repeatMode.getUserFriendlyName());
         }
         return footer.toString();
+    }
+
+    private static String buildFullMetadataLine(NowPlayingInfo info) {
+        StringBuilder metadata = new StringBuilder("**Source:** ").append(sourceNameForTrack(info));
+        String rawAuthor = info.track.getInfo().author;
+        String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
+        if (author != null && (!author.isEmpty() && !author.equalsIgnoreCase("unknown artist"))) {
+            metadata.append(" • **Author:** ").append(author);
+        }
+        return metadata.toString();
+    }
+
+    private static String buildFullStatusLine(Bot bot, NowPlayingInfo info, RepeatMode repeatMode) {
+        StringJoiner statusParts = new StringJoiner(" • ");
+        String queuedLabel = formatQueuedLabel(info.queueSize);
+        if (queuedLabel != null) {
+            statusParts.add(queuedLabel);
+        }
+        if (!bot.getConfig().showNpProgressBar()) {
+            statusParts.add(TimeUtil.formatTime(info.duration));
+        }
+        statusParts.add("Volume: " + info.volume + "%");
+        if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.SINGLE) {
+            statusParts.add("Repeat: " + repeatMode.getUserFriendlyName());
+        }
+        return statusParts.toString();
+    }
+
+    private static String formatQueuedLabel(int queueSize) {
+        if (queueSize <= 0) {
+            return null;
+        }
+        return queueSize == 1 ? "1 song queued" : queueSize + " songs queued";
     }
 
     private static String getNowPlayingLocationName(NowPlayingInfo info) {
