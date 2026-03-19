@@ -89,6 +89,18 @@ public class PlaylistsInteractionListener extends ListenerAdapter
                 event.reply("Only the user who ran the command can use these buttons!").setEphemeral(true).queue();
                 return;
             }
+            MusicService.PlaylistNamesInfo namesInfo = loadPlaylistNames();
+            if (!namesInfo.hasError()
+                    && backId.listSelectedIndex() > 0
+                    && backId.listSelectedIndex() <= namesInfo.names.size())
+            {
+                String playlistName = namesInfo.names.get(backId.listSelectedIndex() - 1);
+                MusicService.PlaylistDraftContext draftContext = buildDraftContext(event, backId.userId(), playlistName);
+                if (bot.getMusicService().isPlaylistDraftDirty(draftContext))
+                {
+                    bot.getMusicService().discardPlaylistDraft(draftContext);
+                }
+            }
             renderPlaylistListView(event, backId.listPage(), backId.listSelectedIndex(), backId.userId());
             return;
         }
@@ -234,6 +246,12 @@ public class PlaylistsInteractionListener extends ListenerAdapter
             return;
         }
 
+        if (action.equals("unselect"))
+        {
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, 0, id.userId(), playlistName, draftContext);
+            return;
+        }
+
         if (selectedTrack <= 0 || selectedTrack > totalItems)
         {
             event.reply("No track selected!").setEphemeral(true).queue();
@@ -255,7 +273,8 @@ public class PlaylistsInteractionListener extends ListenerAdapter
             }
             int newTotalPages = Math.max(1, PlaylistsSlashCmd.getPlaylistTrackTotalPages(removeResult.totalItems));
             int safePage = Math.min(page, newTotalPages);
-            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), safePage, 0, id.userId(), playlistName, draftContext);
+            int newSelectedTrack = removeResult.totalItems == 0 ? 0 : Math.min(selectedTrack, removeResult.totalItems);
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), safePage, newSelectedTrack, id.userId(), playlistName, draftContext);
             return;
         }
 
@@ -267,6 +286,37 @@ public class PlaylistsInteractionListener extends ListenerAdapter
                 return;
             }
             renderPlaylistMoveMenu(event, draftContext, id.playlistIndex(), id.listPage(), page, selectedTrack, id.userId());
+            return;
+        }
+        if (action.equals("cancelmove"))
+        {
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, selectedTrack, id.userId(), playlistName, draftContext);
+            return;
+        }
+
+        if (action.equals("movetop") || action.equals("moveup") || action.equals("movedown") || action.equals("movebottom"))
+        {
+            if (!canEditPlaylist)
+            {
+                event.reply("You need to be a DJ or the bot owner to edit playlists!").setEphemeral(true).queue();
+                return;
+            }
+            int target = switch (action)
+            {
+                case "movetop" -> 1;
+                case "moveup" -> Math.max(1, selectedTrack - 1);
+                case "movedown" -> Math.min(totalItems, selectedTrack + 1);
+                case "movebottom" -> totalItems;
+                default -> selectedTrack;
+            };
+            MusicService.PlaylistDraftMutationResult moveResult =
+                    musicService.movePlaylistDraftItem(draftContext, selectedTrack, target);
+            if (!moveResult.success)
+            {
+                event.reply(moveResult.errorMessage).setEphemeral(true).queue();
+                return;
+            }
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, target, id.userId(), playlistName, draftContext);
             return;
         }
 
@@ -287,19 +337,19 @@ public class PlaylistsInteractionListener extends ListenerAdapter
         if (action.equals("queue"))
         {
             musicService.play(event.getGuild(), event.getMember(), selectedTrackUrl, channel, output);
-            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, 0, id.userId(), playlistName, draftContext);
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, selectedTrack, id.userId(), playlistName, draftContext);
             return;
         }
         if (action.equals("playnext"))
         {
             musicService.playNext(event.getGuild(), event.getMember(), selectedTrackUrl, channel, output);
-            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, 0, id.userId(), playlistName, draftContext);
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, selectedTrack, id.userId(), playlistName, draftContext);
             return;
         }
         if (action.equals("playnow"))
         {
             musicService.playNowFromUrl(event.getGuild(), event.getMember(), selectedTrackUrl, channel, output);
-            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), 1, 0, id.userId(), playlistName, draftContext);
+            renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), page, selectedTrack, id.userId(), playlistName, draftContext);
         }
     }
 
@@ -364,7 +414,7 @@ public class PlaylistsInteractionListener extends ListenerAdapter
             return;
         }
 
-        renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), id.detailsPage(), 0, id.userId(), playlistName, draftContext);
+        renderPlaylistDetailsView(event, id.playlistIndex(), id.listPage(), id.detailsPage(), toPosition, id.userId(), playlistName, draftContext);
     }
 
     private void handlePlaylistsButton(ButtonInteractionEvent event)
@@ -672,7 +722,14 @@ public class PlaylistsInteractionListener extends ListenerAdapter
                             menuBuilder.addOption("Position " + i, String.valueOf(i));
                         }
                     }
-                    event.editMessageEmbeds(embed).setComponents(ActionRow.of(menuBuilder.build())).queue();
+                    String cancelMoveId = "playlistdetails_" + playlistIndex + "_" + listPage + "_cancelmove_"
+                            + safePage + "_" + safeSelected + "_" + userId;
+                    event.editMessageEmbeds(embed)
+                            .setComponents(
+                                    ActionRow.of(menuBuilder.build()),
+                                    ActionRow.of(net.dv8tion.jda.api.components.buttons.Button.secondary(cancelMoveId, "Back"))
+                            )
+                            .queue();
                 });
     }
 

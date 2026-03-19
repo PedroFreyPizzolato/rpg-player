@@ -139,29 +139,71 @@ class PlaylistsSlashCmdTest
     }
 
     @Test
-    void buildPlaylistDetailsComponents_includesBackRowAndTrackActionsWhenSelected()
+    void buildPlaylistDetailsComponents_selectedMode_dirty_hasFinalRowWithUnselectSaveDiscard()
     {
         List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistDetailsComponents(
                 2, 1, 1, 3, 10, 4, 42L, true, true);
 
-        assertFalse(rows.isEmpty());
-        ActionRow playlistRow = rows.get(3);
-        assertEquals("Queue Playlist", ((Button) playlistRow.getComponents().get(0)).getLabel());
-        assertEquals("Play Playlist", ((Button) playlistRow.getComponents().get(1)).getLabel());
+        assertEquals(5, rows.size());
+        ActionRow row1 = rows.get(0);
+        ActionRow row2 = rows.get(1);
+        ActionRow row3 = rows.get(2);
+        ActionRow row4 = rows.get(3);
+        ActionRow backRow = rows.get(4);
 
-        ActionRow trackRow = rows.get(4);
-        assertEquals("Queue Track", ((Button) trackRow.getComponents().get(0)).getLabel());
-        assertEquals("Move", ((Button) trackRow.getComponents().get(3)).getLabel());
-        assertEquals("Remove", ((Button) trackRow.getComponents().get(4)).getLabel());
+        assertEquals("Queue Track", ((Button) row1.getComponents().get(0)).getLabel());
+        assertEquals("Play Next", ((Button) row1.getComponents().get(1)).getLabel());
+        assertEquals("Play Now", ((Button) row1.getComponents().get(2)).getLabel());
 
-        ActionRow draftRow = rows.get(5);
-        assertEquals("Save", ((Button) draftRow.getComponents().get(0)).getLabel());
-        assertEquals("Discard", ((Button) draftRow.getComponents().get(1)).getLabel());
+        assertEquals("Move top", ((Button) row2.getComponents().get(0)).getLabel());
+        assertEquals("Up 1", ((Button) row2.getComponents().get(1)).getLabel());
+        assertEquals("Move bottom", ((Button) row3.getComponents().get(0)).getLabel());
+        assertEquals("Down 1", ((Button) row3.getComponents().get(1)).getLabel());
 
+        assertEquals("Move to", ((Button) row4.getComponents().get(0)).getLabel());
+        assertEquals("Remove", ((Button) row4.getComponents().get(1)).getLabel());
+
+        assertEquals(3, backRow.getComponents().size());
+        assertEquals("Unselect song", ((Button) backRow.getComponents().get(0)).getLabel());
+        assertEquals("Save", ((Button) backRow.getComponents().get(1)).getLabel());
+        assertEquals("Discard", ((Button) backRow.getComponents().get(2)).getLabel());
+    }
+
+    @Test
+    void buildPlaylistDetailsComponents_selectedMode_clean_hasOnlyUnselectOnFinalRow()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistDetailsComponents(
+                2, 1, 1, 3, 10, 4, 42L, true, false);
+        assertEquals(5, rows.size());
         ActionRow backRow = rows.get(rows.size() - 1);
         assertEquals(1, backRow.getComponents().size());
-        Button backButton = (Button) backRow.getComponents().get(0);
-        assertEquals("Back", backButton.getLabel());
+        assertEquals("Unselect song", ((Button) backRow.getComponents().get(0)).getLabel());
+    }
+
+    @Test
+    void buildPlaylistDetailsComponents_unselectedMode_dirty_hasBackSaveDiscardOnFinalRow()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistDetailsComponents(
+                2, 1, 1, 3, 10, 0, 42L, true, true);
+        assertFalse(rows.isEmpty());
+        ActionRow playlistRow = rows.get(rows.size() - 2);
+        assertEquals("Queue Playlist", ((Button) playlistRow.getComponents().get(0)).getLabel());
+        assertEquals("Play Playlist", ((Button) playlistRow.getComponents().get(1)).getLabel());
+        ActionRow backRow = rows.get(rows.size() - 1);
+        assertEquals(3, backRow.getComponents().size());
+        assertEquals("Back", ((Button) backRow.getComponents().get(0)).getLabel());
+        assertEquals("Save", ((Button) backRow.getComponents().get(1)).getLabel());
+        assertEquals("Discard", ((Button) backRow.getComponents().get(2)).getLabel());
+    }
+
+    @Test
+    void buildPlaylistDetailsComponents_unselectedMode_clean_hasBackOnlyOnFinalRow()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistDetailsComponents(
+                2, 1, 1, 3, 10, 0, 42L, true, false);
+        ActionRow backRow = rows.get(rows.size() - 1);
+        assertEquals(1, backRow.getComponents().size());
+        assertEquals("Back", ((Button) backRow.getComponents().get(0)).getLabel());
     }
 
     @Test

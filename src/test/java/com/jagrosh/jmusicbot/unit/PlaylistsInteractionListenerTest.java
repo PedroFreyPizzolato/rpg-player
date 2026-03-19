@@ -28,7 +28,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -173,5 +175,125 @@ class PlaylistsInteractionListenerTest
 
         verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("DJ or the bot owner")));
         verify(fixture.getReplyAction()).setEphemeral(true);
+    }
+
+    @Test
+    @DisplayName("onButtonInteraction() playlistdetails unselect re-renders details unselected state")
+    void onButtonInteraction_playlistDetailsUnselect_rerendersDetails()
+    {
+        fixture.withButtonId("playlistdetails_1_1_unselect_1_4_" + fixture.getUser().getIdLong());
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
+        when(fixture.getMusicService().getPlaylistDetails("favorite"))
+                .thenReturn(new MusicService.PlaylistDetailsInfo("favorite", 4, List.of(), false));
+        when(fixture.getMusicService().getPlaylistTrackCount(any())).thenReturn(4);
+        when(fixture.getMusicService().canEditPlaylistEntries(eq(fixture.getGuild()), eq(fixture.getMember())))
+                .thenReturn(true);
+        MusicService.PlaylistDraftContext draftContext =
+                new MusicService.PlaylistDraftContext(123456789L, 123L, 456L, fixture.getUser().getIdLong(), "favorite");
+        when(fixture.getMusicService().buildPlaylistDraftContext(anyLong(), anyLong(), anyLong(), anyLong(), anyString()))
+                .thenReturn(draftContext);
+        doAnswer(invocation ->
+        {
+            java.util.function.Consumer<MusicService.PlaylistTracksPageInfo> callback =
+                    invocation.getArgument(3);
+            callback.accept(new MusicService.PlaylistTracksPageInfo(
+                    "favorite", 4, 0, false, false, List.of(
+                    "`[03:57]` [**spinnin**](https://example/1)",
+                    "`[05:57]` [**daylight**](https://example/2)",
+                    "`[04:31]` [**rapture**](https://example/3)",
+                    "`[06:40]` [**flame**](https://example/4)"
+            )));
+            return null;
+        }).when(fixture.getMusicService()).loadPlaylistPageWithTracks(any(MusicService.PlaylistDraftContext.class), anyInt(), anyInt(), any());
+
+        MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
+        when(channelUnion.getIdLong()).thenReturn(123L);
+        when(fixture.getButtonInteractionEvent().getChannel()).thenReturn(channelUnion);
+        when(fixture.getButtonInteractionEvent().getMessageIdLong()).thenReturn(456L);
+
+        MessageEditCallbackAction editAction = mock(MessageEditCallbackAction.class);
+        when(fixture.getButtonInteractionEvent().editMessageEmbeds(any(MessageEmbed[].class))).thenReturn(editAction);
+        when(editAction.setComponents(anyList())).thenReturn(editAction);
+        doNothing().when(editAction).queue();
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getButtonInteractionEvent(), never()).reply(argThat((String s) -> s.contains("No track selected")));
+        verify(fixture.getMusicService()).loadPlaylistPageWithTracks(any(MusicService.PlaylistDraftContext.class), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("onButtonInteraction() playlistdetails cancelmove returns to selected details")
+    void onButtonInteraction_playlistDetailsCancelMove_rerendersSelectedDetails()
+    {
+        fixture.withButtonId("playlistdetails_1_1_cancelmove_1_2_" + fixture.getUser().getIdLong());
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
+        when(fixture.getMusicService().getPlaylistDetails("favorite"))
+                .thenReturn(new MusicService.PlaylistDetailsInfo("favorite", 4, List.of(), false));
+        when(fixture.getMusicService().getPlaylistTrackCount(any())).thenReturn(4);
+        when(fixture.getMusicService().canEditPlaylistEntries(eq(fixture.getGuild()), eq(fixture.getMember())))
+                .thenReturn(true);
+        MusicService.PlaylistDraftContext draftContext =
+                new MusicService.PlaylistDraftContext(123456789L, 123L, 456L, fixture.getUser().getIdLong(), "favorite");
+        when(fixture.getMusicService().buildPlaylistDraftContext(anyLong(), anyLong(), anyLong(), anyLong(), anyString()))
+                .thenReturn(draftContext);
+        doAnswer(invocation ->
+        {
+            java.util.function.Consumer<MusicService.PlaylistTracksPageInfo> callback =
+                    invocation.getArgument(3);
+            callback.accept(new MusicService.PlaylistTracksPageInfo(
+                    "favorite", 4, 0, false, false, List.of(
+                    "`[03:57]` [**spinnin**](https://example/1)",
+                    "`[05:57]` [**daylight**](https://example/2)",
+                    "`[04:31]` [**rapture**](https://example/3)",
+                    "`[06:40]` [**flame**](https://example/4)"
+            )));
+            return null;
+        }).when(fixture.getMusicService()).loadPlaylistPageWithTracks(any(MusicService.PlaylistDraftContext.class), anyInt(), anyInt(), any());
+
+        MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
+        when(channelUnion.getIdLong()).thenReturn(123L);
+        when(fixture.getButtonInteractionEvent().getChannel()).thenReturn(channelUnion);
+        when(fixture.getButtonInteractionEvent().getMessageIdLong()).thenReturn(456L);
+
+        MessageEditCallbackAction editAction = mock(MessageEditCallbackAction.class);
+        when(fixture.getButtonInteractionEvent().editMessageEmbeds(any(MessageEmbed[].class))).thenReturn(editAction);
+        when(editAction.setComponents(anyList())).thenReturn(editAction);
+        doNothing().when(editAction).queue();
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getMusicService()).loadPlaylistPageWithTracks(any(MusicService.PlaylistDraftContext.class), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    @DisplayName("onButtonInteraction() playlistdetails back discards dirty draft before list view")
+    void onButtonInteraction_playlistDetailsBack_discardsDirtyDraft()
+    {
+        fixture.withButtonId("playlistdetails_back_1_1_" + fixture.getUser().getIdLong());
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
+        MusicService.PlaylistDraftContext draftContext =
+                new MusicService.PlaylistDraftContext(123456789L, 123L, 456L, fixture.getUser().getIdLong(), "favorite");
+        when(fixture.getMusicService().buildPlaylistDraftContext(anyLong(), anyLong(), anyLong(), anyLong(), anyString()))
+                .thenReturn(draftContext);
+        when(fixture.getMusicService().isPlaylistDraftDirty(draftContext)).thenReturn(true);
+
+        MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
+        when(channelUnion.getIdLong()).thenReturn(123L);
+        when(fixture.getButtonInteractionEvent().getChannel()).thenReturn(channelUnion);
+        when(fixture.getButtonInteractionEvent().getMessageIdLong()).thenReturn(456L);
+
+        MessageEditCallbackAction editAction = mock(MessageEditCallbackAction.class);
+        when(fixture.getButtonInteractionEvent().editMessageEmbeds(any(MessageEmbed[].class))).thenReturn(editAction);
+        when(editAction.setComponents(anyList())).thenReturn(editAction);
+        doNothing().when(editAction).queue();
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getMusicService()).discardPlaylistDraft(draftContext);
+        verify(fixture.getButtonInteractionEvent()).editMessageEmbeds(any(MessageEmbed[].class));
     }
 }

@@ -287,49 +287,59 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
         List<ActionRow> rows = new ArrayList<>();
         String baseId = "playlistdetails_" + playlistIndex + "_" + listPage + "_%s_" + detailsPage
                 + "_" + selectedTrack + "_" + userId;
+        List<Button> finalRowButtons = new ArrayList<>();
+        if (canEdit && draftDirty)
+        {
+            finalRowButtons.add(Button.success(String.format(baseId, "save"), "Save"));
+            finalRowButtons.add(Button.secondary(String.format(baseId, "discard"), "Discard"));
+        }
+        if (selectedTrack > 0)
+        {
+            // Selected mode: grouped 4-row layout (playback, move, utility, final state).
+            Button moveTopBtn = Button.secondary(String.format(baseId, "movetop"), "Move top")
+                    .withEmoji(Emoji.fromUnicode("⏫"));
+            Button moveUpBtn = Button.secondary(String.format(baseId, "moveup"), "Up 1")
+                    .withEmoji(Emoji.fromUnicode("⬆️"));
+            Button moveBottomBtn = Button.secondary(String.format(baseId, "movebottom"), "Move bottom")
+                    .withEmoji(Emoji.fromUnicode("⏬"));
+            Button moveDownBtn = Button.secondary(String.format(baseId, "movedown"), "Down 1")
+                    .withEmoji(Emoji.fromUnicode("⬇️"));
+            Button moveToBtn = Button.secondary(String.format(baseId, "move"), "Move to")
+                    .withEmoji(Emoji.fromUnicode("↕️"));
+
+            Button queueBtn = Button.primary(String.format(baseId, "queue"), "Queue Track").withEmoji(Emoji.fromUnicode("➕"));
+            Button playNextBtn = Button.primary(String.format(baseId, "playnext"), "Play Next").withEmoji(Emoji.fromUnicode("⏭️"));
+            Button playNowBtn = Button.success(String.format(baseId, "playnow"), "Play Now").withEmoji(Emoji.fromUnicode("▶️"));
+            Button removeBtn = Button.danger(String.format(baseId, "remove"), "Remove")
+                    .withEmoji(Emoji.fromUnicode("🗑️"));
+
+            rows.add(ActionRow.of(queueBtn, playNextBtn, playNowBtn));
+            if (canEdit)
+            {
+                rows.add(ActionRow.of(moveTopBtn, moveUpBtn));
+                rows.add(ActionRow.of(moveBottomBtn, moveDownBtn));
+                rows.add(ActionRow.of(moveToBtn, removeBtn));
+            }
+            finalRowButtons.add(0, Button.danger(String.format(baseId, "unselect"), "Unselect song"));
+            rows.add(ActionRow.of(finalRowButtons));
+            return rows;
+        }
+
+        // Unselected mode: browsing-focused layout.
         rows.addAll(PaginatedListComponents.buildSelectRows(
                 baseId, detailsPage, PLAYLIST_TRACKS_PER_PAGE, tracksOnPage, selectedTrack));
-
         ActionRow paginationRow = PaginatedListComponents.buildPaginationRow(baseId, detailsPage, totalDetailsPages);
         if (paginationRow != null)
         {
             rows.add(paginationRow);
         }
-
-        // Whole-playlist actions are always available in details view.
         Button queueAllBtn = Button.secondary(String.format(baseId, "queueall"), "Queue Playlist")
                 .withEmoji(Emoji.fromUnicode("🎵"));
         Button playAllBtn = Button.success(String.format(baseId, "playall"), "Play Playlist")
                 .withEmoji(Emoji.fromUnicode("📀"));
         rows.add(ActionRow.of(queueAllBtn, playAllBtn));
-
-        if (selectedTrack > 0)
-        {
-            Button queueBtn = Button.secondary(String.format(baseId, "queue"), "Queue Track").withEmoji(Emoji.fromUnicode("➕"));
-            Button playNextBtn = Button.primary(String.format(baseId, "playnext"), "Play Next").withEmoji(Emoji.fromUnicode("⏭️"));
-            Button playNowBtn = Button.success(String.format(baseId, "playnow"), "Play Now").withEmoji(Emoji.fromUnicode("▶️"));
-            List<Button> trackButtons = new ArrayList<>(List.of(queueBtn, playNextBtn, playNowBtn));
-            if (canEdit)
-            {
-                Button moveBtn = Button.secondary(String.format(baseId, "move"), "Move")
-                        .withEmoji(Emoji.fromUnicode("↕️"));
-                Button removeBtn = Button.danger(String.format(baseId, "remove"), "Remove")
-                        .withEmoji(Emoji.fromUnicode("🗑️"));
-                trackButtons.add(moveBtn);
-                trackButtons.add(removeBtn);
-            }
-            rows.add(ActionRow.of(trackButtons));
-        }
-
-        if (canEdit && draftDirty)
-        {
-            Button saveBtn = Button.success(String.format(baseId, "save"), "Save");
-            Button discardBtn = Button.secondary(String.format(baseId, "discard"), "Discard");
-            rows.add(ActionRow.of(saveBtn, discardBtn));
-        }
-
-        Button backBtn = Button.danger("playlistdetails_back_" + listPage + "_" + playlistIndex + "_" + userId, "Back");
-        rows.add(ActionRow.of(backBtn));
+        finalRowButtons.add(0, Button.danger("playlistdetails_back_" + listPage + "_" + playlistIndex + "_" + userId, "Back"));
+        rows.add(ActionRow.of(finalRowButtons));
         return rows;
     }
 
