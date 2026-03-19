@@ -18,6 +18,10 @@ package com.jagrosh.jmusicbot.unit;
 import com.jagrosh.jmusicbot.listener.PlaybackControlsListener;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.testutil.listener.ListenerTestFixture;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -146,6 +150,78 @@ public class PlaybackControlsListenerTest {
                     eq(fixture.getMember()),
                     any(MusicService.OutputAdapter.class)
             );
+        }
+
+        @Test
+        @DisplayName("handles favorite button")
+        void onButtonInteraction_handlesFavoriteButton() {
+            fixture.withButtonId("np_favorite")
+                    .withMemberInVoiceChannel()
+                    .withAudioHandlerPlaying();
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            verify(fixture.getMusicService()).addCurrentTrackToFavorites(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    any(MusicService.OutputAdapter.class)
+            );
+
+            ArgumentCaptor<MusicService.OutputAdapter> captor = ArgumentCaptor.forClass(MusicService.OutputAdapter.class);
+            verify(fixture.getMusicService()).addCurrentTrackToFavorites(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    captor.capture()
+            );
+
+            MusicService.OutputAdapter adapter = captor.getValue();
+            adapter.replySuccess("ok");
+            verify(fixture.getButtonInteractionEvent()).reply("ok");
+            verify(fixture.getReplyAction(), never()).setEphemeral(true);
+
+            clearInvocations(fixture.getButtonInteractionEvent(), fixture.getReplyAction());
+            adapter.replyWarning("dup");
+            verify(fixture.getButtonInteractionEvent()).reply("dup");
+            verify(fixture.getReplyAction()).setEphemeral(true);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        @DisplayName("favorite adapter uses hook followup after interaction is acknowledged")
+        void onButtonInteraction_favoriteAdapterUsesHookAfterAcknowledged() {
+            fixture.withButtonId("np_favorite")
+                    .withMemberInVoiceChannel()
+                    .withAudioHandlerPlaying();
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            ArgumentCaptor<MusicService.OutputAdapter> captor = ArgumentCaptor.forClass(MusicService.OutputAdapter.class);
+            verify(fixture.getMusicService()).addCurrentTrackToFavorites(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    captor.capture()
+            );
+
+            when(fixture.getButtonInteractionEvent().isAcknowledged()).thenReturn(true);
+            InteractionHook hook = mock(InteractionHook.class);
+            WebhookMessageCreateAction<Message> followup = mock(WebhookMessageCreateAction.class);
+            when(fixture.getButtonInteractionEvent().getHook()).thenReturn(hook);
+            when(hook.sendMessage(anyString())).thenReturn(followup);
+            when(followup.setEphemeral(true)).thenReturn(followup);
+
+            MusicService.OutputAdapter adapter = captor.getValue();
+            adapter.replySuccess("ok");
+            verify(hook).sendMessage("ok");
+            verify(fixture.getButtonInteractionEvent(), never()).reply("ok");
+            verify(followup, never()).setEphemeral(true);
+
+            adapter.replyWarning("dup");
+            verify(hook).sendMessage("dup");
+            verify(followup).setEphemeral(true);
+
+            adapter.replyError("err");
+            verify(hook).sendMessage("err");
+            verify(followup, times(2)).setEphemeral(true);
         }
 
         @Test

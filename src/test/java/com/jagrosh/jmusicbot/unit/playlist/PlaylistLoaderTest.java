@@ -32,6 +32,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -153,5 +157,145 @@ class PlaylistLoaderTest
 
         assertFalse(result.isSuccess());
         assertEquals(PlaylistLoader.PlaylistErrorType.STORAGE_UNAVAILABLE, result.getError().getType());
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() creates favorites file and appends first item")
+    void appendItemIfAbsentResult_createsFavoritesAndAppends()
+    {
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> result =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/first");
+
+        assertTrue(result.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.APPENDED, result.getValue().getStatus());
+        assertTrue(Files.exists(tempDir.resolve("favorites.txt")));
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() returns already present when duplicate exists")
+    void appendItemIfAbsentResult_returnsAlreadyPresentForDuplicate() throws IOException
+    {
+        Files.writeString(tempDir.resolve("favorites.txt"), "https://example.com/track\n");
+
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> result =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/track");
+
+        assertTrue(result.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.ALREADY_PRESENT, result.getValue().getStatus());
+        List<String> lines = Files.readAllLines(tempDir.resolve("favorites.txt"));
+        assertEquals(1, lines.stream().filter(l -> l.trim().equals("https://example.com/track")).count());
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() refreshes stale favorites cache after external file changes")
+    void appendItemIfAbsentResult_refreshesCacheWhenFavoritesFileChanges() throws IOException
+    {
+        loader.appendItemIfAbsentResult("favorites", "https://example.com/a");
+        Files.writeString(tempDir.resolve("favorites.txt"), "https://example.com/a\nhttps://example.com/b\n");
+
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> result =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/b");
+
+        assertTrue(result.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.ALREADY_PRESENT, result.getValue().getStatus());
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() uses warm favorites cache for non-duplicate append")
+    void appendItemIfAbsentResult_warmCacheAppendsNewEntry() throws IOException
+    {
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> first =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/a");
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> second =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/b");
+
+        assertTrue(first.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.APPENDED, first.getValue().getStatus());
+        assertTrue(second.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.APPENDED, second.getValue().getStatus());
+
+        List<String> lines = Files.readAllLines(tempDir.resolve("favorites.txt"));
+        assertEquals(List.of("https://example.com/a", "https://example.com/b"), lines);
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() uses warm favorites cache for duplicate detection")
+    void appendItemIfAbsentResult_warmCacheDetectsDuplicate() throws IOException
+    {
+        loader.appendItemIfAbsentResult("favorites", "https://example.com/a");
+
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> duplicate =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/a");
+
+        assertTrue(duplicate.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.ALREADY_PRESENT, duplicate.getValue().getStatus());
+
+        List<String> lines = Files.readAllLines(tempDir.resolve("favorites.txt"));
+        assertEquals(1, lines.stream().filter(l -> l.equals("https://example.com/a")).count());
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() reloads stale cache and preserves external additions")
+    void appendItemIfAbsentResult_staleCacheAppendsAfterExternalChange() throws IOException
+    {
+        loader.appendItemIfAbsentResult("favorites", "https://example.com/a");
+        Files.writeString(tempDir.resolve("favorites.txt"), "https://example.com/a\nhttps://example.com/external\n");
+
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> appended =
+                loader.appendItemIfAbsentResult("favorites", "https://example.com/b");
+
+        assertTrue(appended.isSuccess());
+        assertEquals(PlaylistLoader.AppendIfAbsentStatus.APPENDED, appended.getValue().getStatus());
+
+        List<String> lines = Files.readAllLines(tempDir.resolve("favorites.txt"));
+        assertEquals(List.of("https://example.com/a", "https://example.com/external", "https://example.com/b"), lines);
+    }
+
+    @Test
+    @DisplayName("appendItemIfAbsentResult() is lock-safe under concurrent duplicate appends")
+    void appendItemIfAbsentResult_isLockSafeForConcurrentDuplicateAppends() throws Exception
+    {
+        int workers = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(workers);
+        CountDownLatch ready = new CountDownLatch(workers);
+        CountDownLatch start = new CountDownLatch(1);
+        try
+        {
+            List<Future<PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult>>> futures = new ArrayList<>();
+            for(int i = 0; i < workers; i++)
+            {
+                futures.add(pool.submit(() ->
+                {
+                    ready.countDown();
+                    start.await();
+                    return loader.appendItemIfAbsentResult("favorites", "https://example.com/race");
+                }));
+            }
+
+            ready.await();
+            start.countDown();
+
+            int appendedCount = 0;
+            int duplicateCount = 0;
+            for(Future<PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult>> future : futures)
+            {
+                PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> result = future.get();
+                assertTrue(result.isSuccess());
+                if(result.getValue().getStatus() == PlaylistLoader.AppendIfAbsentStatus.APPENDED)
+                    appendedCount++;
+                else
+                    duplicateCount++;
+            }
+
+            assertEquals(1, appendedCount);
+            assertEquals(workers - 1, duplicateCount);
+        }
+        finally
+        {
+            pool.shutdownNow();
+        }
+
+        List<String> lines = Files.readAllLines(tempDir.resolve("favorites.txt"));
+        assertEquals(1, lines.stream().filter(l -> l.trim().equals("https://example.com/race")).count());
     }
 }

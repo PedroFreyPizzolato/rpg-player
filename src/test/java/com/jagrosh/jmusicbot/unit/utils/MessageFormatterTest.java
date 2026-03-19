@@ -113,6 +113,7 @@ class MessageFormatterTest
         assertTrue(buttonIds.contains("np_stop"));
         assertTrue(buttonIds.contains("np_shuffle"));
         assertTrue(buttonIds.contains("np_repeat"));
+        assertTrue(buttonIds.contains("np_favorite"));
         assertTrue(buttonIds.contains("np_voldown"));
         assertTrue(buttonIds.contains("np_volup"));
     }
@@ -195,11 +196,25 @@ class MessageFormatterTest
         assertNotNull(pause);
         assertNotNull(stop);
         assertNotNull(repeat);
+        assertNotNull(getButton(message, "np_favorite"));
         assertEquals("Pause", pause.getLabel());
         assertEquals(ButtonStyle.PRIMARY, pause.getStyle());
         assertEquals("Stop", stop.getLabel());
         assertEquals(ButtonStyle.DANGER, stop.getStyle());
         assertEquals("Repeat", repeat.getLabel());
+    }
+
+    @Test
+    @DisplayName("buildNowPlayingMessage() favorite button style reflects favorited state")
+    void buildNowPlayingMessage_favoriteButtonStyleReflectsFavoritedState()
+    {
+        MessageCreateData notFavorited = buildNowPlayingMessage("Test Title", "Test Author", false, true, "",
+                RepeatMode.OFF, 1, false, 2_000L, true, false, "id-1", 0, 50, false);
+        assertEquals(ButtonStyle.SECONDARY, getButton(notFavorited, "np_favorite").getStyle());
+
+        MessageCreateData favorited = buildNowPlayingMessage("Test Title", "Test Author", false, true, "",
+                RepeatMode.OFF, 1, false, 2_000L, true, false, "id-1", 0, 50, true);
+        assertEquals(ButtonStyle.SUCCESS, getButton(favorited, "np_favorite").getStyle());
     }
 
     @Test
@@ -303,6 +318,27 @@ class MessageFormatterTest
             int previousTrackCount,
             int volume)
     {
+        return buildNowPlayingMessage(title, author, minimalMessage, showProgressBar, footerInfo, repeatMode,
+                queueSize, paused, positionMs, showButtons, useNpImages, trackIdentifier, previousTrackCount, volume, false);
+    }
+
+    private static MessageCreateData buildNowPlayingMessage(
+            String title,
+            String author,
+            boolean minimalMessage,
+            boolean showProgressBar,
+            String footerInfo,
+            RepeatMode repeatMode,
+            int queueSize,
+            boolean paused,
+            long positionMs,
+            boolean showButtons,
+            boolean useNpImages,
+            String trackIdentifier,
+            int previousTrackCount,
+            int volume,
+            boolean isCurrentTrackFavorited)
+    {
         Bot bot = mock(Bot.class);
         BotConfig config = mock(BotConfig.class);
         SettingsManager settingsManager = mock(SettingsManager.class);
@@ -331,7 +367,8 @@ class MessageFormatterTest
         when(track.getSourceManager().getSourceName()).thenReturn("youtube");
         when(track.getUserData(RequestMetadata.class)).thenReturn(null);
 
-        NowPlayingInfo info = new NowPlayingInfo(track, guild, paused, volume, queueSize, previousTrackCount, footerInfo);
+        NowPlayingInfo info = new NowPlayingInfo(track, guild, paused, volume, queueSize, previousTrackCount,
+                isCurrentTrackFavorited, footerInfo);
         return MessageFormatter.buildNowPlayingMessage(bot, info);
     }
 

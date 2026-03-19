@@ -241,6 +241,10 @@ public class MessageFormatter {
                 .withDisabled(!canVolDown);
         Button volumeUpButton = Button.secondary(nowPlayingButtonId("volup"), "Vol +").withEmoji(Emoji.fromUnicode("\uD83D\uDD0A")) // 🔊
                 .withDisabled(!canVolUp);
+        Button favoriteButton = (info.isCurrentTrackFavorited
+                ? Button.success(nowPlayingButtonId("favorite"), "Favorite")
+                : Button.secondary(nowPlayingButtonId("favorite"), "Favorite"))
+                .withEmoji(Emoji.fromUnicode("\u2B50")); // ⭐
 
         mb.setComponents(
                 ActionRow.of(
@@ -252,6 +256,7 @@ public class MessageFormatter {
                 ActionRow.of(
                         shuffleButton,
                         repeatButton,
+                        favoriteButton,
                         volumeDownButton,
                         volumeUpButton
                 )

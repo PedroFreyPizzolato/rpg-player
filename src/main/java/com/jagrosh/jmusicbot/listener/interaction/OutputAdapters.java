@@ -78,6 +78,70 @@ public final class OutputAdapters {
     }
 
     /**
+     * Adapter for favorite playback button:
+     * success replies are public, warnings/errors remain ephemeral.
+     */
+    public static MusicService.OutputAdapter forFavoritePlaybackButton(net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent event) {
+        return new MusicService.OutputAdapter() {
+            private void sendResponse(String content, boolean ephemeral) {
+                if (!event.isAcknowledged()) {
+                    var reply = event.reply(content);
+                    if (ephemeral) {
+                        reply.setEphemeral(true);
+                    }
+                    reply.queue();
+                    return;
+                }
+
+                var followup = event.getHook().sendMessage(content);
+                if (ephemeral) {
+                    followup.setEphemeral(true);
+                }
+                followup.queue();
+            }
+
+            @Override
+            public void replySuccess(String content) {
+                sendResponse(content, false);
+            }
+
+            @Override
+            public void replyError(String content) {
+                sendResponse(content, true);
+            }
+
+            @Override
+            public void replyWarning(String content) {
+                sendResponse(content, true);
+            }
+
+            @Override
+            public void editMessage(String content) {
+                event.editMessage(content).queue();
+            }
+
+            @Override
+            public void editMessage(String content, Consumer<net.dv8tion.jda.api.entities.Message> onSuccess) {
+                event.editMessage(content).queue(hook -> hook.retrieveOriginal().queue(onSuccess));
+            }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler) {
+                event.editMessage(asEditData(handler.getNowPlaying(event.getJDA()))).queue();
+            }
+
+            @Override
+            public void editNoMusic(AudioHandler handler) {
+                event.editMessage(asEditData(handler.getNoMusicPlaying(event.getJDA()))).queue();
+            }
+
+            @Override
+            public void onShowHelp() {
+            }
+        };
+    }
+
+    /**
      * Adapter for queue embed actions: only errors/warnings are replied; success updates the embed instead.
      */
     public static MusicService.OutputAdapter forQueueEmbed(net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent event) {

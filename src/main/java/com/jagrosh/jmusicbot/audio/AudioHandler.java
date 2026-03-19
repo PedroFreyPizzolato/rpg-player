@@ -64,6 +64,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     private AudioFrame lastFrame;
     private AbstractQueue<QueuedTrack> queue;
     private String lastReason = null;
+    private volatile String favoritedTrackUri = null;
 
     protected AudioHandler(PlayerManager manager, Guild guild, AudioPlayer player)
     {
@@ -444,6 +445,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             audioPlayer.getVolume(),
             queue.size(),
             queue.getHistory().size(),
+            isCurrentTrackFavorited(),
             lastReason
         );
     }
@@ -464,6 +466,20 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     public String getStatusEmoji()
     {
         return audioPlayer.isPaused() ? PAUSE_EMOJI : PLAY_EMOJI;
+    }
+
+    public void markCurrentTrackFavorited(String uri)
+    {
+        favoritedTrackUri = uri;
+    }
+
+    public boolean isCurrentTrackFavorited()
+    {
+        AudioTrack currentTrack = audioPlayer.getPlayingTrack();
+        if (currentTrack == null || currentTrack.getInfo() == null)
+            return false;
+        String currentUri = currentTrack.getInfo().uri;
+        return currentUri != null && currentUri.equals(favoritedTrackUri);
     }
     
     // Audio Send Handler methods

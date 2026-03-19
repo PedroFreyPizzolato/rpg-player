@@ -45,9 +45,12 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 /**
  * Unified service for all music operations including player control and queue management.
@@ -57,6 +60,10 @@ public class MusicService
 {
     public static final String HISTORY_DISABLED_MESSAGE =
             "Playback history is disabled by config (playback.maxHistorySize = 0).";
+    private static final String FAVORITES_PLAYLIST_NAME = "favorites";
+    private static final Pattern WINDOWS_DRIVE_ABSOLUTE_PATH = Pattern.compile("^[A-Za-z]:[\\\\/].*");
+    private static final boolean WINDOWS_RUNTIME =
+            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 
     private static final Logger LOG = LoggerFactory.getLogger(MusicService.class);
 
@@ -705,6 +712,105 @@ public class MusicService
                     guild.getId(), member.getUser().getName(), skippers, required);
             output.replySuccess("You voted to skip the song `" + voteStatus + "`");
         }
+    }
+
+    public void addCurrentTrackToFavorites(Guild guild, Member member, OutputAdapter output)
+    {
+        if (!requireDJPermission(guild, member, output, "add the current track to favorites"))
+            return;
+
+        AudioHandler handler = getHandler(guild);
+        if (handler == null)
+        {
+            output.replyError("There is no player in this server!");
+            return;
+        }
+
+        AudioTrack currentTrack = handler.getPlayer().getPlayingTrack();
+        if (currentTrack == null)
+        {
+            output.replyError("There is no track currently playing!");
+            return;
+        }
+
+        String favoriteEntry = currentTrack.getInfo().uri;
+        if (favoriteEntry == null || favoriteEntry.isBlank())
+        {
+            output.replyError("The current track does not have a valid URI or absolute path to save.");
+            return;
+        }
+        if (!isSupportedFavoriteEntry(favoriteEntry))
+        {
+            output.replyError("Only URI references or absolute file paths for this OS can be added to favorites.");
+            return;
+        }
+
+        PlaylistLoader.PlaylistResult<PlaylistLoader.AppendIfAbsentResult> appendResult =
+                bot.getPlaylistLoader().appendItemIfAbsentResult(FAVORITES_PLAYLIST_NAME, favoriteEntry);
+        if (!appendResult.isSuccess())
+        {
+            output.replyError(mapPlaylistErrorToMessage(appendResult.getError()));
+            return;
+        }
+
+        if (appendResult.getValue().getStatus() == PlaylistLoader.AppendIfAbsentStatus.ALREADY_PRESENT)
+        {
+            handler.markCurrentTrackFavorited(favoriteEntry);
+            output.editNowPlaying(handler);
+            output.replyWarning("This track is already favorited");
+            return;
+        }
+
+        handler.markCurrentTrackFavorited(favoriteEntry);
+        output.editNowPlaying(handler);
+        output.replySuccess("Added " + FormatUtil.filter(FormatUtil.getTrackTitle(currentTrack)) + " to Favorites");
+    }
+
+    private static boolean isSupportedFavoriteEntry(String value)
+    {
+        String candidate = value == null ? "" : value.trim();
+        if (candidate.isEmpty())
+            return false;
+        return isUriLikeReference(candidate) || isOsNativeAbsolutePath(candidate);
+    }
+
+    private static boolean isUriLikeReference(String value)
+    {
+        // Avoid treating Windows drive paths (e.g. C:\music\song.mp3) as URI schemes.
+        if (isWindowsAbsolutePathSyntax(value))
+            return false;
+        int colonIndex = value.indexOf(':');
+        if (colonIndex <= 0)
+            return false;
+        for (int i = 0; i < colonIndex; i++)
+        {
+            char c = value.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '+' && c != '-' && c != '.')
+                return false;
+        }
+        return true;
+    }
+
+    private static boolean isOsNativeAbsolutePath(String value)
+    {
+        try
+        {
+            if (!Path.of(value).isAbsolute())
+                return false;
+        }
+        catch (RuntimeException ex)
+        {
+            return false;
+        }
+
+        if (WINDOWS_RUNTIME)
+            return isWindowsAbsolutePathSyntax(value);
+        return value.startsWith("/");
+    }
+
+    private static boolean isWindowsAbsolutePathSyntax(String value)
+    {
+        return WINDOWS_DRIVE_ABSOLUTE_PATH.matcher(value).matches() || value.startsWith("\\\\");
     }
 
     public void seek(Guild guild, Member member, String timeString, OutputAdapter output)

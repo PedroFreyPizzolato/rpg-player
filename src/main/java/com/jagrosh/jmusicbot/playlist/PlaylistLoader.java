@@ -27,9 +27,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -41,6 +48,9 @@ import java.util.stream.Collectors;
 public class PlaylistLoader
 {
     private static final Logger LOG = LoggerFactory.getLogger(PlaylistLoader.class);
+    private static final String FAVORITES_PLAYLIST_NAME = "favorites";
+    private static final byte LF = (byte) '\n';
+    private static final byte CR = (byte) '\r';
 
     public enum PlaylistErrorType
     {
@@ -127,8 +137,98 @@ public class PlaylistLoader
         }
     }
 
+    public enum AppendIfAbsentStatus
+    {
+        APPENDED,
+        ALREADY_PRESENT
+    }
+
+    public static final class AppendIfAbsentResult
+    {
+        private final AppendIfAbsentStatus status;
+
+        private AppendIfAbsentResult(AppendIfAbsentStatus status)
+        {
+            this.status = status;
+        }
+
+        public static AppendIfAbsentResult appended()
+        {
+            return new AppendIfAbsentResult(AppendIfAbsentStatus.APPENDED);
+        }
+
+        public static AppendIfAbsentResult alreadyPresent()
+        {
+            return new AppendIfAbsentResult(AppendIfAbsentStatus.ALREADY_PRESENT);
+        }
+
+        public AppendIfAbsentStatus getStatus()
+        {
+            return status;
+        }
+    }
+
+    private static final class FileSignature
+    {
+        private final boolean exists;
+        private final long size;
+        private final long lastModifiedMillis;
+
+        private FileSignature(boolean exists, long size, long lastModifiedMillis)
+        {
+            this.exists = exists;
+            this.size = size;
+            this.lastModifiedMillis = lastModifiedMillis;
+        }
+
+        private static FileSignature missing()
+        {
+            return new FileSignature(false, 0L, 0L);
+        }
+
+        private static FileSignature of(Path path) throws IOException
+        {
+            if(!Files.exists(path))
+                return missing();
+            FileTime lastModified = Files.getLastModifiedTime(path);
+            return new FileSignature(true, Files.size(path), lastModified.toMillis());
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            if(this == other)
+                return true;
+            if(!(other instanceof FileSignature that))
+                return false;
+            return exists == that.exists
+                    && size == that.size
+                    && lastModifiedMillis == that.lastModifiedMillis;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(exists, size, lastModifiedMillis);
+        }
+    }
+
+    private static final class FavoritesCache
+    {
+        private final FileSignature signature;
+        private final Set<String> entries;
+
+        private FavoritesCache(FileSignature signature, Set<String> entries)
+        {
+            this.signature = signature;
+            this.entries = entries;
+        }
+    }
+
     private final BotConfig config;
     private volatile PlaylistError lastStorageError;
+    private volatile FavoritesCache favoritesCache;
+    private final Map<Path, Object> inProcessFileLocks = new ConcurrentHashMap<>();
     
     public PlaylistLoader(BotConfig config)
     {
@@ -272,6 +372,7 @@ public class PlaylistLoader
         try
         {
             Files.createFile(playlistPath(readiness.getValue(), name));
+            invalidateFavoritesCacheIfNeeded(name);
             return PlaylistResult.success(null);
         }
         catch(IOException ex)
@@ -295,6 +396,7 @@ public class PlaylistLoader
         try
         {
             Files.delete(path);
+            invalidateFavoritesCacheIfNeeded(name);
             return PlaylistResult.success(null);
         }
         catch(IOException ex)
@@ -318,7 +420,9 @@ public class PlaylistLoader
         }
         try
         {
-            Files.write(path, text.trim().getBytes());
+            byte[] content = text.trim().getBytes(StandardCharsets.UTF_8);
+            Files.write(path, content);
+            refreshOrInvalidateFavoritesCacheAfterWrite(name, path, content);
             return PlaylistResult.success(null);
         }
         catch(IOException ex)
@@ -347,30 +451,99 @@ public class PlaylistLoader
         }
         try
         {
-            boolean[] shuffle = {false};
-            List<String> list = new ArrayList<>();
-            Files.readAllLines(path).forEach(str ->
-            {
-                String s = str.trim();
-                if(s.isEmpty())
-                    return;
-                if(s.startsWith("#") || s.startsWith("//"))
-                {
-                    s = s.replaceAll("\\s+", "");
-                    if(s.equalsIgnoreCase("#shuffle") || s.equalsIgnoreCase("//shuffle"))
-                        shuffle[0]=true;
-                }
-                else
-                    list.add(s);
-            });
-            if(shuffle[0])
+            ParsedPlaylist parsed = parsePlaylistLines(Files.readAllLines(path), true);
+            List<String> list = parsed.items;
+            boolean shuffle = parsed.shuffle;
+            if(shuffle)
                 shuffle(list);
-            return PlaylistResult.success(new Playlist(name, list, shuffle[0]));
+            return PlaylistResult.success(new Playlist(name, list, shuffle));
         }
         catch(IOException e)
         {
             return rememberError(PlaylistErrorType.STORAGE_UNAVAILABLE,
                     "Failed to read playlist `" + name + "`: " + e.getMessage(), config.getPlaylistsFolder(), e);
+        }
+    }
+
+    public PlaylistResult<AppendIfAbsentResult> appendItemIfAbsentResult(String name, String item)
+    {
+        PlaylistResult<Path> readiness = ensureStorageReady();
+        if(!readiness.isSuccess())
+            return PlaylistResult.failure(readiness.getError());
+
+        String normalizedItem = item == null ? "" : item.trim();
+        if(normalizedItem.isEmpty())
+        {
+            return rememberError(PlaylistErrorType.INVALID_CONFIG,
+                    "Cannot append an empty playlist item.", config.getPlaylistsFolder(), null);
+        }
+
+        Path path = playlistPath(readiness.getValue(), name);
+        boolean favoritesPlaylist = isFavoritesPlaylist(name);
+        try
+        {
+            if(favoritesPlaylist && isFavoritesCacheHit(path, normalizedItem))
+            {
+                LOG.debug("Favorites append fast-path duplicate hit (pre-lock): entry={}", normalizedItem);
+                return PlaylistResult.success(AppendIfAbsentResult.alreadyPresent());
+            }
+
+            Set<String> itemsAfterOperation;
+            AppendIfAbsentResult operationResult;
+            Path lockKey = path.toAbsolutePath().normalize();
+            Object inProcessLock = inProcessFileLocks.computeIfAbsent(lockKey, ignored -> new Object());
+            synchronized(inProcessLock)
+            {
+                try(FileChannel channel = FileChannel.open(path,
+                        StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                    FileLock lock = channel.lock())
+                {
+                    if(!lock.isValid())
+                    {
+                        throw new IOException("Failed to acquire a valid lock for playlist file.");
+                    }
+
+                    CacheAppendResult cacheAppendResult = favoritesPlaylist
+                            ? tryAppendWithFreshFavoritesCache(path, channel, normalizedItem)
+                            : null;
+                    if(cacheAppendResult != null)
+                    {
+                        LOG.debug("Favorites append lock-path used warm cache: result={}, entry={}",
+                                cacheAppendResult.result.getStatus(), normalizedItem);
+                        itemsAfterOperation = cacheAppendResult.entries;
+                        operationResult = cacheAppendResult.result;
+                    }
+                    else
+                    {
+                        if(favoritesPlaylist)
+                        {
+                            LOG.debug("Favorites append cache unavailable/stale under lock; reading full file for authoritative check.");
+                        }
+                        Set<String> entries = readPlaylistItemsFromChannel(channel);
+                        if(entries.contains(normalizedItem))
+                        {
+                            itemsAfterOperation = entries;
+                            operationResult = AppendIfAbsentResult.alreadyPresent();
+                        }
+                        else
+                        {
+                            appendLine(channel, normalizedItem);
+                            entries.add(normalizedItem);
+                            itemsAfterOperation = entries;
+                            operationResult = AppendIfAbsentResult.appended();
+                        }
+                    }
+                }
+            }
+            if(favoritesPlaylist)
+                refreshFavoritesCache(path, itemsAfterOperation);
+            return PlaylistResult.success(operationResult);
+        }
+        catch(IOException ex)
+        {
+            return rememberError(PlaylistErrorType.STORAGE_UNAVAILABLE,
+                    "Failed to append item to playlist `" + name + "`: " + ex.getMessage(),
+                    config.getPlaylistsFolder(), ex);
         }
     }
 
@@ -397,6 +570,180 @@ public class PlaylistLoader
     private Path playlistPath(Path folder, String name)
     {
         return folder.resolve(name + ".txt");
+    }
+
+    private void appendLine(FileChannel channel, String value) throws IOException
+    {
+        long size = channel.size();
+        channel.position(size);
+        if(size > 0)
+        {
+            ByteBuffer last = ByteBuffer.allocate(1);
+            channel.position(size - 1);
+            channel.read(last);
+            last.flip();
+            byte lastByte = last.get();
+            channel.position(size);
+            if(lastByte == CR)
+                channel.write(ByteBuffer.wrap(new byte[]{LF}));
+            else if(lastByte != LF)
+                channel.write(ByteBuffer.wrap(new byte[]{CR, LF}));
+        }
+        channel.write(ByteBuffer.wrap(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private Set<String> readPlaylistItemsFromChannel(FileChannel channel) throws IOException
+    {
+        long size = channel.size();
+        if(size <= 0)
+            return new LinkedHashSet<>();
+        if(size > Integer.MAX_VALUE)
+        {
+            throw new IOException("Playlist file is too large to process in memory: " + size + " bytes");
+        }
+
+        channel.position(0);
+        ByteBuffer bytes = ByteBuffer.allocate((int) size);
+        while(bytes.hasRemaining() && channel.read(bytes) != -1)
+        {
+            // read until full buffer
+        }
+        bytes.flip();
+        String content = StandardCharsets.UTF_8.decode(bytes).toString();
+        List<String> lines = Arrays.asList(content.split("\\R"));
+        ParsedPlaylist parsed = parsePlaylistLines(lines, false);
+        return new LinkedHashSet<>(parsed.items);
+    }
+
+    private CacheAppendResult tryAppendWithFreshFavoritesCache(Path path, FileChannel channel, String item) throws IOException
+    {
+        FavoritesCache cacheSnapshot = favoritesCache;
+        if(cacheSnapshot == null)
+        {
+            LOG.debug("Favorites append lock-path cache miss: no cache snapshot.");
+            return null;
+        }
+
+        FileSignature currentSignature = FileSignature.of(path);
+        if(!cacheSnapshot.signature.equals(currentSignature))
+        {
+            LOG.debug("Favorites append lock-path cache stale: signature mismatch.");
+            return null;
+        }
+
+        Set<String> entries = new LinkedHashSet<>(cacheSnapshot.entries);
+        if(entries.contains(item))
+        {
+            return new CacheAppendResult(entries, AppendIfAbsentResult.alreadyPresent());
+        }
+
+        appendLine(channel, item);
+        entries.add(item);
+        return new CacheAppendResult(entries, AppendIfAbsentResult.appended());
+    }
+
+    private boolean isFavoritesCacheHit(Path favoritesPath, String item) throws IOException
+    {
+        FavoritesCache cacheSnapshot = favoritesCache;
+        if(cacheSnapshot == null)
+            return false;
+
+        FileSignature currentSignature = FileSignature.of(favoritesPath);
+        if(!cacheSnapshot.signature.equals(currentSignature))
+            return false;
+        return cacheSnapshot.entries.contains(item);
+    }
+
+    private ParsedPlaylist parsePlaylistLines(List<String> rawLines, boolean includeShuffleDirective)
+    {
+        boolean shuffle = false;
+        List<String> items = new ArrayList<>();
+        for(String line : rawLines)
+        {
+            String value = line.trim();
+            if(value.isEmpty())
+                continue;
+            if(value.startsWith("#") || value.startsWith("//"))
+            {
+                if(includeShuffleDirective)
+                {
+                    String compact = value.replaceAll("\\s+", "");
+                    if(compact.equalsIgnoreCase("#shuffle") || compact.equalsIgnoreCase("//shuffle"))
+                        shuffle = true;
+                }
+                continue;
+            }
+            items.add(value);
+        }
+        return new ParsedPlaylist(items, shuffle);
+    }
+
+    private void refreshFavoritesCache(Path path, Set<String> entries) throws IOException
+    {
+        if(!Files.exists(path))
+        {
+            favoritesCache = new FavoritesCache(FileSignature.missing(), Collections.emptySet());
+            LOG.debug("Favorites cache refreshed to empty snapshot because favorites file is missing.");
+            return;
+        }
+        FileSignature signature = FileSignature.of(path);
+        Set<String> snapshot = Collections.unmodifiableSet(new LinkedHashSet<>(entries));
+        favoritesCache = new FavoritesCache(signature, snapshot);
+        LOG.debug("Favorites cache refreshed: entries={}, size={}, lastModifiedMillis={}",
+                snapshot.size(), signature.size, signature.lastModifiedMillis);
+    }
+
+    private void refreshOrInvalidateFavoritesCacheAfterWrite(String playlistName, Path path, byte[] content) throws IOException
+    {
+        if(!isFavoritesPlaylist(playlistName))
+            return;
+        if(content.length == 0)
+        {
+            favoritesCache = new FavoritesCache(FileSignature.of(path), Collections.emptySet());
+            return;
+        }
+
+        List<String> lines = Arrays.asList(new String(content, StandardCharsets.UTF_8).split("\\R"));
+        ParsedPlaylist parsed = parsePlaylistLines(lines, false);
+        refreshFavoritesCache(path, new LinkedHashSet<>(parsed.items));
+    }
+
+    private void invalidateFavoritesCacheIfNeeded(String playlistName)
+    {
+        if(isFavoritesPlaylist(playlistName))
+        {
+            favoritesCache = null;
+            LOG.debug("Favorites cache invalidated due to playlist structural change: {}", playlistName);
+        }
+    }
+
+    private boolean isFavoritesPlaylist(String name)
+    {
+        return FAVORITES_PLAYLIST_NAME.equalsIgnoreCase(name);
+    }
+
+    private static final class ParsedPlaylist
+    {
+        private final List<String> items;
+        private final boolean shuffle;
+
+        private ParsedPlaylist(List<String> items, boolean shuffle)
+        {
+            this.items = items;
+            this.shuffle = shuffle;
+        }
+    }
+
+    private static final class CacheAppendResult
+    {
+        private final Set<String> entries;
+        private final AppendIfAbsentResult result;
+
+        private CacheAppendResult(Set<String> entries, AppendIfAbsentResult result)
+        {
+            this.entries = entries;
+            this.result = result;
+        }
     }
 
     private IOException toIOException(PlaylistError error)

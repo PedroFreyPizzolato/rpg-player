@@ -15,10 +15,11 @@ public class NowPlayingInfo {
     public final int volume;
     public final int queueSize;
     public final int previousTrackCount;
+    public final boolean isCurrentTrackFavorited;
     public final String footerInfo;
 
     public NowPlayingInfo(AudioTrack track, Guild guild, boolean isPaused, int volume, int queueSize, String footerInfo) {
-        this(track, guild, isPaused, volume, queueSize, 0, footerInfo);
+        this(track, guild, isPaused, volume, queueSize, 0, false, footerInfo);
     }
 
     public NowPlayingInfo(
@@ -28,6 +29,19 @@ public class NowPlayingInfo {
             int volume,
             int queueSize,
             int previousTrackCount,
+            String footerInfo
+    ) {
+        this(track, guild, isPaused, volume, queueSize, previousTrackCount, false, footerInfo);
+    }
+
+    public NowPlayingInfo(
+            AudioTrack track,
+            Guild guild,
+            boolean isPaused,
+            int volume,
+            int queueSize,
+            int previousTrackCount,
+            boolean isCurrentTrackFavorited,
             String footerInfo
     ) {
         this.track = track;
@@ -42,6 +56,7 @@ public class NowPlayingInfo {
         this.volume = volume;
         this.queueSize = queueSize;
         this.previousTrackCount = Math.max(0, previousTrackCount);
+        this.isCurrentTrackFavorited = isCurrentTrackFavorited;
         this.footerInfo = footerInfo;
     }
 }

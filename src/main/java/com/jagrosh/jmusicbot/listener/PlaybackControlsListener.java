@@ -24,7 +24,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 /**
- * Handles playback control button interactions (stop, pause, skip, previous, shuffle, repeat, volume).
+ * Handles playback control button interactions (stop, pause, skip, previous, shuffle, repeat, favorite, volume).
  */
 public class PlaybackControlsListener extends ListenerAdapter {
 
@@ -58,32 +58,34 @@ public class PlaybackControlsListener extends ListenerAdapter {
         }
 
         MusicService musicService = bot.getMusicService();
-        MusicService.OutputAdapter adapter = OutputAdapters.forPlaybackButton(event);
 
         switch (parsedId.get().action()) {
             case "previous":
-                musicService.previous(event.getGuild(), event.getMember(), adapter);
+                musicService.previous(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
                 break;
             case "shuffle":
-                musicService.shuffle(event.getGuild(), event.getMember(), 0, adapter);
+                musicService.shuffle(event.getGuild(), event.getMember(), 0, OutputAdapters.forPlaybackButton(event));
                 break;
             case "repeat":
-                musicService.cycleRepeatMode(event.getGuild(), event.getMember(), adapter);
+                musicService.cycleRepeatMode(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
+                break;
+            case "favorite":
+                musicService.addCurrentTrackToFavorites(event.getGuild(), event.getMember(), OutputAdapters.forFavoritePlaybackButton(event));
                 break;
             case "voldown":
-                musicService.adjustVolume(event.getGuild(), event.getMember(), -10, adapter);
+                musicService.adjustVolume(event.getGuild(), event.getMember(), -10, OutputAdapters.forPlaybackButton(event));
                 break;
             case "volup":
-                musicService.adjustVolume(event.getGuild(), event.getMember(), 10, adapter);
+                musicService.adjustVolume(event.getGuild(), event.getMember(), 10, OutputAdapters.forPlaybackButton(event));
                 break;
             case "stop":
-                musicService.stop(event.getGuild(), event.getMember(), adapter);
+                musicService.stop(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
                 break;
             case "pause":
-                musicService.pause(event.getGuild(), event.getMember(), adapter);
+                musicService.pause(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
                 break;
             case "skip":
-                musicService.skip(event.getGuild(), event.getMember(), adapter);
+                musicService.skip(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
                 break;
             default:
                 break;

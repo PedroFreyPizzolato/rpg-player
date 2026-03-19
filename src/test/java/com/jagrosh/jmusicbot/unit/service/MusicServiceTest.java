@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.jagrosh.jmusicbot.testutil.TestConstants.*;
@@ -1312,6 +1313,161 @@ public class MusicServiceTest
 
     }
 
+    @Nested
+    @DisplayName("Favorites Playlist Operation")
+    class FavoritesPlaylistOperationTests
+    {
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() fails for non-DJ")
+        void addCurrentTrackToFavorites_failsForNonDJ()
+        {
+            fixture.withoutDJPermission()
+                    .withPlayingTrack();
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            output.assertErrorMessageContains("need to be a DJ");
+            verify(fixture.getPlaylistLoader(), never()).appendItemIfAbsentResult(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() fails when no track is playing")
+        void addCurrentTrackToFavorites_failsWhenNoTrackPlaying()
+        {
+            fixture.withDJPermission()
+                    .withNoTrack();
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            output.assertErrorMessageContains("no track currently playing");
+            verify(fixture.getPlaylistLoader(), never()).appendItemIfAbsentResult(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() fails for unsupported favorite entry")
+        void addCurrentTrackToFavorites_failsForUnsupportedEntry()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            AudioTrackInfo info = new AudioTrackInfo("Title", "Author", 180000L, "id", false, "relative/path.mp3");
+            when(fixture.getCurrentTrack().getInfo()).thenReturn(info);
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            output.assertErrorMessageContains("Only URI references or absolute file paths for this OS");
+            verify(fixture.getPlaylistLoader(), never()).appendItemIfAbsentResult(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() accepts OS-native absolute path")
+        void addCurrentTrackToFavorites_acceptsOsNativeAbsolutePath()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            String absolutePath = sampleNativeAbsolutePath();
+            AudioTrackInfo info = new AudioTrackInfo("Title", "Author", 180000L, "id", false, absolutePath);
+            when(fixture.getCurrentTrack().getInfo()).thenReturn(info);
+            when(fixture.getPlaylistLoader().appendItemIfAbsentResult("favorites", absolutePath))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(
+                            com.jagrosh.jmusicbot.playlist.PlaylistLoader.AppendIfAbsentResult.appended()));
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            verify(fixture.getPlaylistLoader()).appendItemIfAbsentResult("favorites", absolutePath);
+            verify(fixture.getAudioHandler()).markCurrentTrackFavorited(absolutePath);
+            output.assertNowPlayingEdited();
+            output.assertSuccessMessage("Added Title to Favorites");
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() rejects non-native absolute path format")
+        void addCurrentTrackToFavorites_rejectsNonNativeAbsolutePathFormat()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            String nonNativePath = sampleNonNativeAbsolutePath();
+            AudioTrackInfo info = new AudioTrackInfo("Title", "Author", 180000L, "id", false, nonNativePath);
+            when(fixture.getCurrentTrack().getInfo()).thenReturn(info);
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            output.assertErrorMessageContains("Only URI references or absolute file paths for this OS");
+            verify(fixture.getPlaylistLoader(), never()).appendItemIfAbsentResult(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() creates favorites playlist when missing and writes URI")
+        void addCurrentTrackToFavorites_createsMissingPlaylistAndWrites()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            when(fixture.getPlaylistLoader().appendItemIfAbsentResult("favorites", "https://example.com/track"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(
+                            com.jagrosh.jmusicbot.playlist.PlaylistLoader.AppendIfAbsentResult.appended()));
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            verify(fixture.getPlaylistLoader()).appendItemIfAbsentResult("favorites", "https://example.com/track");
+            verify(fixture.getAudioHandler()).markCurrentTrackFavorited("https://example.com/track");
+            output.assertNowPlayingEdited();
+            output.assertSuccessMessage("Added Test Track to Favorites");
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() appends to existing favorites playlist")
+        void addCurrentTrackToFavorites_appendsToExistingPlaylist()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            when(fixture.getPlaylistLoader().appendItemIfAbsentResult("favorites", "https://example.com/track"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(
+                            com.jagrosh.jmusicbot.playlist.PlaylistLoader.AppendIfAbsentResult.appended()));
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            verify(fixture.getPlaylistLoader()).appendItemIfAbsentResult("favorites", "https://example.com/track");
+            verify(fixture.getAudioHandler()).markCurrentTrackFavorited("https://example.com/track");
+            output.assertNowPlayingEdited();
+            output.assertSuccessMessage("Added Test Track to Favorites");
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() warns and skips write when already favorited")
+        void addCurrentTrackToFavorites_warnsAndSkipsWriteWhenAlreadyFavorited()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            when(fixture.getPlaylistLoader().appendItemIfAbsentResult("favorites", "https://example.com/track"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.success(
+                            com.jagrosh.jmusicbot.playlist.PlaylistLoader.AppendIfAbsentResult.alreadyPresent()));
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            verify(fixture.getPlaylistLoader()).appendItemIfAbsentResult("favorites", "https://example.com/track");
+            verify(fixture.getAudioHandler()).markCurrentTrackFavorited("https://example.com/track");
+            output.assertNowPlayingEdited();
+            output.assertWarningMessage("This track is already favorited");
+        }
+
+        @Test
+        @DisplayName("addCurrentTrackToFavorites() surfaces fail-fast storage configuration errors")
+        void addCurrentTrackToFavorites_surfacesStorageConfigurationErrors()
+        {
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            var configError = com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistError.of(
+                    com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistErrorType.INVALID_CONFIG,
+                    "Playlists folder is not configured.", null, null);
+            when(fixture.getPlaylistLoader().appendItemIfAbsentResult("favorites", "https://example.com/track"))
+                    .thenReturn(com.jagrosh.jmusicbot.playlist.PlaylistLoader.PlaylistResult.failure(configError));
+
+            musicService.addCurrentTrackToFavorites(fixture.getGuild(), fixture.getMember(), output);
+
+            output.assertErrorMessageContains("misconfigured");
+            output.assertErrorMessageContains("(not configured)");
+        }
+    }
+
     // ==================== History Operation Tests ====================
 
     @Nested
@@ -1622,5 +1778,20 @@ public class MusicServiceTest
 
             output.assertErrorMessageContains("already exists");
         }
+    }
+
+    private static boolean isWindowsRuntime()
+    {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    private static String sampleNativeAbsolutePath()
+    {
+        return isWindowsRuntime() ? "C:\\music\\track.mp3" : "/var/music/track.mp3";
+    }
+
+    private static String sampleNonNativeAbsolutePath()
+    {
+        return isWindowsRuntime() ? "/var/music/track.mp3" : "C:\\music\\track.mp3";
     }
 }
