@@ -61,7 +61,8 @@ public class PlaybackControlsListener extends ListenerAdapter {
 
         switch (parsedId.get().action()) {
             case "previous":
-                musicService.previous(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
+                musicService.previous(event.getGuild(), event.getMember(),
+                        suppressSuccess(OutputAdapters.forPlaybackButton(event)));
                 break;
             case "shuffle":
                 musicService.shuffle(event.getGuild(), event.getMember(), 0, OutputAdapters.forPlaybackButton(event));
@@ -85,10 +86,55 @@ public class PlaybackControlsListener extends ListenerAdapter {
                 musicService.pause(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
                 break;
             case "skip":
-                musicService.skip(event.getGuild(), event.getMember(), OutputAdapters.forPlaybackButton(event));
+                musicService.skip(event.getGuild(), event.getMember(),
+                        suppressSuccess(OutputAdapters.forPlaybackButton(event)));
                 break;
             default:
                 break;
         }
+    }
+
+    private static MusicService.OutputAdapter suppressSuccess(MusicService.OutputAdapter delegate) {
+        return new MusicService.OutputAdapter() {
+            @Override
+            public void replySuccess(String content) {
+                // Intentionally silent for targeted now-playing actions.
+            }
+
+            @Override
+            public void replyError(String content) {
+                delegate.replyError(content);
+            }
+
+            @Override
+            public void replyWarning(String content) {
+                delegate.replyWarning(content);
+            }
+
+            @Override
+            public void editMessage(String content) {
+                delegate.editMessage(content);
+            }
+
+            @Override
+            public void editMessage(String content, java.util.function.Consumer<net.dv8tion.jda.api.entities.Message> onSuccess) {
+                delegate.editMessage(content, onSuccess);
+            }
+
+            @Override
+            public void editNowPlaying(AudioHandler handler) {
+                delegate.editNowPlaying(handler);
+            }
+
+            @Override
+            public void editNoMusic(AudioHandler handler) {
+                delegate.editNoMusic(handler);
+            }
+
+            @Override
+            public void onShowHelp() {
+                delegate.onShowHelp();
+            }
+        };
     }
 }

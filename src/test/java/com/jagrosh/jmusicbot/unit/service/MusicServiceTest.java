@@ -298,6 +298,29 @@ public class MusicServiceTest
         }
 
         @Test
+        @DisplayName("previous() while paused restarts current track when position > 5 seconds")
+        void previous_whenPausedAndOver5Seconds_restartsCurrentTrack()
+        {
+            // Given
+            fixture.withDJPermission()
+                    .withPlayingTrack();
+            when(fixture.getCurrentTrack().getPosition()).thenReturn(6000L);
+            when(fixture.getAudioPlayer().isPaused()).thenReturn(true);
+
+            RequestMetadata metadata = mock(RequestMetadata.class);
+            when(metadata.getOwner()).thenReturn(USER_ID);
+            when(fixture.getAudioHandler().getRequestMetadata()).thenReturn(metadata);
+
+            // When
+            musicService.previous(fixture.getGuild(), fixture.getMember(), output);
+
+            // Then
+            verify(fixture.getCurrentTrack()).setPosition(0);
+            verify(fixture.getQueue(), never()).rewind(any());
+            output.assertSuccessMessageContains("Restarted");
+        }
+
+        @Test
         @DisplayName("previous() fails when only current track exists in history under 5 seconds")
         void previous_failsWhenOnlyCurrentTrackInHistory_under5Seconds()
         {

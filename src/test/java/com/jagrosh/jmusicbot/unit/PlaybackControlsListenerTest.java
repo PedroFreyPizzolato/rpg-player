@@ -104,6 +104,27 @@ public class PlaybackControlsListenerTest {
         }
 
         @Test
+        @DisplayName("skip adapter suppresses success replies")
+        void onButtonInteraction_skipAdapter_suppressesSuccessReplies() {
+            fixture.withButtonId("np_skip")
+                    .withMemberInVoiceChannel()
+                    .withAudioHandlerPlaying();
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            ArgumentCaptor<MusicService.OutputAdapter> captor = ArgumentCaptor.forClass(MusicService.OutputAdapter.class);
+            verify(fixture.getMusicService()).skip(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    captor.capture()
+            );
+
+            MusicService.OutputAdapter adapter = captor.getValue();
+            adapter.replySuccess("Skipped!");
+            verify(fixture.getButtonInteractionEvent(), never()).reply("Skipped!");
+        }
+
+        @Test
         @DisplayName("handles previous button")
         void onButtonInteraction_handlesPreviousButton() {
             fixture.withButtonId("np_previous")
@@ -117,6 +138,27 @@ public class PlaybackControlsListenerTest {
                     eq(fixture.getMember()),
                     any(MusicService.OutputAdapter.class)
             );
+        }
+
+        @Test
+        @DisplayName("previous adapter suppresses success replies")
+        void onButtonInteraction_previousAdapter_suppressesSuccessReplies() {
+            fixture.withButtonId("np_previous")
+                    .withMemberInVoiceChannel()
+                    .withAudioHandlerPlaying();
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            ArgumentCaptor<MusicService.OutputAdapter> captor = ArgumentCaptor.forClass(MusicService.OutputAdapter.class);
+            verify(fixture.getMusicService()).previous(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    captor.capture()
+            );
+
+            MusicService.OutputAdapter adapter = captor.getValue();
+            adapter.replySuccess("Went back to **test**");
+            verify(fixture.getButtonInteractionEvent(), never()).reply("Went back to **test**");
         }
 
         @Test
@@ -134,6 +176,29 @@ public class PlaybackControlsListenerTest {
                     eq(0),
                     any(MusicService.OutputAdapter.class)
             );
+        }
+
+        @Test
+        @DisplayName("shuffle adapter keeps success replies unchanged")
+        void onButtonInteraction_shuffleAdapter_keepsSuccessReplies() {
+            fixture.withButtonId("np_shuffle")
+                    .withMemberInVoiceChannel()
+                    .withAudioHandlerPlaying();
+
+            listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+            ArgumentCaptor<MusicService.OutputAdapter> captor = ArgumentCaptor.forClass(MusicService.OutputAdapter.class);
+            verify(fixture.getMusicService()).shuffle(
+                    eq(fixture.getGuild()),
+                    eq(fixture.getMember()),
+                    eq(0),
+                    captor.capture()
+            );
+
+            MusicService.OutputAdapter adapter = captor.getValue();
+            adapter.replySuccess("Shuffled!");
+            verify(fixture.getButtonInteractionEvent()).reply("Shuffled!");
+            verify(fixture.getReplyAction()).setEphemeral(true);
         }
 
         @Test
