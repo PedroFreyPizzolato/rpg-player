@@ -39,7 +39,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  *
@@ -311,10 +310,25 @@ public class PlaylistLoader
                     "Failed to list playlists directory contents.", config.getPlaylistsFolder(), null);
         }
 
-        List<String> names = Arrays.stream(files)
-                .map(f -> f.getName().substring(0, f.getName().length() - 4))
-                .collect(Collectors.toList());
-        return PlaylistResult.success(names);
+        List<String> favoriteNames = new ArrayList<>(1);
+        List<String> otherNames = new ArrayList<>(files.length);
+        for (File file : files)
+        {
+            String name = file.getName().substring(0, file.getName().length() - 4);
+            if (name.equalsIgnoreCase(FAVORITES_PLAYLIST_NAME))
+            {
+                favoriteNames.add(name);
+            }
+            else
+            {
+                otherNames.add(name);
+            }
+        }
+
+        List<String> orderedNames = new ArrayList<>(favoriteNames.size() + otherNames.size());
+        orderedNames.addAll(favoriteNames);
+        orderedNames.addAll(otherNames);
+        return PlaylistResult.success(orderedNames);
     }
 
     public List<String> getPlaylistNames()

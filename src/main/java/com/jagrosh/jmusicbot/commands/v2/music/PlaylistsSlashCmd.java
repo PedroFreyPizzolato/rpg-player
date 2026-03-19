@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 public class PlaylistsSlashCmd extends MusicSlashCommand
 {
     public static final int PLAYLISTS_PER_PAGE = 10;
+    private static final String FAVORITES_PLAYLIST_NAME = "favorites";
+    private static final String FAVORITES_DISPLAY_LABEL = "⭐ favorites ⭐";
 
     public PlaylistsSlashCmd(Bot bot)
     {
@@ -88,7 +90,7 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
         int startIndex = (page - 1) * PLAYLISTS_PER_PAGE;
         int endIndex = Math.min(startIndex + PLAYLISTS_PER_PAGE, playlists.size());
         List<String> lineContents = playlists.subList(startIndex, endIndex).stream()
-                .map(name -> "`" + name + "`")
+                .map(name -> "`" + formatPlaylistDisplayLabel(name) + "`")
                 .collect(Collectors.toList());
 
         String description = PaginatedListEmbedUtil.buildNumberedListSection(
@@ -199,6 +201,15 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
                 return FormatUtil.filter(id.length() <= 20 ? id : id.substring(0, 17) + "...");
         }
         return "Link";
+    }
+
+    private static String formatPlaylistDisplayLabel(String playlistName)
+    {
+        if (playlistName != null && playlistName.equalsIgnoreCase(FAVORITES_PLAYLIST_NAME))
+        {
+            return FAVORITES_DISPLAY_LABEL;
+        }
+        return playlistName;
     }
 
     /**

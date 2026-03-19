@@ -160,6 +160,22 @@ class PlaylistLoaderTest
     }
 
     @Test
+    @DisplayName("getPlaylistNamesResult() places favorites at the top when present")
+    void getPlaylistNamesResult_placesFavoritesFirst() throws IOException
+    {
+        Files.writeString(tempDir.resolve("chill.txt"), "https://example.com/chill\n");
+        Files.writeString(tempDir.resolve("favorites.txt"), "https://example.com/fav\n");
+        Files.writeString(tempDir.resolve("workout.txt"), "https://example.com/workout\n");
+
+        PlaylistLoader.PlaylistResult<List<String>> result = loader.getPlaylistNamesResult();
+
+        assertTrue(result.isSuccess());
+        assertFalse(result.getValue().isEmpty());
+        assertEquals("favorites", result.getValue().get(0));
+        assertTrue(result.getValue().containsAll(List.of("favorites", "chill", "workout")));
+    }
+
+    @Test
     @DisplayName("appendItemIfAbsentResult() creates favorites file and appends first item")
     void appendItemIfAbsentResult_createsFavoritesAndAppends()
     {

@@ -121,4 +121,20 @@ class PlaylistsSlashCmdTest
         assertEquals("11", ((Button) row1.getComponents().get(0)).getLabel());
         assertEquals("20", ((Button) row2.getComponents().get(4)).getLabel());
     }
+
+    @Test
+    void buildPlaylistsEmbed_formatsFavoritesWithStars()
+    {
+        MessageEmbed embed = PlaylistsSlashCmd.buildPlaylistsEmbed(
+                List.of("favorites", "night_drive"),
+                1,
+                1,
+                0,
+                null
+        );
+
+        String description = embed.getDescription();
+        assertTrue(description.contains("⭐ favorites ⭐"));
+        assertTrue(description.contains("`night_drive`"));
+    }
 }
