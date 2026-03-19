@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 public class PlaylistsSlashCmd extends MusicSlashCommand
 {
     public static final int PLAYLISTS_PER_PAGE = 10;
+    public static final int PLAYLIST_TRACKS_PER_PAGE = 10;
     private static final String FAVORITES_PLAYLIST_NAME = "favorites";
     private static final String FAVORITES_DISPLAY_LABEL = "⭐ favorites ⭐";
 
@@ -174,6 +175,36 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
     }
 
     /**
+     * Builds an interactive, paginated playlist details embed (Queue-style).
+     */
+    public static MessageEmbed buildPlaylistTracksEmbed(String playlistName, int totalItems,
+                                                        int page, int totalPages,
+                                                        List<String> formattedTrackLines,
+                                                        int selectedTrack, boolean draftDirty,
+                                                        Color memberColor)
+    {
+        int startIndex = (page - 1) * PLAYLIST_TRACKS_PER_PAGE;
+        String description = PaginatedListEmbedUtil.buildNumberedListSection(
+                "**Tracks** *(select one below)*",
+                formattedTrackLines,
+                selectedTrack,
+                startIndex + 1
+        );
+
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle("Playlist: " + playlistName)
+                .setDescription(description)
+                .addField("Entries", String.valueOf(totalItems), true);
+        String footer = "Page " + page + " of " + totalPages;
+        if (draftDirty)
+        {
+            footer += " • Unsaved changes";
+        }
+        PaginatedListEmbedUtil.applyStandardEmbedOptions(embed, footer, memberColor);
+        return embed.build();
+    }
+
+    /**
      * Returns a short label for a preview link. Extracts YouTube video ID when possible; otherwise "Link".
      */
     private static String formatPreviewLinkLabel(String url)
@@ -244,6 +275,64 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
         return rows;
     }
 
+    /**
+     * Builds interactive components for playlist track-details sub-view.
+     */
+    public static List<ActionRow> buildPlaylistDetailsComponents(int playlistIndex, int listPage,
+                                                                 int detailsPage, int totalDetailsPages,
+                                                                 int tracksOnPage, int selectedTrack,
+                                                                 long userId, boolean canEdit,
+                                                                 boolean draftDirty)
+    {
+        List<ActionRow> rows = new ArrayList<>();
+        String baseId = "playlistdetails_" + playlistIndex + "_" + listPage + "_%s_" + detailsPage
+                + "_" + selectedTrack + "_" + userId;
+        rows.addAll(PaginatedListComponents.buildSelectRows(
+                baseId, detailsPage, PLAYLIST_TRACKS_PER_PAGE, tracksOnPage, selectedTrack));
+
+        ActionRow paginationRow = PaginatedListComponents.buildPaginationRow(baseId, detailsPage, totalDetailsPages);
+        if (paginationRow != null)
+        {
+            rows.add(paginationRow);
+        }
+
+        // Whole-playlist actions are always available in details view.
+        Button queueAllBtn = Button.secondary(String.format(baseId, "queueall"), "Queue Playlist")
+                .withEmoji(Emoji.fromUnicode("🎵"));
+        Button playAllBtn = Button.success(String.format(baseId, "playall"), "Play Playlist")
+                .withEmoji(Emoji.fromUnicode("📀"));
+        rows.add(ActionRow.of(queueAllBtn, playAllBtn));
+
+        if (selectedTrack > 0)
+        {
+            Button queueBtn = Button.secondary(String.format(baseId, "queue"), "Queue Track").withEmoji(Emoji.fromUnicode("➕"));
+            Button playNextBtn = Button.primary(String.format(baseId, "playnext"), "Play Next").withEmoji(Emoji.fromUnicode("⏭️"));
+            Button playNowBtn = Button.success(String.format(baseId, "playnow"), "Play Now").withEmoji(Emoji.fromUnicode("▶️"));
+            List<Button> trackButtons = new ArrayList<>(List.of(queueBtn, playNextBtn, playNowBtn));
+            if (canEdit)
+            {
+                Button moveBtn = Button.secondary(String.format(baseId, "move"), "Move")
+                        .withEmoji(Emoji.fromUnicode("↕️"));
+                Button removeBtn = Button.danger(String.format(baseId, "remove"), "Remove")
+                        .withEmoji(Emoji.fromUnicode("🗑️"));
+                trackButtons.add(moveBtn);
+                trackButtons.add(removeBtn);
+            }
+            rows.add(ActionRow.of(trackButtons));
+        }
+
+        if (canEdit && draftDirty)
+        {
+            Button saveBtn = Button.success(String.format(baseId, "save"), "Save");
+            Button discardBtn = Button.secondary(String.format(baseId, "discard"), "Discard");
+            rows.add(ActionRow.of(saveBtn, discardBtn));
+        }
+
+        Button backBtn = Button.danger("playlistdetails_back_" + listPage + "_" + playlistIndex + "_" + userId, "Back");
+        rows.add(ActionRow.of(backBtn));
+        return rows;
+    }
+
     public static int getPlaylistsOnPage(int page, int totalPlaylists)
     {
         int startIndex = (page - 1) * PLAYLISTS_PER_PAGE;
@@ -253,5 +342,16 @@ public class PlaylistsSlashCmd extends MusicSlashCommand
     public static int getTotalPages(int totalPlaylists)
     {
         return (int) Math.ceil((double) totalPlaylists / PLAYLISTS_PER_PAGE);
+    }
+
+    public static int getPlaylistTracksOnPage(int page, int totalTracks)
+    {
+        int startIndex = (page - 1) * PLAYLIST_TRACKS_PER_PAGE;
+        return Math.min(PLAYLIST_TRACKS_PER_PAGE, totalTracks - startIndex);
+    }
+
+    public static int getPlaylistTrackTotalPages(int totalTracks)
+    {
+        return (int) Math.ceil((double) totalTracks / PLAYLIST_TRACKS_PER_PAGE);
     }
 }

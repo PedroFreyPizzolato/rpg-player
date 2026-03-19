@@ -137,4 +137,38 @@ class PlaylistsSlashCmdTest
         assertTrue(description.contains("⭐ favorites ⭐"));
         assertTrue(description.contains("`night_drive`"));
     }
+
+    @Test
+    void buildPlaylistDetailsComponents_includesBackRowAndTrackActionsWhenSelected()
+    {
+        List<ActionRow> rows = PlaylistsSlashCmd.buildPlaylistDetailsComponents(
+                2, 1, 1, 3, 10, 4, 42L, true, true);
+
+        assertFalse(rows.isEmpty());
+        ActionRow playlistRow = rows.get(3);
+        assertEquals("Queue Playlist", ((Button) playlistRow.getComponents().get(0)).getLabel());
+        assertEquals("Play Playlist", ((Button) playlistRow.getComponents().get(1)).getLabel());
+
+        ActionRow trackRow = rows.get(4);
+        assertEquals("Queue Track", ((Button) trackRow.getComponents().get(0)).getLabel());
+        assertEquals("Move", ((Button) trackRow.getComponents().get(3)).getLabel());
+        assertEquals("Remove", ((Button) trackRow.getComponents().get(4)).getLabel());
+
+        ActionRow draftRow = rows.get(5);
+        assertEquals("Save", ((Button) draftRow.getComponents().get(0)).getLabel());
+        assertEquals("Discard", ((Button) draftRow.getComponents().get(1)).getLabel());
+
+        ActionRow backRow = rows.get(rows.size() - 1);
+        assertEquals(1, backRow.getComponents().size());
+        Button backButton = (Button) backRow.getComponents().get(0);
+        assertEquals("Back", backButton.getLabel());
+    }
+
+    @Test
+    void playlistTrackPaginationHelpers_computeExpectedValues()
+    {
+        assertEquals(10, PlaylistsSlashCmd.getPlaylistTracksOnPage(1, 23));
+        assertEquals(3, PlaylistsSlashCmd.getPlaylistTracksOnPage(3, 23));
+        assertEquals(3, PlaylistsSlashCmd.getPlaylistTrackTotalPages(23));
+    }
 }

@@ -29,6 +29,9 @@ public final class ComponentIdParsers {
     private static final String QUEUE_PREFIX = "queue_";
     private static final String HISTORY_PREFIX = "history_";
     private static final String PLAYLISTS_PREFIX = "playlists_";
+    private static final String PLAYLIST_DETAILS_PREFIX = "playlistdetails_";
+    private static final String PLAYLIST_DETAILS_BACK_PREFIX = "playlistdetails_back_";
+    private static final String PLAYLIST_DETAILS_MOVE_SELECT_PREFIX = "playlistdetails_move_select_";
     private static final String QUEUE_MOVE_SELECT_PREFIX = "queue_move_select_";
     private static final String HISTORY_SAVE_PREFIX = "history_save_";
     private static final String SETTINGS_PREFIX = "settings_";
@@ -49,6 +52,38 @@ public final class ComponentIdParsers {
      * Parsed queue move select ID: fromPosition, page, userId.
      */
     public record QueueMoveSelectId(int fromPosition, int page, long userId) {
+    }
+
+    /**
+     * Parsed playlist-details button ID:
+     * playlistIndex, listPage, action, detailsPage, selectedTrack, userId.
+     */
+    public record PlaylistDetailsButtonId(
+            int playlistIndex,
+            int listPage,
+            String action,
+            int detailsPage,
+            int selectedTrack,
+            long userId
+    ) {
+    }
+
+    /**
+     * Parsed playlist-details back button ID: listPage, listSelectedIndex, userId.
+     */
+    public record PlaylistDetailsBackId(int listPage, int listSelectedIndex, long userId) {
+    }
+
+    /**
+     * Parsed playlist-details move-select ID.
+     */
+    public record PlaylistDetailsMoveSelectId(
+            int playlistIndex,
+            int listPage,
+            int fromTrack,
+            int detailsPage,
+            long userId
+    ) {
     }
 
     /**
@@ -136,6 +171,81 @@ public final class ComponentIdParsers {
             int selectedIndex = Integer.parseInt(parts[3]);
             long userId = Long.parseLong(parts[4]);
             return Optional.of(new PaginatedButtonId(action, page, selectedIndex, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses playlistdetails_* button IDs except back.
+     * Expected format:
+     * playlistdetails_playlistIndex_listPage_action_detailsPage_selectedTrack_userId.
+     */
+    public static Optional<PlaylistDetailsButtonId> parsePlaylistDetailsButtonId(String componentId) {
+        if (!componentId.startsWith(PLAYLIST_DETAILS_PREFIX)
+                || componentId.startsWith(PLAYLIST_DETAILS_BACK_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length != 7) {
+            return Optional.empty();
+        }
+        try {
+            int playlistIndex = Integer.parseInt(parts[1]);
+            int listPage = Integer.parseInt(parts[2]);
+            String action = parts[3];
+            int detailsPage = Integer.parseInt(parts[4]);
+            int selectedTrack = Integer.parseInt(parts[5]);
+            long userId = Long.parseLong(parts[6]);
+            return Optional.of(new PlaylistDetailsButtonId(
+                    playlistIndex, listPage, action, detailsPage, selectedTrack, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses playlistdetails_back_* IDs.
+     * Expected format: playlistdetails_back_listPage_listSelectedIndex_userId.
+     */
+    public static Optional<PlaylistDetailsBackId> parsePlaylistDetailsBackId(String componentId) {
+        if (!componentId.startsWith(PLAYLIST_DETAILS_BACK_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length != 5) {
+            return Optional.empty();
+        }
+        try {
+            int listPage = Integer.parseInt(parts[2]);
+            int listSelectedIndex = Integer.parseInt(parts[3]);
+            long userId = Long.parseLong(parts[4]);
+            return Optional.of(new PlaylistDetailsBackId(listPage, listSelectedIndex, userId));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses playlistdetails_move_select_* IDs.
+     * Expected format: playlistdetails_move_select_playlistIndex_listPage_fromTrack_detailsPage_userId.
+     */
+    public static Optional<PlaylistDetailsMoveSelectId> parsePlaylistDetailsMoveSelectId(String componentId) {
+        if (!componentId.startsWith(PLAYLIST_DETAILS_MOVE_SELECT_PREFIX)) {
+            return Optional.empty();
+        }
+        String[] parts = componentId.split("_");
+        if (parts.length != 8) {
+            return Optional.empty();
+        }
+        try {
+            int playlistIndex = Integer.parseInt(parts[3]);
+            int listPage = Integer.parseInt(parts[4]);
+            int fromTrack = Integer.parseInt(parts[5]);
+            int detailsPage = Integer.parseInt(parts[6]);
+            long userId = Long.parseLong(parts[7]);
+            return Optional.of(new PlaylistDetailsMoveSelectId(
+                    playlistIndex, listPage, fromTrack, detailsPage, userId));
         } catch (NumberFormatException e) {
             return Optional.empty();
         }

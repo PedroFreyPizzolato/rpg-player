@@ -42,6 +42,63 @@ class ComponentIdParsersTest
     }
 
     @Test
+    void parsePlaylistDetailsButtonId_validId_returnsParsedValues()
+    {
+        var parsed = ComponentIdParsers.parsePlaylistDetailsButtonId("playlistdetails_4_2_select13_2_13_123456789");
+        assertTrue(parsed.isPresent());
+        assertEquals(4, parsed.get().playlistIndex());
+        assertEquals(2, parsed.get().listPage());
+        assertEquals("select13", parsed.get().action());
+        assertEquals(2, parsed.get().detailsPage());
+        assertEquals(13, parsed.get().selectedTrack());
+        assertEquals(123456789L, parsed.get().userId());
+    }
+
+    @Test
+    void parsePlaylistDetailsButtonId_invalidId_returnsEmpty()
+    {
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsButtonId("playlistdetails_back_1_2_3").isEmpty());
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsButtonId("playlistdetails_1_2_next_bad_0_3").isEmpty());
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsButtonId("playlists_1_2_next_1_0_3").isEmpty());
+    }
+
+    @Test
+    void parsePlaylistDetailsBackId_validId_returnsParsedValues()
+    {
+        var parsed = ComponentIdParsers.parsePlaylistDetailsBackId("playlistdetails_back_2_4_123456789");
+        assertTrue(parsed.isPresent());
+        assertEquals(2, parsed.get().listPage());
+        assertEquals(4, parsed.get().listSelectedIndex());
+        assertEquals(123456789L, parsed.get().userId());
+    }
+
+    @Test
+    void parsePlaylistDetailsBackId_invalidId_returnsEmpty()
+    {
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsBackId("playlistdetails_back_2_x_123").isEmpty());
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsBackId("playlistdetails_1_2_next_1_0_3").isEmpty());
+    }
+
+    @Test
+    void parsePlaylistDetailsMoveSelectId_validId_returnsParsedValues()
+    {
+        var parsed = ComponentIdParsers.parsePlaylistDetailsMoveSelectId("playlistdetails_move_select_4_2_7_1_123456789");
+        assertTrue(parsed.isPresent());
+        assertEquals(4, parsed.get().playlistIndex());
+        assertEquals(2, parsed.get().listPage());
+        assertEquals(7, parsed.get().fromTrack());
+        assertEquals(1, parsed.get().detailsPage());
+        assertEquals(123456789L, parsed.get().userId());
+    }
+
+    @Test
+    void parsePlaylistDetailsMoveSelectId_invalidId_returnsEmpty()
+    {
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsMoveSelectId("playlistdetails_move_select_4_2_7_x_123").isEmpty());
+        assertTrue(ComponentIdParsers.parsePlaylistDetailsMoveSelectId("playlistdetails_4_2_move_1_7_123").isEmpty());
+    }
+
+    @Test
     void parseSettingsButtonId_enumAction_returnsParsedValues()
     {
         var parsed = ComponentIdParsers.parseSettingsButtonId("settings_enum_layout_minimal_42");

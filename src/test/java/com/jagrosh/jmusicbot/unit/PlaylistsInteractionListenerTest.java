@@ -116,4 +116,62 @@ class PlaylistsInteractionListenerTest
         verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("isn't on this page")));
         verify(fixture.getReplyAction()).setEphemeral(true);
     }
+
+    @Test
+    @DisplayName("onButtonInteraction() playlistdetails queueall dispatches full playlist queue")
+    void onButtonInteraction_playlistDetailsQueueAll_dispatchesToMusicService()
+    {
+        fixture.withButtonId("playlistdetails_1_1_queueall_1_0_" + fixture.getUser().getIdLong())
+                .withMemberInVoiceChannel();
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
+        when(fixture.getMusicService().getPlaylistDetails("favorite"))
+                .thenReturn(new MusicService.PlaylistDetailsInfo("favorite", 3, List.of(), false));
+        when(fixture.getMusicService().getPlaylistTrackCount(any())).thenReturn(3);
+
+        MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
+        when(channelUnion.asTextChannel()).thenReturn(fixture.getTextChannel());
+        when(channelUnion.getIdLong()).thenReturn(123L);
+        when(fixture.getButtonInteractionEvent().getChannel()).thenReturn(channelUnion);
+        when(fixture.getButtonInteractionEvent().getMessageIdLong()).thenReturn(456L);
+
+        MessageEditCallbackAction editAction = mock(MessageEditCallbackAction.class);
+        when(fixture.getButtonInteractionEvent().editMessageEmbeds(any(MessageEmbed[].class))).thenReturn(editAction);
+        when(editAction.setComponents(anyList())).thenReturn(editAction);
+        doNothing().when(editAction).queue();
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getMusicService()).queuePlaylist(
+                eq(fixture.getGuild()),
+                eq(fixture.getMember()),
+                eq("favorite"),
+                eq(fixture.getTextChannel()),
+                any(MusicService.OutputAdapter.class)
+        );
+    }
+
+    @Test
+    @DisplayName("onButtonInteraction() playlistdetails remove requires DJ or owner")
+    void onButtonInteraction_playlistDetailsRemove_requiresDjOrOwner()
+    {
+        fixture.withButtonId("playlistdetails_1_1_remove_1_1_" + fixture.getUser().getIdLong());
+        when(fixture.getMusicService().getAvailablePlaylistNames())
+                .thenReturn(MusicService.PlaylistNamesInfo.success(List.of("favorite")));
+        when(fixture.getMusicService().getPlaylistDetails("favorite"))
+                .thenReturn(new MusicService.PlaylistDetailsInfo("favorite", 3, List.of(), false));
+        when(fixture.getMusicService().getPlaylistTrackCount(any())).thenReturn(3);
+        when(fixture.getMusicService().canEditPlaylistEntries(eq(fixture.getGuild()), eq(fixture.getMember())))
+                .thenReturn(false);
+        when(fixture.getButtonInteractionEvent().getMessageIdLong()).thenReturn(456L);
+
+        MessageChannelUnion channelUnion = mock(MessageChannelUnion.class);
+        when(channelUnion.getIdLong()).thenReturn(123L);
+        when(fixture.getButtonInteractionEvent().getChannel()).thenReturn(channelUnion);
+
+        listener.onButtonInteraction(fixture.getButtonInteractionEvent());
+
+        verify(fixture.getButtonInteractionEvent()).reply(argThat((String s) -> s.contains("DJ or the bot owner")));
+        verify(fixture.getReplyAction()).setEphemeral(true);
+    }
 }
