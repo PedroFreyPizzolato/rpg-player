@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.arifbanai</groupId>
     <artifactId>JMusicBot</artifactId>
-    <version>0.6.2</version>
+    <version>0.6.3-alpha-update-deps-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>JMusicBot</name>
@@ -272,16 +272,27 @@
         </dependency>
 
         <!-- Music Dependencies -->
+        <!-- Lavaplayer (Lavalink fork) - Maven Central -->
+        <!-- Source: https://github.com/lavalink-devs/lavaplayer -->
         <dependency>
             <groupId>dev.arbjerg</groupId>
             <artifactId>lavaplayer</artifactId>
             <version>${lavaplayer.version}</version>
         </dependency>
-        <!-- YouTube Source Fork Dependency -->
+        <!-- YouTube Source - v2 module (transitively pulls common); provides *WithThumbnail clients -->
+        <!-- Source: https://github.com/lavalink-devs/youtube-source -->
+        <!-- Repository: https://maven.lavalink.dev/releases (configured as 'arbjergDev') -->
         <dependency>
-            <groupId>com.github.arif-banai.youtube-source</groupId>
-            <artifactId>common</artifactId>
-            <version>5512253</version>
+            <groupId>dev.lavalink.youtube</groupId>
+            <artifactId>v2</artifactId>
+            <version>${youtube-source.version}</version>
+        </dependency>
+        <!-- JDA Native Audio Send (udpqueue) Java API - provides NativeAudioSendFactory -->
+        <!-- https://github.com/MinnDevelopment/udpqueue.rs -->
+        <dependency>
+            <groupId>club.minnced</groupId>
+            <artifactId>udpqueue-api</artifactId>
+            <version>${udpqueue.version}</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
@@ -558,12 +569,12 @@
         <project.build.outputTimestamp>2025-01-01T00:00:00Z</project.build.outputTimestamp>
 
         <!-- Dependency versions -->
-        <jda.version>6.3.0</jda.version>
+        <jda.version>6.4.2</jda.version>
         <jda-chewtils.version>2.2.1</jda-chewtils.version>
-        <jdave.version>0.1.5</jdave.version>
+        <jdave.version>0.1.7</jdave.version>
         <udpqueue.version>0.2.12</udpqueue.version>
         <lavaplayer.version>2.2.6</lavaplayer.version>
-        <youtube-source.version>1.16.0</youtube-source.version>
+        <youtube-source.version>1.18.1</youtube-source.version>
         <logback.version>1.5.25</logback.version>
         <typesafe-config.version>1.4.3</typesafe-config.version>
         <jsoup.version>1.22.1</jsoup.version>

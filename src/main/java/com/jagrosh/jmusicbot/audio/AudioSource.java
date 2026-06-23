@@ -39,7 +39,8 @@ import dev.lavalink.youtube.clients.AndroidVr;
 import dev.lavalink.youtube.clients.ClientOptions;
 import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Tv;
-import dev.lavalink.youtube.clients.TvHtml5Embedded;
+// Removed in a newer version of yt source
+//import dev.lavalink.youtube.clients.TvHtml5Embedded;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.skeleton.Client;
 import org.slf4j.Logger;
@@ -297,7 +298,8 @@ public enum AudioSource
                 new AndroidVr(metadataOnly), // metadata loading (non-embedded, non-OAuth)
                 new MWeb(metadataOnly),      // metadata loading (non-embedded, non-OAuth)
                 new Web(metadataOnly),       // metadata loading (non-embedded, non-OAuth)
-                new TvHtml5Embedded(),       // Fallback: loading + primary streaming (OAuth)
+                // Removed in a newer version of yt source
+                //new TvHtml5Embedded(),       // Fallback: loading + primary streaming (OAuth)
                 new Tv()                     // Fallback: streaming only (OAuth)
             };
         }

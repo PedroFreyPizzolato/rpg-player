@@ -217,7 +217,7 @@ class AudioSourceOAuthTest {
             // With OAuth enabled
             Object[] oauthClients = (Object[]) buildClients.invoke(null, true);
             assertNotNull(oauthClients, "Should return clients for OAuth mode");
-            assertEquals(5, oauthClients.length, "OAuth mode should use 5 clients (3 metadata-only: AndroidVr, MWeb, Web; 2 OAuth: TvHtml5Embedded, Tv)");
+            assertEquals(4, oauthClients.length, "OAuth mode should use 4 clients (3 metadata-only: AndroidVr, MWeb, Web; 1 OAuth: Tv)");
             
             // Verify client types - first 3 are metadata-only (playback disabled)
             assertEquals("AndroidVr", oauthClients[0].getClass().getSimpleName(),
@@ -227,11 +227,9 @@ class AudioSourceOAuthTest {
             assertEquals("Web", oauthClients[2].getClass().getSimpleName(),
                 "Third OAuth client should be Web (metadata-only)");
             
-            // Last 2 are OAuth clients for streaming
-            assertEquals("TvHtml5Embedded", oauthClients[3].getClass().getSimpleName(),
-                "Fourth OAuth client should be TvHtml5Embedded (OAuth streaming)");
-            assertEquals("Tv", oauthClients[4].getClass().getSimpleName(),
-                "Fifth OAuth client should be Tv (OAuth streaming)");
+            // Last client is the OAuth streaming client
+            assertEquals("Tv", oauthClients[3].getClass().getSimpleName(),
+                "Fourth OAuth client should be Tv (OAuth streaming)");
         }
 
         @Test
