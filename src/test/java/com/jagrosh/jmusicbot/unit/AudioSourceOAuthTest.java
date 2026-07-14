@@ -177,7 +177,7 @@ class AudioSourceOAuthTest {
             Method setupMethod = getSetupYoutubeAudioSourceManagerMethod();
             assertNotNull(setupMethod, "setupYoutubeAudioSourceManager method should exist");
             
-            BotConfig mockConfig = createMockConfig(true, 10, null);
+            BotConfig mockConfig = createMockConfig(true, 10);
             
             // Call with useOauth=true - this should trigger the OAuth flow
             // We can't easily verify the OAuth flow was triggered without mocking,
@@ -194,7 +194,7 @@ class AudioSourceOAuthTest {
         void oauthFlowNotTriggeredWhenUseOauthIsFalse() throws Exception {
             Method setupMethod = getSetupYoutubeAudioSourceManagerMethod();
             
-            BotConfig mockConfig = createMockConfig(false, 10, null);
+            BotConfig mockConfig = createMockConfig(false, 10);
             
             // Call with useOauth=false - this should NOT trigger OAuth
             assertDoesNotThrow(() -> {
@@ -212,11 +212,10 @@ class AudioSourceOAuthTest {
             return method;
         }
         
-        private BotConfig createMockConfig(boolean useOauth, int maxYTPlaylistPages, String debugDir) {
+        private BotConfig createMockConfig(boolean useOauth, int maxYTPlaylistPages) {
             BotConfig config = mock(BotConfig.class);
             when(config.useYouTubeOauth()).thenReturn(useOauth);
             when(config.getMaxYTPlaylistPages()).thenReturn(maxYTPlaylistPages);
-            when(config.getYoutubeDebugSaveResponsesDirectory()).thenReturn(debugDir);
             return config;
         }
     }
@@ -281,28 +280,13 @@ class AudioSourceOAuthTest {
         void youtubeOptionsIncludeRemoteCipherForOAuth() throws Exception {
             Method buildOptions = getBuildYoutubeOptionsMethod();
             
-            BotConfig mockConfig = createMockConfig(true, 10, null);
+            BotConfig mockConfig = createMockConfig(true, 10);
             
             // We can't easily verify the internal state of YoutubeSourceOptions,
             // but we can verify the method completes without throwing
             assertDoesNotThrow(() -> {
                 Object options = buildOptions.invoke(null, mockConfig);
                 assertNotNull(options, "Should return options for OAuth mode");
-            });
-        }
-        
-        @Test
-        @DisplayName("YouTube options include debug directory when configured")
-        void youtubeOptionsIncludeDebugDirectoryWhenConfigured() throws Exception {
-            Method buildOptions = getBuildYoutubeOptionsMethod();
-            
-            String testDebugDir = "/tmp/youtube-debug";
-            BotConfig mockConfig = createMockConfig(false, 10, testDebugDir);
-            
-            // Verify the method completes without throwing when debug dir is set
-            assertDoesNotThrow(() -> {
-                Object options = buildOptions.invoke(null, mockConfig);
-                assertNotNull(options, "Should return options with debug directory");
             });
         }
         
@@ -320,11 +304,10 @@ class AudioSourceOAuthTest {
             return method;
         }
         
-        private BotConfig createMockConfig(boolean useOauth, int maxYTPlaylistPages, String debugDir) {
+        private BotConfig createMockConfig(boolean useOauth, int maxYTPlaylistPages) {
             BotConfig config = mock(BotConfig.class);
             when(config.useYouTubeOauth()).thenReturn(useOauth);
             when(config.getMaxYTPlaylistPages()).thenReturn(maxYTPlaylistPages);
-            when(config.getYoutubeDebugSaveResponsesDirectory()).thenReturn(debugDir);
             return config;
         }
     }

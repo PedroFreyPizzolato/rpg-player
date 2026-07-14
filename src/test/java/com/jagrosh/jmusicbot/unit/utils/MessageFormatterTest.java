@@ -19,7 +19,6 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,18 +30,17 @@ import static org.mockito.Mockito.when;
 class MessageFormatterTest
 {
     @Test
-    @DisplayName("buildNowPlayingMessage() keeps mojibake-compatible author text in full embed")
-    void buildNowPlayingMessage_keepsMojibakeCompatibleAuthorInFullEmbed()
+    @DisplayName("buildNowPlayingMessage() passes author text through verbatim in full embed")
+    void buildNowPlayingMessage_passesAuthorTextThroughVerbatimInFullEmbed()
     {
-        String expectedAuthor = "МР. CREDO [Этой]";
-        String mojibakeAuthor = new String(expectedAuthor.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
+        String author = "МР. CREDO [Этой]";
 
-        MessageCreateData message = buildNowPlayingMessage("Test Title", mojibakeAuthor, false, false, "",
+        MessageCreateData message = buildNowPlayingMessage("Test Title", author, false, false, "",
                 RepeatMode.OFF, 0, false, 0L, false, false, "id-1");
         MessageEmbed embed = getSingleEmbed(message);
         MessageEmbed.Field authorField = getField(embed, "Author");
         assertNotNull(authorField);
-        assertEquals(mojibakeAuthor, authorField.getValue());
+        assertEquals(author, authorField.getValue());
     }
 
     @Test

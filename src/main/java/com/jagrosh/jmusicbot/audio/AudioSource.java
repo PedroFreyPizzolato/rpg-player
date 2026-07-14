@@ -260,12 +260,6 @@ public enum AudioSource
             options.setRemoteCipher("https://cipher.kikkia.dev/", null, "jmusicbot");
         }
         
-        String debugDir = config.getYoutubeDebugSaveResponsesDirectory();
-        if (debugDir != null && !debugDir.isBlank())
-        {
-            options.setDebugSaveResponsesDirectory(debugDir);
-        }
-        
         return options;
     }
     

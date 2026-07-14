@@ -50,7 +50,7 @@ public class MessageFormatter {
         eb.setDescription(buildPlaybackStatusDescription(bot, info, repeatMode, false));
 
         String rawAuthor = info.track.getInfo().author;
-        String author = rawAuthor == null ? null : FormatUtil.filter(FormatUtil.fixMojibakeUtf8AsLatin1(rawAuthor));
+        String author = rawAuthor == null ? null : FormatUtil.filter(rawAuthor);
         if (author != null && (!author.isEmpty() && !author.equalsIgnoreCase("unknown artist"))) {
             eb.addField("Author", author, false);
         }

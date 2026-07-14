@@ -57,7 +57,6 @@ public enum ConfigOption {
     UPDATE_ALERTS("updates.alerts", ConfigType.BOOLEAN, false, "Whether to alert owner about updates"),
     USE_EVAL("dangerous.eval", ConfigType.BOOLEAN, false, "Whether to enable eval command (DANGEROUS)"),
     USE_YOUTUBE_OAUTH("playback.youtube.useOAuth", ConfigType.BOOLEAN, false, "Whether to use YouTube OAuth2 for playback"),
-    YOUTUBE_DEBUG_SAVE_RESPONSES_DIRECTORY("playback.youtube.debugSaveResponsesDirectory", ConfigType.STRING, false, "Directory path where youtube-source saves debug response files (optional)"),
     
     // Numeric options
     MAX_SECONDS("playback.maxTrackSeconds", ConfigType.LONG, false, "Maximum track length in seconds (0 = no limit)"),
