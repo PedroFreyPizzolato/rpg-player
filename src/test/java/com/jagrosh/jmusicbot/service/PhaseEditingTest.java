@@ -25,11 +25,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -46,32 +46,53 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PhaseEditingTest
 {
-    private Path workdir;
-    private Path original;
+    @TempDir Path dir;
+    private String previousUserDir;
     private PhaseService service;
 
+    /**
+     * Nada é apagado aqui: {@code @TempDir} já entrega uma pasta vazia por teste, e apagar
+     * {@code phases.json} por caminho relativo apagaria o arquivo REAL do bot — {@code Paths.get}
+     * resolve pelo diretório fixado na inicialização da JVM e ignora este {@code user.dir}
+     * (é o mesmo motivo do {@code PhaseConfig.resolveFile}).
+     */
     @BeforeEach
-    void setUp() throws IOException
+    void setUp()
     {
-        original = Paths.get("").toAbsolutePath();
-        workdir = Files.createTempDirectory("phase-editing-test");
-        System.setProperty("user.dir", workdir.toString());
-        // PhaseConfig usa Paths.get("phases.json"), que resolve por user.dir só em JVMs novas;
-        // para não depender disso, os testes escrevem e leem pelo caminho corrente do processo
-        Files.deleteIfExists(Paths.get(PhaseConfig.FILE_NAME));
+        previousUserDir = System.getProperty("user.dir");
+        System.setProperty("user.dir", dir.toString());
         service = new PhaseService(null);
     }
 
     @AfterEach
-    void tearDown() throws IOException
+    void tearDown()
     {
-        Files.deleteIfExists(Paths.get(PhaseConfig.FILE_NAME));
-        System.setProperty("user.dir", original.toString());
+        System.setProperty("user.dir", previousUserDir);
     }
 
     private void givenTrack(String name) throws IOException
     {
         assertNull(service.saveTrack(null, name, "https://example.com/x"));
+    }
+
+    private void write(String json) throws IOException
+    {
+        Files.writeString(dir.resolve(PhaseConfig.FILE_NAME), json);
+    }
+
+    @Test
+    @DisplayName("faixa sem preset nenhum responde com erro em vez de derrubar a interação")
+    void editingATrackWithoutPresetsAnswersWithAnError() throws IOException
+    {
+        // o findOrCreate antigo gravava "phases": [] para a faixa criada antes da primeira fase;
+        // na migração ela fica sem preset nenhum, e um get(0) aqui subiria pelo listener do JDA
+        write("""
+            { "tracks": [ { "name": "Batalha", "source": "s", "phases": [ ] } ] }
+            """);
+
+        assertNotNull(service.savePhase("Batalha", -1, "A", "0", "30", null));
+        assertNotNull(service.deletePhase("Batalha", 0));
+        assertNotNull(service.applyMark("Batalha", 12_000, "new"));
     }
 
     @Test

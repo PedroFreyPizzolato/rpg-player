@@ -541,6 +541,12 @@ public class PhaseService
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
 
+            // faixa criada pelo painel antigo virou uma faixa sem preset nenhum na migração;
+            // sem esta guarda o get(0) sobe uma RuntimeException e a interação morre calada
+            // faixa criada pelo painel antigo virou uma faixa sem preset nenhum na migração;
+            // sem esta guarda o get(0) sobe uma RuntimeException e a interação morre calada
+            if (track.presets.isEmpty())
+                return "A faixa `" + trackName + "` não tem nenhuma segmentação onde guardar a fase.";
             PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
 
             PhaseConfig.Phase phase;
@@ -577,6 +583,8 @@ public class PhaseService
             PhaseConfig.Track track = rawFind(config, trackName);
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
+            if (track.presets.isEmpty())
+                return "Essa fase não existe mais.";
             PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
             if (phaseIndex < 0 || phaseIndex >= preset.phases.size())
                 return "Essa fase não existe mais.";
@@ -605,6 +613,8 @@ public class PhaseService
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
 
+            if (track.presets.isEmpty())
+                return "A faixa `" + trackName + "` não tem nenhuma segmentação onde guardar a fase.";
             PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
 
             if ("new".equals(target))

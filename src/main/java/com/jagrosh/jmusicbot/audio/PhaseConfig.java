@@ -88,7 +88,12 @@ public class PhaseConfig
 
     /**
      * Move as fases soltas da faixa para um preset. Roda a cada leitura, mas só faz algo em
-     * arquivo antigo — faixa que já tem preset não é tocada.
+     * arquivo antigo — faixa que já tem só presets não é tocada.
+     *
+     * <p>Faixa com preset <i>e</i> fases soltas ao mesmo tempo não é lixo a descartar: é o que
+     * sai de colar fases do {@code .bak} num arquivo já migrado, ou de editar o JSON à mão. As
+     * fases viram mais um preset, porque anular o campo aqui apagaria trabalho do mestre e a
+     * gravação seguinte selaria a perda.
      */
     private void migrateLegacyPhases()
     {
@@ -96,16 +101,25 @@ public class PhaseConfig
         {
             if (track.phases == null)
                 continue;
-            if (track.presets.isEmpty() && !track.phases.isEmpty())
+            if (!track.phases.isEmpty())
             {
                 Preset preset = new Preset();
-                preset.name = LEGACY_PRESET_NAME;
+                preset.name = unusedPresetName(track);
                 preset.phases = track.phases;
                 track.presets.add(preset);
                 migrated = true;
             }
             track.phases = null;
         }
+    }
+
+    /** {@code Padrão}, {@code Padrão 2}, {@code Padrão 3}... o primeiro que a faixa não usa. */
+    private static String unusedPresetName(Track track)
+    {
+        String name = LEGACY_PRESET_NAME;
+        for (int i = 2; track.preset(name) != null; i++)
+            name = LEGACY_PRESET_NAME + " " + i;
+        return name;
     }
 
     /**

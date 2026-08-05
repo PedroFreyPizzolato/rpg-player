@@ -15,6 +15,8 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
@@ -324,6 +326,34 @@ class PhaseConfigTest
     }
 
     @Test
+    @DisplayName("fases soltas num arquivo que já tem presets viram outro preset, não somem")
+    void keepsLoosePhasesOfAnAlreadyMigratedFileAsAnExtraPreset() throws Exception
+    {
+        // o que sai de colar fases do .bak num arquivo já migrado, ou de editar o JSON à mão
+        write("""
+            { "tracks": [ {
+                "name": "A", "source": "s",
+                "presets": [ { "name": "Padrão", "phases": [ { "name": "Nova", "start": 0, "end": 10 } ] } ],
+                "phases": [ { "name": "Antiga", "start": 20, "end": 30 } ]
+            } ] }
+            """);
+
+        PhaseConfig config = PhaseConfig.load();
+        PhaseConfig.Track track = config.tracks.get(0);
+
+        assertEquals(2, track.presets.size(), "as fases soltas não podem ser descartadas");
+        assertEquals("Nova", track.presets.get(0).phases.get(0).name, "o preset que já existia fica");
+        assertEquals("Padrão 2", track.presets.get(1).name, "sem colidir com o preset já chamado Padrão");
+        assertEquals("Antiga", track.presets.get(1).phases.get(0).name);
+        assertNull(track.phases);
+
+        // o .bak é a única forma de voltar atrás se esta leitura interpretou o arquivo errado
+        config.save();
+        assertTrue(Files.exists(Paths.get(System.getProperty("user.dir"),
+                PhaseConfig.FILE_NAME + ".bak")), "gravar por cima sem cópia sela a interpretação");
+    }
+
+    @Test
     @DisplayName("gravar depois de migrar guarda uma cópia do arquivo antigo, uma vez só")
     void backsUpTheLegacyFileOnceOnFirstSave() throws Exception
     {
@@ -341,9 +371,13 @@ class PhaseConfigTest
         String firstBackup = Files.readString(backup);
         assertTrue(firstBackup.contains("\"phases\""), "a cópia é do arquivo ANTES da migração");
 
-        // segunda gravação não pode sobrescrever a cópia original
+        // uma segunda migração (o mestre colou de volta um arquivo antigo) também quer gravar o
+        // .bak; é só aqui que dá pra ver se a cópia original sobrevive
+        write("""
+            { "tracks": [ { "name": "B", "source": "s",
+                "phases": [ { "name": "G", "start": 0, "end": 9 } ] } ] }
+            """);
         PhaseConfig again = PhaseConfig.load();
-        again.tracks.get(0).presets.get(0).phases.clear();
         again.save();
         assertEquals(firstBackup, Files.readString(backup),
                 "sobrescrever o .bak destruiria o único registro do estado anterior");
@@ -363,8 +397,11 @@ class PhaseConfigTest
 
         String written = Files.readString(Paths.get(System.getProperty("user.dir"),
                 PhaseConfig.FILE_NAME));
-        assertTrue(written.contains("\"presets\""), "grava no formato novo");
-        assertFalse(written.contains("\"phases\" : null"), "não grava o campo legado");
+        // a chave é conferida na árvore, e não por substring: "phases" também aparece dentro de
+        // cada preset, então procurar o texto passaria mesmo com o campo legado gravado de volta
+        JsonNode track = new ObjectMapper().readTree(written).get("tracks").get(0);
+        assertTrue(track.has("presets"), "grava no formato novo");
+        assertFalse(track.has("phases"), "o campo legado não pode voltar para o arquivo");
     }
 
     /** AudioTrack mínimo: só getInfo()/getIdentifier() importam pro matching. */
