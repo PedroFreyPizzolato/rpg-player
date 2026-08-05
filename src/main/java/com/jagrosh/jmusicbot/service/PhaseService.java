@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
@@ -75,24 +76,24 @@ public class PhaseService
                     + PhaseConfig.FILE_NAME + "`.");
             return;
         }
-        startAt(guild, channel, match.track, match.phaseIndex, output);
+        startAt(guild, channel, match.segmentation, match.phaseIndex, output);
     }
 
     /**
      * Começa (ou reinicia) o modo fase numa fase específica. Decodificar o trecho leva alguns
      * segundos, então o aviso vai pelo canal quando termina, não como resposta da interação.
      */
-    public void startAt(Guild guild, MessageChannel channel, PhaseConfig.Track track, int phaseIndex,
-                        MusicService.OutputAdapter output)
+    public void startAt(Guild guild, MessageChannel channel, PhaseConfig.Segmentation segmentation,
+                        int phaseIndex, MusicService.OutputAdapter output)
     {
-        if (track.phases.isEmpty())
+        if (segmentation.phases().isEmpty())
         {
-            output.replyError("`" + track.name + "` não tem nenhuma fase definida.");
+            output.replyError("`" + segmentation.trackName() + "` não tem nenhuma fase definida.");
             return;
         }
-        if (track.identifier() == null)
+        if (segmentation.identifier() == null)
         {
-            output.replyError("`" + track.name + "` não tem fonte definida (URL ou arquivo).");
+            output.replyError("`" + segmentation.trackName() + "` não tem fonte definida (URL ou arquivo).");
             return;
         }
 
@@ -103,34 +104,36 @@ public class PhaseService
             return;
         }
 
-        int index = Math.max(0, Math.min(phaseIndex, track.phases.size() - 1));
-        PhaseConfig.Phase phase = track.phases.get(index);
+        int index = Math.max(0, Math.min(phaseIndex, segmentation.phases().size() - 1));
+        PhaseConfig.Phase phase = segmentation.phases().get(index);
         // entrando pela fase 0: toca desde o 0:00 até o início dela, em vez de pular a intro —
         // mesma regra do fim da última fase até o fim do arquivo, agora do outro lado da música
         long captureStart = index == 0 ? 0 : phase.startMs();
-        output.replySuccess("Decodificando **" + track.name + "** — fase `" + phase.name + "`...");
+        output.replySuccess("Decodificando **" + segmentation.trackName() + "** — fase `"
+                + phase.name + "`...");
 
         bot.getSegmentCapture()
-                .captureAsync(track.identifier(), captureStart, phase.endMs())
+                .captureAsync(segmentation.identifier(), captureStart, phase.endMs())
                 .whenComplete((segment, error) ->
                 {
                     if (error != null)
                     {
-                        LOG.warn("Falha ao capturar a fase '{}' de '{}'", phase.name, track.name, error);
-                        channel.sendMessage("Não consegui carregar **" + track.name + "**: "
-                                + rootMessage(error)).queue();
+                        LOG.warn("Falha ao capturar a fase '{}' de '{}'", phase.name,
+                                segmentation.trackName(), error);
+                        channel.sendMessage("Não consegui carregar **" + segmentation.trackName()
+                                + "**: " + rootMessage(error)).queue();
                         return;
                     }
 
                     handler.getPlayer().setPaused(true);
                     handler.setSegmentPlayer(SegmentPlayer.resumingAt(
-                            bot.getSegmentCapture()::captureAsync, track, index, segment,
+                            bot.getSegmentCapture()::captureAsync, segmentation, index, segment,
                             captureStart, captureStart, CROSSFADE_MS, volumeOf(guild),
                             onPhaseChange(handler, guild, channel),
-                            onFinish(handler, channel, track.name)));
+                            onFinish(handler, channel, segmentation.trackName())));
 
                     LOG.info("Modo fase iniciado: guild={}, faixa=\"{}\", fase=\"{}\"",
-                            guild.getId(), track.name, phase.name);
+                            guild.getId(), segmentation.trackName(), phase.name);
                     // a tela do modo fase já traz os controles; é ela que o mestre opera
                     refreshNowPlaying(handler, guild, channel);
                 });
@@ -168,24 +171,27 @@ public class PhaseService
         }
 
         PhaseConfig.Track track = findMatchingPhases(playing);
-        if (track == null)
+        // TAREFA 2: preset escolhido, não o primeiro
+        PhaseConfig.Segmentation segmentation = track == null ? null : track.firstSegmentation();
+        // preset sem fase nenhuma (faixa recém-criada) não tem em que fase entrar
+        if (segmentation == null || segmentation.phases().isEmpty())
         {
             output.replyError("A faixa que está tocando não tem fases cadastradas. Cadastre pelo"
                     + " botão **Fases** (ou vincule esta fonte a uma faixa que já tenha).");
             return;
         }
 
-        PhaseEntry entry = planEntry(track, playing.getPosition());
-        PhaseConfig.Phase phase = track.phases.get(entry.phaseIndex);
+        PhaseEntry entry = planEntry(segmentation, playing.getPosition());
+        PhaseConfig.Phase phase = segmentation.phases().get(entry.phaseIndex);
         output.replySuccess("Decodificando `" + phase.name + "` para continuar de onde está...");
 
         bot.getSegmentCapture()
-                .captureAsync(track.identifier(), entry.captureStartMs, entry.captureEndMs)
+                .captureAsync(segmentation.identifier(), entry.captureStartMs, entry.captureEndMs)
                 .whenComplete((segment, error) ->
                 {
                     if (error != null)
                     {
-                        LOG.warn("Falha ao entrar no modo fase de '{}'", track.name, error);
+                        LOG.warn("Falha ao entrar no modo fase de '{}'", segmentation.trackName(), error);
                         channel.sendMessage("Não consegui entrar no modo fase: "
                                 + rootMessage(error)).queue();
                         return;
@@ -197,7 +203,7 @@ public class PhaseService
                     if (handler.getPlayer().getPlayingTrack() != playing || handler.getSegmentPlayer() != null)
                     {
                         channel.sendMessage("A reprodução mudou enquanto eu decodificava **"
-                                + track.name + "**; não entrei no modo fase.").queue();
+                                + segmentation.trackName() + "**; não entrei no modo fase.").queue();
                         return;
                     }
 
@@ -205,13 +211,13 @@ public class PhaseService
                     // então a entrada cai exatamente onde o ouvinte parou de escutar
                     handler.getPlayer().setPaused(true);
                     handler.setSegmentPlayer(SegmentPlayer.resumingAt(
-                            bot.getSegmentCapture()::captureAsync, track, entry.phaseIndex, segment,
-                            entry.captureStartMs, playing.getPosition(), CROSSFADE_MS,
+                            bot.getSegmentCapture()::captureAsync, segmentation, entry.phaseIndex,
+                            segment, entry.captureStartMs, playing.getPosition(), CROSSFADE_MS,
                             volumeOf(guild), onPhaseChange(handler, guild, channel),
-                            onFinish(handler, channel, track.name)));
+                            onFinish(handler, channel, segmentation.trackName())));
 
                     LOG.info("Modo fase assumido em reprodução: guild={}, faixa=\"{}\", fase=\"{}\"",
-                            guild.getId(), track.name, phase.name);
+                            guild.getId(), segmentation.trackName(), phase.name);
                     refreshNowPlaying(handler, guild, channel);
                 });
     }
@@ -233,7 +239,7 @@ public class PhaseService
         }
 
         long position = segments.getPositionMs();
-        PhaseConfig.Track track = segments.getTrack();
+        PhaseConfig.Track track = segments.getSegmentation().track;
         Message previous = handler.getSegmentNowPlayingMessage();
         AudioTrack loaded = handler.getPlayer().getPlayingTrack();
 
@@ -309,11 +315,11 @@ public class PhaseService
      * Qual fase assumir a partir de uma posição qualquer da música, e o trecho a decodificar
      * para chegar nela sem cortar o áudio.
      */
-    static PhaseEntry planEntry(PhaseConfig.Track track, long positionMs)
+    static PhaseEntry planEntry(PhaseConfig.Segmentation segmentation, long positionMs)
     {
-        for (int i = 0; i < track.phases.size(); i++)
+        for (int i = 0; i < segmentation.phases().size(); i++)
         {
-            PhaseConfig.Phase phase = track.phases.get(i);
+            PhaseConfig.Phase phase = segmentation.phases().get(i);
             if (positionMs >= phase.endMs())
                 continue;
             // dentro da fase: captura ela inteira, senão o loop ficaria só no pedaço que falta
@@ -323,8 +329,9 @@ public class PhaseService
             return new PhaseEntry(i, positionMs, phase.endMs());
         }
         // passou da última fase: não há o que emendar adiante, volta para o início dela
-        int last = track.phases.size() - 1;
-        return new PhaseEntry(last, track.phases.get(last).startMs(), track.phases.get(last).endMs());
+        int last = segmentation.phases().size() - 1;
+        return new PhaseEntry(last, segmentation.phases().get(last).startMs(),
+                segmentation.phases().get(last).endMs());
     }
 
     /** Fase escolhida por {@link #planEntry} e o trecho que precisa ser decodificado. */
@@ -361,7 +368,7 @@ public class PhaseService
             return;
         }
 
-        String upcoming = player.getTrack().phases.get(player.getPhaseIndex() + 1).name;
+        String upcoming = player.getSegmentation().phases().get(player.getPhaseIndex() + 1).name;
         output.replySuccess("Liberado: ao fim de `" + player.getPhaseName()
                 + "` a música segue para `" + upcoming + "`.");
     }
@@ -408,14 +415,17 @@ public class PhaseService
         for (PhaseConfig.Track track : config.tracks)
         {
             message.append("`").append(track.name).append("` — ");
-            for (int i = 0; i < track.phases.size(); i++)
-                message.append(i > 0 ? ", " : "").append(track.phases.get(i).name);
+            // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Segmentation segmentation = track.firstSegmentation();
+            List<PhaseConfig.Phase> phases = segmentation == null ? List.of() : segmentation.phases();
+            for (int i = 0; i < phases.size(); i++)
+                message.append(i > 0 ? ", " : "").append(phases.get(i).name);
             message.append("\n");
         }
 
         SegmentPlayer playing = getSegmentPlayer(guild);
         if (playing != null)
-            message.append("\nTocando agora: **").append(playing.getTrack().name)
+            message.append("\nTocando agora: **").append(playing.getSegmentation().trackName())
                     .append("** — `").append(playing.getPhaseName()).append("`");
 
         output.replySuccess(message.toString());
@@ -531,15 +541,17 @@ public class PhaseService
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
 
+            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+
             PhaseConfig.Phase phase;
-            if (phaseIndex < 0 || phaseIndex >= track.phases.size())
+            if (phaseIndex < 0 || phaseIndex >= preset.phases.size())
             {
                 phase = new PhaseConfig.Phase();
-                track.phases.add(phase);
+                preset.phases.add(phase);
             }
             else
             {
-                phase = track.phases.get(phaseIndex);
+                phase = preset.phases.get(phaseIndex);
             }
             phase.name = name.trim();
             phase.start = start;
@@ -547,7 +559,7 @@ public class PhaseService
             phase.fade = fade;
 
             // a lógica de passagem entre fases assume ordem crescente
-            track.phases.sort(Comparator.comparingDouble(p -> p.start));
+            preset.phases.sort(Comparator.comparingDouble(p -> p.start));
             config.save();
             return null;
         }
@@ -565,10 +577,11 @@ public class PhaseService
             PhaseConfig.Track track = rawFind(config, trackName);
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
-            if (phaseIndex < 0 || phaseIndex >= track.phases.size())
+            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+            if (phaseIndex < 0 || phaseIndex >= preset.phases.size())
                 return "Essa fase não existe mais.";
 
-            track.phases.remove(phaseIndex);
+            preset.phases.remove(phaseIndex);
             config.save();
             return null;
         }
@@ -592,13 +605,15 @@ public class PhaseService
             if (track == null)
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
 
+            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+
             if ("new".equals(target))
             {
                 PhaseConfig.Phase phase = new PhaseConfig.Phase();
-                phase.name = "Fase " + (track.phases.size() + 1);
+                phase.name = "Fase " + (preset.phases.size() + 1);
                 phase.start = seconds;
                 phase.end = seconds + 30;   // provisório: o mestre ajusta marcando o fim
-                track.phases.add(phase);
+                preset.phases.add(phase);
             }
             else
             {
@@ -606,10 +621,10 @@ public class PhaseService
                 if (parts.length != 2)
                     return "Alvo inválido.";
                 int index = Integer.parseInt(parts[1]);
-                if (index < 0 || index >= track.phases.size())
+                if (index < 0 || index >= preset.phases.size())
                     return "Essa fase não existe mais.";
 
-                PhaseConfig.Phase phase = track.phases.get(index);
+                PhaseConfig.Phase phase = preset.phases.get(index);
                 if ("start".equals(parts[0]))
                 {
                     if (seconds >= phase.end)
@@ -624,7 +639,7 @@ public class PhaseService
                 }
             }
 
-            track.phases.sort(Comparator.comparingDouble(p -> p.start));
+            preset.phases.sort(Comparator.comparingDouble(p -> p.start));
             config.save();
             return null;
         }
@@ -645,15 +660,17 @@ public class PhaseService
     public void reloadIfPlaying(Guild guild, String trackName, MessageChannel channel)
     {
         SegmentPlayer player = getSegmentPlayer(guild);
-        if (player == null || !player.getTrack().name.equalsIgnoreCase(trackName))
+        if (player == null || !player.getSegmentation().trackName().equalsIgnoreCase(trackName))
             return;
 
         try
         {
             PhaseConfig.Track updated = rawFind(PhaseConfig.load(), trackName);
-            if (updated == null || updated.phases.isEmpty())
+            // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Segmentation segmentation = updated == null ? null : updated.firstSegmentation();
+            if (segmentation == null || segmentation.phases().isEmpty())
                 return;
-            startAt(guild, channel, updated, player.getPhaseIndex(), silent());
+            startAt(guild, channel, segmentation, player.getPhaseIndex(), silent());
         }
         catch (IOException e)
         {
@@ -704,7 +721,7 @@ public class PhaseService
 
     /**
      * A faixa de {@code phases.json} cujo {@code source}/{@code file} bate com o que o
-     * lavaplayer acabou de resolver, se ela já tiver fases cadastradas; senão null.
+     * lavaplayer acabou de resolver, se ela já tiver alguma segmentação cadastrada; senão null.
      */
     public PhaseConfig.Track findMatchingPhases(AudioTrack playing)
     {
@@ -715,7 +732,7 @@ public class PhaseService
             if (index < 0)
                 return null;
             PhaseConfig.Track track = config.tracks.get(index);
-            return track.phases.isEmpty() ? null : track;
+            return track.presets.isEmpty() ? null : track;
         }
         catch (IOException e)
         {

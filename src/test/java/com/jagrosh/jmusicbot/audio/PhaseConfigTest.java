@@ -20,12 +20,22 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackState;
 import com.sedmelluq.discord.lavaplayer.track.TrackMarker;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link PhaseConfig#find} tem 4 ramos priorizados (faixa exata, fase exata, faixa parcial,
@@ -34,6 +44,27 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  */
 class PhaseConfigTest
 {
+    @TempDir Path dir;
+    private String previousUserDir;
+
+    @BeforeEach
+    void isolate()
+    {
+        previousUserDir = System.getProperty("user.dir");
+        System.setProperty("user.dir", dir.toString());
+    }
+
+    @AfterEach
+    void restore()
+    {
+        System.setProperty("user.dir", previousUserDir);
+    }
+
+    private void write(String json) throws IOException
+    {
+        Files.writeString(dir.resolve(PhaseConfig.FILE_NAME), json);
+    }
+
     private static PhaseConfig configWithTwoTracks()
     {
         PhaseConfig config = new PhaseConfig();
@@ -41,18 +72,30 @@ class PhaseConfigTest
         PhaseConfig.Track pool = new PhaseConfig.Track();
         pool.name = "In The Pool (Synthwave)";
         pool.file = "pool.mp3";
-        pool.phases.add(phase("Parte 1"));
-        pool.phases.add(phase("Parte 2"));
+        preset(pool).phases.add(phase("Parte 1"));
+        preset(pool).phases.add(phase("Parte 2"));
         config.tracks.add(pool);
 
         PhaseConfig.Track paintress = new PhaseConfig.Track();
         paintress.name = "Paintress";
         paintress.file = "paintress.mp3";
-        paintress.phases.add(phase("Tenso"));
-        paintress.phases.add(phase("Calma"));
+        preset(paintress).phases.add(phase("Tenso"));
+        preset(paintress).phases.add(phase("Calma"));
         config.tracks.add(paintress);
 
         return config;
+    }
+
+    /** O preset único da faixa, criado na primeira chamada. */
+    private static PhaseConfig.Preset preset(PhaseConfig.Track track)
+    {
+        if (track.presets.isEmpty())
+        {
+            PhaseConfig.Preset preset = new PhaseConfig.Preset();
+            preset.name = PhaseConfig.LEGACY_PRESET_NAME;
+            track.presets.add(preset);
+        }
+        return track.presets.get(0);
     }
 
     private static PhaseConfig.Phase phase(String name)
@@ -70,7 +113,7 @@ class PhaseConfigTest
     {
         PhaseConfig config = configWithTwoTracks();
         PhaseConfig.Match match = config.find("Paintress");
-        assertSame(config.tracks.get(1), match.track);
+        assertSame(config.tracks.get(1), match.segmentation.track);
         assertEquals(0, match.phaseIndex);
     }
 
@@ -80,7 +123,7 @@ class PhaseConfigTest
     {
         PhaseConfig config = configWithTwoTracks();
         PhaseConfig.Match match = config.find("Calma");
-        assertSame(config.tracks.get(1), match.track);
+        assertSame(config.tracks.get(1), match.segmentation.track);
         assertEquals(1, match.phaseIndex, "Calma é a segunda fase de Paintress, não a primeira");
     }
 
@@ -90,7 +133,7 @@ class PhaseConfigTest
     {
         PhaseConfig config = configWithTwoTracks();
         PhaseConfig.Match match = config.find("pool");
-        assertSame(config.tracks.get(0), match.track);
+        assertSame(config.tracks.get(0), match.segmentation.track);
         assertEquals(0, match.phaseIndex);
     }
 
@@ -100,7 +143,7 @@ class PhaseConfigTest
     {
         PhaseConfig config = configWithTwoTracks();
         PhaseConfig.Match match = config.find("Part");
-        assertSame(config.tracks.get(0), match.track);
+        assertSame(config.tracks.get(0), match.segmentation.track);
         assertEquals(0, match.phaseIndex);
     }
 
@@ -115,11 +158,11 @@ class PhaseConfigTest
         PhaseConfig.Track same = new PhaseConfig.Track();
         same.name = "Calma";                 // mesmo nome de uma fase de Paintress
         same.file = "calma.mp3";
-        same.phases.add(phase("Unica"));
+        preset(same).phases.add(phase("Unica"));
         config.tracks.add(same);
 
         PhaseConfig.Match match = config.find("Calma");
-        assertSame(same, match.track, "faixa chamada 'Calma' deve vencer a fase chamada 'Calma'");
+        assertSame(same, match.segmentation.track, "faixa chamada 'Calma' deve vencer a fase chamada 'Calma'");
         assertEquals(0, match.phaseIndex);
     }
 
@@ -224,6 +267,104 @@ class PhaseConfigTest
 
         AudioTrack playing = fakeTrack("https://music.youtube.com/watch?v=zzzOtherId", "zzzOtherId");
         assertEquals(0, config.indexMatchingPlayback(playing));
+    }
+
+    // ── migração do formato antigo ──────────────────────────────────────────
+    //
+    // O arquivo em produção nasceu com uma lista única de fases por faixa. Ler um desses sem
+    // migrar não estoura nada: a faixa simplesmente aparece sem segmentação nenhuma.
+
+    @Test
+    @DisplayName("arquivo no formato antigo vira um preset Padrão sem perder nada")
+    void migratesLegacyPhasesIntoADefaultPreset() throws Exception
+    {
+        write("""
+            { "tracks": [ {
+                "name": "Watch the Crown Fall",
+                "source": "https://youtu.be/gV_uJpcuq5U",
+                "aliases": [ "https://music.youtube.com/watch?v=w9ZM-7VzQvc" ],
+                "phases": [ { "name": "Inicio", "start": 10.0, "end": 66.0, "fade": 0.5 } ]
+            } ] }
+            """);
+
+        PhaseConfig config = PhaseConfig.load();
+        PhaseConfig.Track track = config.tracks.get(0);
+
+        assertEquals(1, track.presets.size(), "as fases antigas viram um preset");
+        assertEquals("Padrão", track.presets.get(0).name);
+        assertNull(track.phases, "o campo antigo é anulado para não ser gravado de volta");
+
+        PhaseConfig.Phase phase = track.presets.get(0).phases.get(0);
+        assertEquals("Inicio", phase.name);
+        assertEquals(10.0, phase.start);
+        assertEquals(66.0, phase.end);
+        assertEquals(0.5, phase.fade, "o fade por fase tem que sobreviver à migração");
+        assertEquals(1, track.aliases.size(), "o alias é da faixa, não da segmentação");
+    }
+
+    @Test
+    @DisplayName("arquivo já migrado não é mexido de novo")
+    void doesNotRemigrateAnAlreadyMigratedFile() throws Exception
+    {
+        write("""
+            { "tracks": [ {
+                "name": "Crown Fall",
+                "source": "https://youtu.be/x",
+                "presets": [
+                  { "name": "Combate", "phases": [ { "name": "A", "start": 0, "end": 10 } ] },
+                  { "name": "Exploração", "phases": [ ] } ]
+            } ] }
+            """);
+
+        PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
+
+        assertEquals(2, track.presets.size());
+        assertEquals("Combate", track.presets.get(0).name, "não inventa um preset Padrão");
+        assertTrue(track.presets.get(1).phases.isEmpty(), "preset vazio continua vazio");
+    }
+
+    @Test
+    @DisplayName("gravar depois de migrar guarda uma cópia do arquivo antigo, uma vez só")
+    void backsUpTheLegacyFileOnceOnFirstSave() throws Exception
+    {
+        write("""
+            { "tracks": [ { "name": "A", "source": "s",
+                "phases": [ { "name": "F", "start": 0, "end": 5 } ] } ] }
+            """);
+
+        Path backup = Paths.get(System.getProperty("user.dir"), PhaseConfig.FILE_NAME + ".bak");
+        assertFalse(Files.exists(backup), "ainda não gravamos nada");
+
+        PhaseConfig config = PhaseConfig.load();
+        config.save();
+        assertTrue(Files.exists(backup), "a cópia do formato antigo tem que existir");
+        String firstBackup = Files.readString(backup);
+        assertTrue(firstBackup.contains("\"phases\""), "a cópia é do arquivo ANTES da migração");
+
+        // segunda gravação não pode sobrescrever a cópia original
+        PhaseConfig again = PhaseConfig.load();
+        again.tracks.get(0).presets.get(0).phases.clear();
+        again.save();
+        assertEquals(firstBackup, Files.readString(backup),
+                "sobrescrever o .bak destruiria o único registro do estado anterior");
+    }
+
+    @Test
+    @DisplayName("o formato novo não grava mais o campo antigo")
+    void neverWritesTheLegacyPhasesField() throws Exception
+    {
+        write("""
+            { "tracks": [ { "name": "A", "source": "s",
+                "phases": [ { "name": "F", "start": 0, "end": 5 } ] } ] }
+            """);
+
+        PhaseConfig config = PhaseConfig.load();
+        config.save();
+
+        String written = Files.readString(Paths.get(System.getProperty("user.dir"),
+                PhaseConfig.FILE_NAME));
+        assertTrue(written.contains("\"presets\""), "grava no formato novo");
+        assertFalse(written.contains("\"phases\" : null"), "não grava o campo legado");
     }
 
     /** AudioTrack mínimo: só getInfo()/getIdentifier() importam pro matching. */

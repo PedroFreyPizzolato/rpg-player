@@ -56,7 +56,7 @@ public class SegmentPlayer
     private static final Logger LOGGER = LoggerFactory.getLogger(SegmentPlayer.class);
 
     private final SegmentSource source;
-    private final PhaseConfig.Track track;
+    private final PhaseConfig.Segmentation segmentation;
     private final IntSupplier volume;
     /** Vale para as fases que não definem um crossfade próprio. */
     private final int defaultFadeMs;
@@ -80,11 +80,12 @@ public class SegmentPlayer
     private volatile boolean finished;
 
     /** Começa no início da fase, com o trecho já decodificado sendo a fase inteira. */
-    public SegmentPlayer(SegmentSource source, PhaseConfig.Track track, int phaseIndex,
+    public SegmentPlayer(SegmentSource source, PhaseConfig.Segmentation segmentation, int phaseIndex,
                          byte[] firstSegment, int fadeMs, IntSupplier volume,
                          Consumer<String> onPhaseChange, Runnable onFinish)
     {
-        this(source, track, phaseIndex, firstSegment, 0, track.phases.get(phaseIndex).startMs(), 0,
+        this(source, segmentation, phaseIndex, firstSegment, 0,
+                segmentation.phases().get(phaseIndex).startMs(), 0,
                 fadeMs, volume, onPhaseChange, onFinish);
     }
 
@@ -97,14 +98,14 @@ public class SegmentPlayer
      * duas fases), esse miolo toca uma vez e o loop passa a valer só a partir do início da fase
      * — mesma regra da passagem quando se libera a fase seguinte.
      */
-    public static SegmentPlayer resumingAt(SegmentSource source, PhaseConfig.Track track, int phaseIndex,
-                                           byte[] data, long dataStartMs, long enterAtMs, int fadeMs,
-                                           IntSupplier volume, Consumer<String> onPhaseChange,
+    public static SegmentPlayer resumingAt(SegmentSource source, PhaseConfig.Segmentation segmentation,
+                                           int phaseIndex, byte[] data, long dataStartMs, long enterAtMs,
+                                           int fadeMs, IntSupplier volume, Consumer<String> onPhaseChange,
                                            Runnable onFinish)
     {
-        int loopStart = bytesInto(data, dataStartMs, track.phases.get(phaseIndex).startMs());
+        int loopStart = bytesInto(data, dataStartMs, segmentation.phases().get(phaseIndex).startMs());
         int enterAt = bytesInto(data, dataStartMs, enterAtMs);
-        return new SegmentPlayer(source, track, phaseIndex, data, loopStart, dataStartMs, enterAt,
+        return new SegmentPlayer(source, segmentation, phaseIndex, data, loopStart, dataStartMs, enterAt,
                 fadeMs, volume, onPhaseChange, onFinish);
     }
 
@@ -115,13 +116,13 @@ public class SegmentPlayer
         return align4((int) Math.min(offset, Math.max(0, data.length - FRAME_BYTES)));
     }
 
-    private SegmentPlayer(SegmentSource source, PhaseConfig.Track track, int phaseIndex,
+    private SegmentPlayer(SegmentSource source, PhaseConfig.Segmentation segmentation, int phaseIndex,
                           byte[] firstSegment, int firstLoopStart, long firstStartMs, int startOffset,
                           int defaultFadeMs, IntSupplier volume,
                           Consumer<String> onPhaseChange, Runnable onFinish)
     {
         this.source = source;
-        this.track = track;
+        this.segmentation = segmentation;
         this.phaseIndex = phaseIndex;
         this.defaultFadeMs = defaultFadeMs;
         this.volume = volume;
@@ -244,7 +245,7 @@ public class SegmentPlayer
 
     public boolean isOnLastPhase()
     {
-        return phaseIndex + 1 >= track.phases.size();
+        return phaseIndex + 1 >= segmentation.phases().size();
     }
 
     /**
@@ -269,9 +270,9 @@ public class SegmentPlayer
         return segment.isTerminal() || position < segment.loopStart;
     }
 
-    public PhaseConfig.Track getTrack()
+    public PhaseConfig.Segmentation getSegmentation()
     {
-        return track;
+        return segmentation;
     }
 
     public int getPhaseIndex()
@@ -281,7 +282,7 @@ public class SegmentPlayer
 
     public String getPhaseName()
     {
-        return track.phases.get(phaseIndex).name;
+        return segmentation.phases().get(phaseIndex).name;
     }
 
     public boolean isUnlocked()
@@ -296,7 +297,7 @@ public class SegmentPlayer
         upcomingJoinsDry = false;
         // cada fase tem o seu crossfade; quem manda é a fase que está entrando, e o phaseIndex
         // já foi avançado por chooseNext() quando este trecho é o da fase seguinte
-        int fadeMs = track.phases.get(phaseIndex).fadeMs(defaultFadeMs);
+        int fadeMs = segmentation.phases().get(phaseIndex).fadeMs(defaultFadeMs);
         // o fade cabe na região que loopa, não no trecho inteiro (a ponte tem um miolo que
         // só toca uma vez); nunca zero, senão o progresso do fade divide por zero
         int loopRegion = segment.data.length - Math.max(0, segment.loopStart);
@@ -326,7 +327,7 @@ public class SegmentPlayer
         }
         catch (Exception e)
         {
-            LOGGER.error("Falha ao decodificar a continuação de '{}'", track.name, e);
+            LOGGER.error("Falha ao decodificar a continuação de '{}'", segmentation.trackName(), e);
             return isOnLastPhase() ? Segment.END : current;
         }
 
@@ -343,7 +344,7 @@ public class SegmentPlayer
 
     private void startPrefetch()
     {
-        PhaseConfig.Phase from = track.phases.get(phaseIndex);
+        PhaseConfig.Phase from = segmentation.phases().get(phaseIndex);
 
         if (isOnLastPhase())
         {
@@ -352,7 +353,7 @@ public class SegmentPlayer
             return;
         }
 
-        PhaseConfig.Phase to = track.phases.get(phaseIndex + 1);
+        PhaseConfig.Phase to = segmentation.phases().get(phaseIndex + 1);
         // se a próxima fase começa depois desta acabar, o miolo entre elas é a passagem que
         // deve ser tocada; se ela começa antes (fases fora de ordem), não há o que emendar
         boolean contiguous = to.startMs() >= from.endMs();
@@ -363,7 +364,7 @@ public class SegmentPlayer
 
     private CompletableFuture<Segment> fetch(long startMs, long endMs, int loopStart, boolean continuesPrevious)
     {
-        return source.fetch(track.identifier(), startMs, endMs)
+        return source.fetch(segmentation.identifier(), startMs, endMs)
                 .thenApply(data -> new Segment(data, loopStart, continuesPrevious, startMs));
     }
 
@@ -373,7 +374,7 @@ public class SegmentPlayer
             return;
         finished = true;
         current = null;
-        LOGGER.info("Modo fase terminou naturalmente: faixa=\"{}\"", track.name);
+        LOGGER.info("Modo fase terminou naturalmente: faixa=\"{}\"", segmentation.trackName());
         if (onFinish != null)
             onFinish.run();
     }

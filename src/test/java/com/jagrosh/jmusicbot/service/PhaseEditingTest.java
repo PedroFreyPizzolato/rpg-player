@@ -95,9 +95,9 @@ class PhaseEditingTest
         assertNull(service.savePhase("Batalha", -1, "Começo", "0", "60", null));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
-        assertEquals("Começo", track.phases.get(0).name,
+        assertEquals("Começo", track.presets.get(0).phases.get(0).name,
                 "a passagem entre fases assume ordem crescente de início");
-        assertEquals("Fim", track.phases.get(1).name);
+        assertEquals("Fim", track.presets.get(0).phases.get(1).name);
     }
 
     @Test
@@ -108,7 +108,7 @@ class PhaseEditingTest
         String error = service.savePhase("Batalha", -1, "Ruim", "90", "30", null);
         assertNotNull(error);
         assertTrue(error.contains("depois do início"), error);
-        assertTrue(PhaseConfig.load().tracks.get(0).phases.isEmpty());
+        assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
     @Test
@@ -118,7 +118,7 @@ class PhaseEditingTest
         givenTrack("Batalha");
         assertNull(service.savePhase("Batalha", -1, "Refrão", "1:06", "1:58", null));
 
-        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).phases.get(0);
+        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(66.0, phase.start, 0.001);
         assertEquals(118.0, phase.end, 0.001);
     }
@@ -129,7 +129,7 @@ class PhaseEditingTest
     {
         givenTrack("Batalha");
         assertNotNull(service.savePhase("Batalha", -1, "X", "abc", "10", null));
-        assertTrue(PhaseConfig.load().tracks.get(0).phases.isEmpty());
+        assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
     @Test
@@ -141,9 +141,9 @@ class PhaseEditingTest
         assertNull(service.savePhase("Batalha", 0, "Intro longa", "0", "45", null));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
-        assertEquals(1, track.phases.size());
-        assertEquals("Intro longa", track.phases.get(0).name);
-        assertEquals(45.0, track.phases.get(0).end, 0.001);
+        assertEquals(1, track.presets.get(0).phases.size());
+        assertEquals("Intro longa", track.presets.get(0).phases.get(0).name);
+        assertEquals(45.0, track.presets.get(0).phases.get(0).end, 0.001);
     }
 
     @Test
@@ -157,8 +157,8 @@ class PhaseEditingTest
         assertNull(service.deletePhase("Batalha", 0));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
-        assertEquals(1, track.phases.size());
-        assertEquals("B", track.phases.get(0).name);
+        assertEquals(1, track.presets.get(0).phases.size());
+        assertEquals("B", track.presets.get(0).phases.get(0).name);
     }
 
     @Test
@@ -170,7 +170,7 @@ class PhaseEditingTest
 
         assertNull(service.applyMark("Batalha", 25_400, "start:0"));
 
-        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).phases.get(0);
+        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(25.4, phase.start, 0.001);
         assertEquals(60.0, phase.end, 0.001);
     }
@@ -184,7 +184,7 @@ class PhaseEditingTest
 
         String error = service.applyMark("Batalha", 90_000, "start:0");
         assertNotNull(error);
-        assertEquals(10.0, PhaseConfig.load().tracks.get(0).phases.get(0).start, 0.001);
+        assertEquals(10.0, PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0).start, 0.001);
     }
 
     @Test
@@ -195,8 +195,8 @@ class PhaseEditingTest
         assertNull(service.applyMark("Batalha", 12_000, "new"));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
-        assertEquals(1, track.phases.size());
-        assertEquals(12.0, track.phases.get(0).start, 0.001);
+        assertEquals(1, track.presets.get(0).phases.size());
+        assertEquals(12.0, track.presets.get(0).phases.get(0).start, 0.001);
     }
 
     // ── linkCurrentSource ────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ class PhaseEditingTest
         givenTrack("Batalha");
         assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "  "));
 
-        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).phases.get(0);
+        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertNull(phase.fade, "sem valor próprio a fase acompanha o padrão do bot");
         assertEquals(PhaseConfig.DEFAULT_FADE_MS, phase.fadeMs(PhaseConfig.DEFAULT_FADE_MS));
     }
@@ -260,7 +260,7 @@ class PhaseEditingTest
         givenTrack("Batalha");
         assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0.5"));
 
-        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).phases.get(0);
+        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(0.5, phase.fade, 0.001);
         assertEquals(500, phase.fadeMs(PhaseConfig.DEFAULT_FADE_MS));
     }
@@ -272,7 +272,7 @@ class PhaseEditingTest
         givenTrack("Batalha");
         assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0"));
 
-        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).phases.get(0);
+        PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertNotNull(phase.fade, "0 é uma escolha, não a ausência de escolha");
         assertEquals(0, phase.fadeMs(PhaseConfig.DEFAULT_FADE_MS));
     }
@@ -286,7 +286,7 @@ class PhaseEditingTest
         String error = service.savePhase("Batalha", -1, "A", "0", "10", "6");
         assertNotNull(error);
         assertTrue(error.contains("metade"), error);
-        assertTrue(PhaseConfig.load().tracks.get(0).phases.isEmpty());
+        assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
     @Test
@@ -295,7 +295,7 @@ class PhaseEditingTest
     {
         givenTrack("Batalha");
         assertNotNull(service.savePhase("Batalha", -1, "A", "0", "60", "abc"));
-        assertTrue(PhaseConfig.load().tracks.get(0).phases.isEmpty());
+        assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
     @Test
@@ -306,7 +306,7 @@ class PhaseEditingTest
         assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0.5"));
         assertNull(service.savePhase("Batalha", 0, "A", "0", "60", ""));
 
-        assertNull(PhaseConfig.load().tracks.get(0).phases.get(0).fade);
+        assertNull(PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0).fade);
     }
 
     // ── planEntry ────────────────────────────────────────────────────────────
@@ -316,14 +316,17 @@ class PhaseEditingTest
     // ficar preso no pedaço final de uma fase em vez da fase inteira.
 
     /** A = [10s, 20s], vão de 10s, B = [30s, 40s]. */
-    private static PhaseConfig.Track trackWithGap()
+    private static PhaseConfig.Segmentation trackWithGap()
     {
         PhaseConfig.Track track = new PhaseConfig.Track();
         track.name = "Batalha";
         track.source = "https://example.com/x";
-        track.phases.add(inMemoryPhase("A", 10, 20));
-        track.phases.add(inMemoryPhase("B", 30, 40));
-        return track;
+        PhaseConfig.Preset preset = new PhaseConfig.Preset();
+        preset.name = PhaseConfig.LEGACY_PRESET_NAME;
+        preset.phases.add(inMemoryPhase("A", 10, 20));
+        preset.phases.add(inMemoryPhase("B", 30, 40));
+        track.presets.add(preset);
+        return new PhaseConfig.Segmentation(track, preset);
     }
 
     private static PhaseConfig.Phase inMemoryPhase(String name, double start, double end)

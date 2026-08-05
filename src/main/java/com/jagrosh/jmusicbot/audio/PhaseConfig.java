@@ -15,6 +15,7 @@
  */
 package com.jagrosh.jmusicbot.audio;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,9 +42,14 @@ import java.util.List;
  *     {
  *       "name": "Watch the Crown Fall",
  *       "source": "https://www.youtube.com/watch?v=...",
- *       "phases": [
- *         { "name": "Inicio",   "start": 0,     "end": 66.5 },
- *         { "name": "Pre drop", "start": 77.0,  "end": 118.0 }
+ *       "presets": [
+ *         {
+ *           "name": "Padrão",
+ *           "phases": [
+ *             { "name": "Inicio",   "start": 0,     "end": 66.5 },
+ *             { "name": "Pre drop", "start": 77.0,  "end": 118.0 }
+ *           ]
+ *         }
  *       ]
  *     }
  *   ]
@@ -61,14 +67,45 @@ public class PhaseConfig
     /** Crossfade do loop para fases que não definem um próprio. */
     public static final int DEFAULT_FADE_MS = 2000;
 
+    /** Nome do preset que recebe as fases de um arquivo no formato antigo. */
+    public static final String LEGACY_PRESET_NAME = "Padrão";
+
     public List<Track> tracks = new ArrayList<>();
+
+    /** true quando esta instância veio de um arquivo no formato antigo. */
+    @JsonIgnore
+    private transient boolean migrated;
 
     public static PhaseConfig load() throws IOException
     {
         Path path = resolveFile(FILE_NAME);
         if (!Files.exists(path))
             return new PhaseConfig();   // primeira faixa criada pelo bot cria o arquivo
-        return new ObjectMapper().readValue(path.toFile(), PhaseConfig.class);
+        PhaseConfig config = new ObjectMapper().readValue(path.toFile(), PhaseConfig.class);
+        config.migrateLegacyPhases();
+        return config;
+    }
+
+    /**
+     * Move as fases soltas da faixa para um preset. Roda a cada leitura, mas só faz algo em
+     * arquivo antigo — faixa que já tem preset não é tocada.
+     */
+    private void migrateLegacyPhases()
+    {
+        for (Track track : tracks)
+        {
+            if (track.phases == null)
+                continue;
+            if (track.presets.isEmpty() && !track.phases.isEmpty())
+            {
+                Preset preset = new Preset();
+                preset.name = LEGACY_PRESET_NAME;
+                preset.phases = track.phases;
+                track.presets.add(preset);
+                migrated = true;
+            }
+            track.phases = null;
+        }
     }
 
     /**
@@ -80,6 +117,15 @@ public class PhaseConfig
     public synchronized void save() throws IOException
     {
         Path path = resolveFile(FILE_NAME);
+        // este projeto já perdeu o phases.json uma vez; antes da primeira gravação no formato
+        // novo, o arquivo antigo fica guardado para o caso de a migração estar errada
+        if (migrated)
+        {
+            Path backup = resolveFile(FILE_NAME + ".bak");
+            if (Files.exists(path) && !Files.exists(backup))
+                Files.copy(path, backup);
+            migrated = false;
+        }
         Path temp = resolveFile(FILE_NAME + ".tmp");
         new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(temp.toFile(), this);
         Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
@@ -107,6 +153,9 @@ public class PhaseConfig
         Track created = new Track();
         created.name = name;
         created.source = source;
+        Preset preset = new Preset();
+        preset.name = LEGACY_PRESET_NAME;
+        created.presets.add(preset);   // faixa sem preset não teria onde guardar fase
         tracks.add(created);
         return created;
     }
@@ -120,8 +169,9 @@ public class PhaseConfig
     public Match find(String query)
     {
         for (Track track : tracks)
-            if (track.name != null && track.name.equalsIgnoreCase(query))
-                return new Match(track, 0);
+            if (track.name != null && track.name.equalsIgnoreCase(query)
+                    && track.firstSegmentation() != null)
+                return new Match(track.firstSegmentation(), 0);
 
         Match exactPhase = findByPhaseName(query, true);
         if (exactPhase != null)
@@ -129,8 +179,9 @@ public class PhaseConfig
 
         String lowered = query.toLowerCase();
         for (Track track : tracks)
-            if (track.name != null && track.name.toLowerCase().contains(lowered))
-                return new Match(track, 0);
+            if (track.name != null && track.name.toLowerCase().contains(lowered)
+                    && track.firstSegmentation() != null)
+                return new Match(track.firstSegmentation(), 0);
 
         return findByPhaseName(query, false);
     }
@@ -189,29 +240,32 @@ public class PhaseConfig
         String lowered = query.toLowerCase();
         for (Track track : tracks)
         {
-            for (int i = 0; i < track.phases.size(); i++)
+            for (Preset preset : track.presets)
             {
-                String name = track.phases.get(i).name;
-                if (name == null)
-                    continue;
-                boolean matches = exact ? name.equalsIgnoreCase(query)
-                                        : name.toLowerCase().contains(lowered);
-                if (matches)
-                    return new Match(track, i);
+                for (int i = 0; i < preset.phases.size(); i++)
+                {
+                    String name = preset.phases.get(i).name;
+                    if (name == null)
+                        continue;
+                    boolean matches = exact ? name.equalsIgnoreCase(query)
+                                            : name.toLowerCase().contains(lowered);
+                    if (matches)
+                        return new Match(new Segmentation(track, preset), i);
+                }
             }
         }
         return null;
     }
 
-    /** Uma faixa e a fase, dentro dela, que {@link #find} decidiu tocar. */
+    /** Uma segmentação e a fase, dentro dela, que {@link #find} decidiu tocar. */
     public static class Match
     {
-        public final Track track;
+        public final Segmentation segmentation;
         public final int phaseIndex;
 
-        public Match(Track track, int phaseIndex)
+        public Match(Segmentation segmentation, int phaseIndex)
         {
-            this.track = track;
+            this.segmentation = segmentation;
             this.phaseIndex = phaseIndex;
         }
     }
@@ -225,7 +279,26 @@ public class PhaseConfig
         public String file;
         /** Fontes extras que tocam a mesma música (ex: mesma faixa por YouTube e YouTube Music). */
         public List<String> aliases = new ArrayList<>();
-        public List<Phase> phases = new ArrayList<>();
+        public List<Preset> presets = new ArrayList<>();
+
+        /**
+         * Formato antigo, quando a faixa tinha uma lista única de fases. É lido para migrar e
+         * anulado em seguida; com NON_NULL, deixa de ser gravado.
+         */
+        public List<Phase> phases;
+
+        public Preset preset(String presetName)
+        {
+            for (Preset preset : presets)
+                if (preset.name != null && preset.name.equalsIgnoreCase(presetName))
+                    return preset;
+            return null;
+        }
+
+        public Segmentation firstSegmentation()
+        {
+            return presets.isEmpty() ? null : new Segmentation(this, presets.get(0));
+        }
 
         /** O que mandar pro lavaplayer resolver. */
         public String identifier()
@@ -253,6 +326,53 @@ public class PhaseConfig
                     return true;
             return false;
         }
+    }
+
+    /** Uma segmentação nomeada da mesma música. Uma faixa pode ter várias. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class Preset
+    {
+        public String name;
+        public List<Phase> phases = new ArrayList<>();
+
+        /** Cópia profunda: duplicar um preset não pode compartilhar as instâncias de fase. */
+        public Preset copyAs(String newName)
+        {
+            Preset copy = new Preset();
+            copy.name = newName;
+            for (Phase phase : phases)
+            {
+                Phase clone = new Phase();
+                clone.name = phase.name;
+                clone.start = phase.start;
+                clone.end = phase.end;
+                clone.fade = phase.fade;
+                copy.phases.add(clone);
+            }
+            return copy;
+        }
+    }
+
+    /**
+     * Faixa + preset já resolvidos. Existe só em memória: quem toca precisa da fonte (da faixa)
+     * e das fases (do preset), e passar os dois soltos espalharia o par por seis assinaturas.
+     */
+    public static class Segmentation
+    {
+        public final Track track;
+        public final Preset preset;
+
+        public Segmentation(Track track, Preset preset)
+        {
+            this.track = track;
+            this.preset = preset;
+        }
+
+        public List<Phase> phases()   { return preset.phases; }
+        public String identifier()    { return track.identifier(); }
+        public String trackName()     { return track.name; }
+        public String presetName()    { return preset.name; }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

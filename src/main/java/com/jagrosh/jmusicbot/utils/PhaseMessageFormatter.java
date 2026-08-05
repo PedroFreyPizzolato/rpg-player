@@ -67,13 +67,13 @@ public class PhaseMessageFormatter
     private static net.dv8tion.jda.api.entities.MessageEmbed phaseEmbed(Bot bot, NowPlayingInfo info,
                                                                         SegmentPlayer player)
     {
-        PhaseConfig.Track track = player.getTrack();
-        PhaseConfig.Phase phase = track.phases.get(player.getPhaseIndex());
+        PhaseConfig.Segmentation segmentation = player.getSegmentation();
+        PhaseConfig.Phase phase = segmentation.phases().get(player.getPhaseIndex());
 
         EmbedBuilder eb = new EmbedBuilder();
         eb.setColor(info.guild.getSelfMember().getColors().getPrimary());
         eb.setAuthor("Modo fase", null, info.guild.getIconUrl());
-        eb.setTitle(FormatUtil.filter(track.name));
+        eb.setTitle(FormatUtil.filter(segmentation.trackName()));
 
         String status = player.isPaused() ? AudioHandler.PAUSE_EMOJI : AudioHandler.PLAY_EMOJI;
         long position = player.getPositionMs();
@@ -81,7 +81,7 @@ public class PhaseMessageFormatter
                 + TimeUtil.formatTime(position) + "]` " + FormatUtil.volumeIcon(info.volume));
 
         eb.addField("Fase", "`" + phase.name + "` (" + (player.getPhaseIndex() + 1) + "/"
-                + track.phases.size() + ")", true);
+                + segmentation.phases().size() + ")", true);
         eb.addField("Trecho", TimeUtil.formatTime(phase.startMs()) + " – "
                 + TimeUtil.formatTime(phase.endMs()), true);
         eb.addField("Volume", info.volume + "%", true);
@@ -95,7 +95,7 @@ public class PhaseMessageFormatter
             state = "🔁 em loop até liberarem a continuação";
         eb.addField("Estado", state, false);
 
-        eb.setFooter(track.phases.size() + " fases • edite com o botão Fases");
+        eb.setFooter(segmentation.phases().size() + " fases • edite com o botão Fases");
         return eb.build();
     }
 
@@ -115,7 +115,7 @@ public class PhaseMessageFormatter
 
     private static List<ActionRow> phaseComponents(SegmentPlayer player)
     {
-        PhaseConfig.Track track = player.getTrack();
+        List<PhaseConfig.Phase> phases = player.getSegmentation().phases();
         boolean bridging = player.isBridging();
 
         Button pause = player.isPaused()
@@ -138,9 +138,9 @@ public class PhaseMessageFormatter
 
         // pular direto para qualquer fase, sem passar pelas anteriores
         List<SelectOption> options = new ArrayList<>();
-        for (int i = 0; i < Math.min(track.phases.size(), MAX_SELECT_OPTIONS); i++)
+        for (int i = 0; i < Math.min(phases.size(), MAX_SELECT_OPTIONS); i++)
         {
-            PhaseConfig.Phase phase = track.phases.get(i);
+            PhaseConfig.Phase phase = phases.get(i);
             options.add(SelectOption.of(cut(phase.name, 100), String.valueOf(i))
                     .withDescription(TimeUtil.formatTime(phase.startMs()) + " – "
                             + TimeUtil.formatTime(phase.endMs()))
@@ -207,8 +207,16 @@ public class PhaseMessageFormatter
         return mb.build();
     }
 
+    /** As fases que o painel mostra e edita. TAREFA 2: preset escolhido, não o primeiro. */
+    private static List<PhaseConfig.Phase> panelPhases(PhaseConfig.Track track)
+    {
+        PhaseConfig.Segmentation segmentation = track.firstSegmentation();
+        return segmentation == null ? List.of() : segmentation.phases();
+    }
+
     private static String describeTrack(PhaseConfig.Track track)
     {
+        List<PhaseConfig.Phase> phases = panelPhases(track);
         StringBuilder sb = new StringBuilder();
         sb.append("**Fonte:** `").append(cut(track.identifier() == null ? "—" : track.identifier(), 300))
                 .append("`\n");
@@ -224,31 +232,31 @@ public class PhaseMessageFormatter
             sb.append("\n");
         }
 
-        if (track.phases.isEmpty())
+        if (phases.isEmpty())
         {
             sb.append("_Sem fases. Use **Adicionar fase**._");
             return sb.toString();
         }
 
-        for (int i = 0; i < track.phases.size(); i++)
+        for (int i = 0; i < phases.size(); i++)
         {
-            PhaseConfig.Phase phase = track.phases.get(i);
+            PhaseConfig.Phase phase = phases.get(i);
             sb.append("`").append(i + 1).append(".` **").append(phase.name).append("** — ")
                     .append(TimeUtil.formatTime(phase.startMs())).append(" → ")
                     .append(TimeUtil.formatTime(phase.endMs()))
                     .append(" · fade ").append(trim(phase.fadeMs(PhaseConfig.DEFAULT_FADE_MS) / 1000.0))
                     .append("s").append(phase.fade == null ? "*" : "");
 
-            if (i + 1 < track.phases.size())
+            if (i + 1 < phases.size())
             {
-                long gap = track.phases.get(i + 1).startMs() - phase.endMs();
+                long gap = phases.get(i + 1).startMs() - phase.endMs();
                 if (gap > 0)
                     sb.append("  _(+").append(TimeUtil.formatTime(gap)).append(" de passagem)_");
             }
             sb.append("\n");
         }
 
-        if (track.phases.stream().anyMatch(phase -> phase.fade == null))
+        if (phases.stream().anyMatch(phase -> phase.fade == null))
             sb.append("\n_* fade no padrão. Edite a fase para dar um valor próprio a ela._");
         return sb.toString();
     }
@@ -264,7 +272,7 @@ public class PhaseMessageFormatter
             {
                 PhaseConfig.Track option = config.tracks.get(i);
                 tracks.add(SelectOption.of(cut(option.name, 100), String.valueOf(i))
-                        .withDescription(option.phases.size() + " fase(s)")
+                        .withDescription(panelPhases(option).size() + " fase(s)")
                         .withDefault(i == trackIndex));
             }
             rows.add(ActionRow.of(StringSelectMenu.create(id("selecttrack"))
@@ -273,7 +281,7 @@ public class PhaseMessageFormatter
                     .build()));
         }
 
-        boolean hasPhases = track != null && !track.phases.isEmpty();
+        boolean hasPhases = track != null && !panelPhases(track).isEmpty();
         if (track != null)
         {
             rows.add(ActionRow.of(
@@ -290,10 +298,11 @@ public class PhaseMessageFormatter
 
             if (hasPhases)
             {
+                List<PhaseConfig.Phase> trackPhases = panelPhases(track);
                 List<SelectOption> phases = new ArrayList<>();
-                for (int i = 0; i < Math.min(track.phases.size(), MAX_SELECT_OPTIONS); i++)
+                for (int i = 0; i < Math.min(trackPhases.size(), MAX_SELECT_OPTIONS); i++)
                 {
-                    PhaseConfig.Phase phase = track.phases.get(i);
+                    PhaseConfig.Phase phase = trackPhases.get(i);
                     phases.add(SelectOption.of(cut(phase.name, 100), String.valueOf(i))
                             .withDescription(TimeUtil.formatTime(phase.startMs()) + " – "
                                     + TimeUtil.formatTime(phase.endMs())));
@@ -384,16 +393,16 @@ public class PhaseMessageFormatter
     /** Onde guardar a posição marcada: início ou fim de qual fase, ou uma fase nova. */
     public static MessageCreateData buildMarkPrompt(SegmentPlayer player, long positionMs)
     {
-        PhaseConfig.Track track = player.getTrack();
+        List<PhaseConfig.Phase> phases = player.getSegmentation().phases();
         List<SelectOption> options = new ArrayList<>();
         options.add(SelectOption.of("➕ Criar fase nova começando aqui", "new")
                 .withDescription("Dura 30s até você ajustar o fim"));
 
         // duas opções por fase (início e fim) dentro do teto de 25 do Discord
-        int limit = Math.min(track.phases.size(), (MAX_SELECT_OPTIONS - 1) / 2);
+        int limit = Math.min(phases.size(), (MAX_SELECT_OPTIONS - 1) / 2);
         for (int i = 0; i < limit; i++)
         {
-            PhaseConfig.Phase phase = track.phases.get(i);
+            PhaseConfig.Phase phase = phases.get(i);
             options.add(SelectOption.of(cut("⏮ Início de " + phase.name, 100), "start:" + i)
                     .withDescription("Era " + TimeUtil.formatTime(phase.startMs())));
             options.add(SelectOption.of(cut("⏭ Fim de " + phase.name, 100), "end:" + i)

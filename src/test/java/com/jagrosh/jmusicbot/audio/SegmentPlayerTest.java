@@ -79,13 +79,16 @@ class SegmentPlayerTest
         return phase;
     }
 
-    private static PhaseConfig.Track track(List<PhaseConfig.Phase> phases)
+    private static PhaseConfig.Segmentation track(List<PhaseConfig.Phase> phases)
     {
         PhaseConfig.Track track = new PhaseConfig.Track();
         track.name = "teste";
         track.source = "teste";
-        track.phases = phases;
-        return track;
+        PhaseConfig.Preset preset = new PhaseConfig.Preset();
+        preset.name = "Padrão";
+        preset.phases = phases;
+        track.presets.add(preset);
+        return new PhaseConfig.Segmentation(track, preset);
     }
 
     /** Fase única de 4 frames: silêncio | MIDDLE | MIDDLE | TAIL (o último é a zona de fade). */

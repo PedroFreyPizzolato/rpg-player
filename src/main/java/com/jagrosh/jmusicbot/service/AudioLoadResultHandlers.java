@@ -255,9 +255,11 @@ public final class AudioLoadResultHandlers
          */
         private void offerPhaseMode(AudioTrack track, PhaseConfig.Track phased)
         {
+            // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Segmentation segmentation = phased.firstSegmentation();
             String question = FormatUtil.filter(bot.getConfig().getSuccess() + " **"
                     + FormatUtil.getTrackTitle(track) + "** tem fases cadastradas (`" + phased.name
-                    + "`, " + phased.phases.size() + " fase(s)). Como tocar?");
+                    + "`, " + segmentation.phases().size() + " fase(s)). Como tocar?");
 
             MessageEditBuilder editBuilder = new MessageEditBuilder()
                     .setContent(question)
@@ -277,7 +279,7 @@ public final class AudioLoadResultHandlers
                                 {
                                     event.editMessage(PHASE_EMOJI + " Iniciando modo fase para **" + phased.name + "**...")
                                             .setComponents().queue();
-                                    bot.getPhaseService().startAt(guild, channel, phased, 0, errorsOnly(event));
+                                    bot.getPhaseService().startAt(guild, channel, segmentation, 0, errorsOnly(event));
                                 }
                                 else
                                 {

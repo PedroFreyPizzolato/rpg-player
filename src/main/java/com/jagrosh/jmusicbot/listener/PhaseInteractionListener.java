@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Botões, selects e modais do modo fase: controlar a reprodução e editar as segmentações
@@ -103,9 +104,18 @@ public class PhaseInteractionListener extends ListenerAdapter
         if (!inSameVoiceChannel(event))
             return;
 
+        PhaseConfig.Track track = config.tracks.get(trackIndex);
+        // TAREFA 2: preset escolhido, não o primeiro
+        PhaseConfig.Segmentation segmentation = track.firstSegmentation();
+        if (segmentation == null)
+        {
+            reply(event, "`" + track.name + "` não tem nenhuma fase definida.");
+            return;
+        }
+
         event.deferReply(true).queue();
         bot.getPhaseService().startAt(event.getGuild(), event.getChannel(),
-                config.tracks.get(trackIndex), 0, OutputAdapters.forPhaseDeferred(event));
+                segmentation, 0, OutputAdapters.forPhaseDeferred(event));
     }
 
     /**
@@ -200,7 +210,7 @@ public class PhaseInteractionListener extends ListenerAdapter
 
         event.deferReply(true).queue();
         bot.getPhaseService().startAt(event.getGuild(), event.getChannel(),
-                player.getTrack(), phaseIndex, OutputAdapters.forPhaseDeferred(event));
+                player.getSegmentation(), phaseIndex, OutputAdapters.forPhaseDeferred(event));
     }
 
     private void deletePhase(StringSelectInteractionEvent event, int trackIndex, int phaseIndex)
@@ -229,7 +239,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
         }
 
-        String trackName = player.getTrack().name;
+        String trackName = player.getSegmentation().trackName();
         String error = bot.getPhaseService().applyMark(trackName, positionMs, target);
         if (error != null)
         {
@@ -314,12 +324,14 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        PhaseConfig.Phase existing = phaseIndex >= 0 && phaseIndex < track.phases.size()
-                ? track.phases.get(phaseIndex) : null;
+        // TAREFA 2: preset escolhido, não o primeiro
+        List<PhaseConfig.Phase> phases = track.presets.isEmpty()
+                ? List.of() : track.presets.get(0).phases;
+        PhaseConfig.Phase existing = phaseIndex >= 0 && phaseIndex < phases.size()
+                ? phases.get(phaseIndex) : null;
 
         // fase nova já vem sugerida logo depois da última, que é o caso comum
-        double suggestedStart = track.phases.isEmpty() ? 0
-                : track.phases.get(track.phases.size() - 1).end;
+        double suggestedStart = phases.isEmpty() ? 0 : phases.get(phases.size() - 1).end;
         Modal modal = PhaseMessageFormatter.phaseModal(trackIndex, phaseIndex, existing,
                 suggestedStart, suggestedStart + 60);
         event.replyModal(modal).queue();
@@ -365,7 +377,7 @@ public class PhaseInteractionListener extends ListenerAdapter
 
         SegmentPlayer segments = handler.getSegmentPlayer();
         if (segments != null)
-            return config.indexOfName(segments.getTrack().name);
+            return config.indexOfName(segments.getSegmentation().trackName());
 
         var playing = handler.getPlayer().getPlayingTrack();
         return playing == null ? -1 : config.indexMatchingPlayback(playing);
