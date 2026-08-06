@@ -502,8 +502,8 @@ public class PhaseService
      * Grava uma fase. {@code phaseIndex} negativo cria uma nova. Devolve a mensagem de erro,
      * ou null se deu certo.
      */
-    public String savePhase(String trackName, int phaseIndex, String name, String startText,
-                            String endText, String fadeText)
+    public String savePhase(String trackName, String presetName, int phaseIndex, String name,
+                            String startText, String endText, String fadeText)
     {
         if (name == null || name.isBlank())
             return "O nome da fase não pode ficar vazio.";
@@ -542,12 +542,12 @@ public class PhaseService
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
 
             // faixa criada pelo painel antigo virou uma faixa sem preset nenhum na migração;
-            // sem esta guarda o get(0) sobe uma RuntimeException e a interação morre calada
-            // faixa criada pelo painel antigo virou uma faixa sem preset nenhum na migração;
-            // sem esta guarda o get(0) sobe uma RuntimeException e a interação morre calada
+            // sem esta guarda a busca abaixo devolveria a mensagem errada ("preset não existe")
             if (track.presets.isEmpty())
                 return "A faixa `" + trackName + "` não tem nenhuma segmentação onde guardar a fase.";
-            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Preset preset = track.preset(presetName);
+            if (preset == null)
+                return "O preset `" + presetName + "` não existe em `" + track.name + "`.";
 
             PhaseConfig.Phase phase;
             if (phaseIndex < 0 || phaseIndex >= preset.phases.size())
@@ -575,7 +575,7 @@ public class PhaseService
         }
     }
 
-    public String deletePhase(String trackName, int phaseIndex)
+    public String deletePhase(String trackName, String presetName, int phaseIndex)
     {
         try
         {
@@ -585,7 +585,9 @@ public class PhaseService
                 return "A faixa `" + trackName + "` sumiu do arquivo.";
             if (track.presets.isEmpty())
                 return "Essa fase não existe mais.";
-            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Preset preset = track.preset(presetName);
+            if (preset == null)
+                return "O preset `" + presetName + "` não existe em `" + track.name + "`.";
             if (phaseIndex < 0 || phaseIndex >= preset.phases.size())
                 return "Essa fase não existe mais.";
 
@@ -603,7 +605,7 @@ public class PhaseService
      * Aplica uma posição marcada durante a reprodução. {@code target} é {@code "new"},
      * {@code "start:<i>"} ou {@code "end:<i>"}.
      */
-    public String applyMark(String trackName, long positionMs, String target)
+    public String applyMark(String trackName, String presetName, long positionMs, String target)
     {
         double seconds = Math.round(positionMs / 10.0) / 100.0;
         try
@@ -615,7 +617,9 @@ public class PhaseService
 
             if (track.presets.isEmpty())
                 return "A faixa `" + trackName + "` não tem nenhuma segmentação onde guardar a fase.";
-            PhaseConfig.Preset preset = track.presets.get(0);   // TAREFA 2: preset escolhido, não o primeiro
+            PhaseConfig.Preset preset = track.preset(presetName);
+            if (preset == null)
+                return "O preset `" + presetName + "` não existe em `" + track.name + "`.";
 
             if ("new".equals(target))
             {

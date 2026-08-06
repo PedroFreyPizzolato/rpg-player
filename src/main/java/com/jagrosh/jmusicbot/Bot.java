@@ -30,6 +30,7 @@ import com.jagrosh.jmusicbot.playlist.PlaylistLoader;
 import com.jagrosh.jmusicbot.settings.SettingsManager;
 import com.jagrosh.jmusicbot.service.MusicService;
 import com.jagrosh.jmusicbot.service.PhaseService;
+import com.jagrosh.jmusicbot.service.PresetService;
 import com.jagrosh.jmusicbot.service.SearchService;
 import com.jagrosh.jmusicbot.utils.InstanceLock;
 import com.jagrosh.jmusicbot.utils.YoutubeOauth2TokenHandler;
@@ -59,6 +60,7 @@ public class Bot
     private final MusicService musicService;
     private final SearchService searchService;
     private final PhaseService phaseService;
+    private final PresetService presetService;
     private final YoutubeOauth2TokenHandler youTubeOauth2TokenHandler;
     private final UserInteraction userInteraction;
     private final Instant startTime;
@@ -93,6 +95,7 @@ public class Bot
         this.musicService = new MusicService(this);
         this.searchService = new SearchService(this);
         this.phaseService = new PhaseService(this);
+        this.presetService = new PresetService();
         
         // Initialize audio load wrapper - use NO_OP when GUI is disabled to avoid monitoring overhead
         this.audioLoadWrapper = isNoGUI() 
@@ -123,6 +126,11 @@ public class Bot
     public PhaseService getPhaseService()
     {
         return phaseService;
+    }
+
+    public PresetService getPresetService()
+    {
+        return presetService;
     }
 
     public synchronized SegmentCapture getSegmentCapture()

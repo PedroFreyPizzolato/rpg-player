@@ -46,6 +46,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PhaseEditingTest
 {
+    /** O preset que o {@code findOrCreate} dá a toda faixa nova — é nele que estes testes editam. */
+    private static final String PRESET = PhaseConfig.LEGACY_PRESET_NAME;
+
     @TempDir Path dir;
     private String previousUserDir;
     private PhaseService service;
@@ -90,9 +93,9 @@ class PhaseEditingTest
             { "tracks": [ { "name": "Batalha", "source": "s", "phases": [ ] } ] }
             """);
 
-        assertNotNull(service.savePhase("Batalha", -1, "A", "0", "30", null));
-        assertNotNull(service.deletePhase("Batalha", 0));
-        assertNotNull(service.applyMark("Batalha", 12_000, "new"));
+        assertNotNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "30", null));
+        assertNotNull(service.deletePhase("Batalha", PRESET, 0));
+        assertNotNull(service.applyMark("Batalha", PRESET, 12_000, "new"));
     }
 
     @Test
@@ -112,8 +115,8 @@ class PhaseEditingTest
     void keepsPhasesSorted() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "Fim", "120", "180", null));
-        assertNull(service.savePhase("Batalha", -1, "Começo", "0", "60", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "Fim", "120", "180", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "Começo", "0", "60", null));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
         assertEquals("Começo", track.presets.get(0).phases.get(0).name,
@@ -126,7 +129,7 @@ class PhaseEditingTest
     void rejectsInvertedPhase() throws IOException
     {
         givenTrack("Batalha");
-        String error = service.savePhase("Batalha", -1, "Ruim", "90", "30", null);
+        String error = service.savePhase("Batalha", PRESET, -1, "Ruim", "90", "30", null);
         assertNotNull(error);
         assertTrue(error.contains("depois do início"), error);
         assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
@@ -137,7 +140,7 @@ class PhaseEditingTest
     void acceptsClockNotation() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "Refrão", "1:06", "1:58", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "Refrão", "1:06", "1:58", null));
 
         PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(66.0, phase.start, 0.001);
@@ -149,7 +152,7 @@ class PhaseEditingTest
     void rejectsGarbageNumbers() throws IOException
     {
         givenTrack("Batalha");
-        assertNotNull(service.savePhase("Batalha", -1, "X", "abc", "10", null));
+        assertNotNull(service.savePhase("Batalha", PRESET, -1, "X", "abc", "10", null));
         assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
@@ -158,8 +161,8 @@ class PhaseEditingTest
     void editsInPlace() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "Intro", "0", "30", null));
-        assertNull(service.savePhase("Batalha", 0, "Intro longa", "0", "45", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "Intro", "0", "30", null));
+        assertNull(service.savePhase("Batalha", PRESET, 0, "Intro longa", "0", "45", null));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
         assertEquals(1, track.presets.get(0).phases.size());
@@ -172,10 +175,10 @@ class PhaseEditingTest
     void deletesOnlyTheChosenPhase() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "0", "30", null));
-        assertNull(service.savePhase("Batalha", -1, "B", "30", "60", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "30", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "B", "30", "60", null));
 
-        assertNull(service.deletePhase("Batalha", 0));
+        assertNull(service.deletePhase("Batalha", PRESET, 0));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
         assertEquals(1, track.presets.get(0).phases.size());
@@ -187,9 +190,9 @@ class PhaseEditingTest
     void markAdjustsPhaseStart() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "10", "60", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "10", "60", null));
 
-        assertNull(service.applyMark("Batalha", 25_400, "start:0"));
+        assertNull(service.applyMark("Batalha", PRESET, 25_400, "start:0"));
 
         PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(25.4, phase.start, 0.001);
@@ -201,9 +204,9 @@ class PhaseEditingTest
     void markRejectsInvalidPoint() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "10", "60", null));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "10", "60", null));
 
-        String error = service.applyMark("Batalha", 90_000, "start:0");
+        String error = service.applyMark("Batalha", PRESET, 90_000, "start:0");
         assertNotNull(error);
         assertEquals(10.0, PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0).start, 0.001);
     }
@@ -213,7 +216,7 @@ class PhaseEditingTest
     void markCreatesNewPhase() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.applyMark("Batalha", 12_000, "new"));
+        assertNull(service.applyMark("Batalha", PRESET, 12_000, "new"));
 
         PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
         assertEquals(1, track.presets.get(0).phases.size());
@@ -267,7 +270,7 @@ class PhaseEditingTest
     void blankFadeStaysUnset() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "  "));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "60", "  "));
 
         PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertNull(phase.fade, "sem valor próprio a fase acompanha o padrão do bot");
@@ -279,7 +282,7 @@ class PhaseEditingTest
     void ownFadeOverridesTheDefault() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0.5"));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "60", "0.5"));
 
         PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertEquals(0.5, phase.fade, 0.001);
@@ -291,7 +294,7 @@ class PhaseEditingTest
     void zeroFadeIsAHardCut() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0"));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "60", "0"));
 
         PhaseConfig.Phase phase = PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0);
         assertNotNull(phase.fade, "0 é uma escolha, não a ausência de escolha");
@@ -304,7 +307,7 @@ class PhaseEditingTest
     {
         givenTrack("Batalha");
         // fase de 10s: acima de 5s o crossfade cruzaria a fase consigo mesma
-        String error = service.savePhase("Batalha", -1, "A", "0", "10", "6");
+        String error = service.savePhase("Batalha", PRESET, -1, "A", "0", "10", "6");
         assertNotNull(error);
         assertTrue(error.contains("metade"), error);
         assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
@@ -315,7 +318,7 @@ class PhaseEditingTest
     void rejectsGarbageFade() throws IOException
     {
         givenTrack("Batalha");
-        assertNotNull(service.savePhase("Batalha", -1, "A", "0", "60", "abc"));
+        assertNotNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "60", "abc"));
         assertTrue(PhaseConfig.load().tracks.get(0).presets.get(0).phases.isEmpty());
     }
 
@@ -324,8 +327,8 @@ class PhaseEditingTest
     void clearingTheFadeReturnsToDefault() throws IOException
     {
         givenTrack("Batalha");
-        assertNull(service.savePhase("Batalha", -1, "A", "0", "60", "0.5"));
-        assertNull(service.savePhase("Batalha", 0, "A", "0", "60", ""));
+        assertNull(service.savePhase("Batalha", PRESET, -1, "A", "0", "60", "0.5"));
+        assertNull(service.savePhase("Batalha", PRESET, 0, "A", "0", "60", ""));
 
         assertNull(PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0).fade);
     }

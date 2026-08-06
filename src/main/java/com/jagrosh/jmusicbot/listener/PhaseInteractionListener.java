@@ -219,8 +219,9 @@ public class PhaseInteractionListener extends ListenerAdapter
         if (config == null || !validTrack(event, config, trackIndex))
             return;
 
-        String trackName = config.tracks.get(trackIndex).name;
-        String error = bot.getPhaseService().deletePhase(trackName, phaseIndex);
+        PhaseConfig.Track track = config.tracks.get(trackIndex);
+        String trackName = track.name;
+        String error = bot.getPhaseService().deletePhase(trackName, selectedPreset(track), phaseIndex);
         if (error != null)
         {
             reply(event, error);
@@ -240,7 +241,9 @@ public class PhaseInteractionListener extends ListenerAdapter
         }
 
         String trackName = player.getSegmentation().trackName();
-        String error = bot.getPhaseService().applyMark(trackName, positionMs, target);
+        // a marcação é feita ouvindo: o preset certo é o que está tocando, não o primeiro da faixa
+        String error = bot.getPhaseService().applyMark(trackName,
+                player.getSegmentation().presetName(), positionMs, target);
         if (error != null)
         {
             reply(event, error);
@@ -289,9 +292,10 @@ public class PhaseInteractionListener extends ListenerAdapter
             if (!validTrack(event, config, trackIndex))
                 return;
 
-            String trackName = config.tracks.get(trackIndex).name;
-            String error = bot.getPhaseService().savePhase(trackName, phaseIndex,
-                    field(event, "name"), field(event, "start"), field(event, "end"),
+            PhaseConfig.Track track = config.tracks.get(trackIndex);
+            String trackName = track.name;
+            String error = bot.getPhaseService().savePhase(trackName, selectedPreset(track),
+                    phaseIndex, field(event, "name"), field(event, "start"), field(event, "end"),
                     field(event, "fade"));
             if (error != null)
             {
@@ -424,6 +428,17 @@ public class PhaseInteractionListener extends ListenerAdapter
             reply(event, "Não consegui ler o `" + PhaseConfig.FILE_NAME + "`: " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * O preset em que o painel edita. Hoje é sempre o primeiro, porque o painel ainda mostra só
+     * ele; a Tarefa 4 traz a escolha do mestre. Faixa sem preset devolve null de propósito — o
+     * {@code PhaseService} já tem a mensagem certa para esse caso.
+     */
+    private static String selectedPreset(PhaseConfig.Track track)
+    {
+        // TAREFA 4: preset escolhido no painel, não o primeiro
+        return track.presets.isEmpty() ? null : track.presets.get(0).name;
     }
 
     private boolean validTrack(IReplyCallback event, PhaseConfig config, int trackIndex)
