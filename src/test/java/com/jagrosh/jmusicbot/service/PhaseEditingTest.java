@@ -333,6 +333,191 @@ class PhaseEditingTest
         assertNull(PhaseConfig.load().tracks.get(0).presets.get(0).phases.get(0).fade);
     }
 
+    // ── preset vazio ─────────────────────────────────────────────────────────
+    //
+    // Um preset sem nenhuma fase é tocável: vale a música inteira em loop, para o mestre marcar
+    // as fases ouvindo. Essa fase existe só na reprodução — se escapar para o arquivo, vira uma
+    // fase de verdade que ninguém pediu e que passa a aparecer no painel.
+
+    /** Faixa cadastrada com um preset ainda sem nenhuma fase — o caso da segmentação ao vivo. */
+    private static final String EMPTY_PRESET_FILE = """
+        { "tracks": [ { "name": "Crown", "source": "s",
+            "presets": [ { "name": "Do zero", "phases": [] } ] } ] }
+        """;
+
+    @Test
+    @DisplayName("preset vazio vira uma fase implícita cobrindo a música inteira")
+    void emptyPresetBecomesOneImplicitPhase()
+    {
+        PhaseConfig.Phase implicit = PhaseService.implicitPhase(263_000);
+
+        assertEquals(0.0, implicit.start, "começa no 0:00");
+        assertEquals(263.0, implicit.end, "termina no fim do arquivo");
+        assertNull(implicit.fade, "segue o fade padrão do bot");
+    }
+
+    @Test
+    @DisplayName("a fase implícita não é gravada no arquivo")
+    void implicitPhaseIsNeverPersisted() throws Exception
+    {
+        write(EMPTY_PRESET_FILE);
+
+        PhaseService.implicitPhase(263_000);
+
+        PhaseConfig.Track track = PhaseConfig.load().tracks.get(0);
+        assertTrue(track.preset("Do zero").phases.isEmpty(),
+                "a fase implícita existe só na reprodução; gravá-la viraria uma fase de verdade");
+    }
+
+    @Test
+    @DisplayName("improvisar não encosta no preset que veio do arquivo")
+    void improvisingLeavesTheStoredPresetEmpty() throws Exception
+    {
+        write(EMPTY_PRESET_FILE);
+        PhaseConfig config = PhaseConfig.load();
+        PhaseConfig.Segmentation empty = config.tracks.get(0).firstSegmentation();
+
+        PhaseConfig.Segmentation improvised = PhaseService.improvise(empty, 263_000);
+
+        assertEquals(1, improvised.phases().size(), "o preset vazio toca uma fase só");
+        assertEquals(263.0, improvised.phases().get(0).end);
+        assertTrue(empty.phases().isEmpty(), "o preset do arquivo não pode ganhar a fase implícita");
+
+        // a gravação seguinte usa o mesmo objeto em memória: é aqui que a fase implícita
+        // escaparia para o arquivo se ela tivesse sido pendurada no preset original
+        config.save();
+        assertTrue(PhaseConfig.load().tracks.get(0).preset("Do zero").phases.isEmpty());
+    }
+
+    @Test
+    @DisplayName("a segmentação improvisada mantém o nome do preset, para a marcação achá-lo")
+    void improvisingKeepsThePresetName() throws Exception
+    {
+        write(EMPTY_PRESET_FILE);
+        PhaseConfig.Segmentation empty = PhaseConfig.load().tracks.get(0).firstSegmentation();
+
+        PhaseConfig.Segmentation improvised = PhaseService.improvise(empty, 263_000);
+
+        assertEquals("Do zero", improvised.presetName());
+        // é este o motivo do nome: marcar durante o preset vazio é justamente o que a fase
+        // implícita existe para permitir, e o applyMark acha o preset pelo nome que está tocando
+        assertNull(service.applyMark("Crown", improvised.presetName(), 12_000, "new"));
+        assertEquals(1, PhaseConfig.load().tracks.get(0).preset("Do zero").phases.size());
+    }
+
+    @Test
+    @DisplayName("sem duração o preset vazio é recusado, em vez de tocar uma fase de tamanho zero")
+    void emptyPresetWithoutDurationIsRefused() throws Exception
+    {
+        write(EMPTY_PRESET_FILE);
+        PhaseConfig.Segmentation empty = PhaseConfig.load().tracks.get(0).firstSegmentation();
+        Replies replies = new Replies();
+
+        service.startAt(null, null, empty, 0, 0, replies);
+
+        assertNotNull(replies.error);
+        assertTrue(replies.error.contains("duração"), replies.error);
+    }
+
+    @Test
+    @DisplayName("com duração o preset vazio passa da guarda de fases e segue tocando")
+    void emptyPresetWithDurationGetsPastTheGuard() throws Exception
+    {
+        // sem fonte: a checagem seguinte responde e para antes de precisar de um Guild de verdade
+        write("""
+            { "tracks": [ { "name": "Crown", "presets": [ { "name": "Do zero", "phases": [] } ] } ] }
+            """);
+        PhaseConfig.Segmentation empty = PhaseConfig.load().tracks.get(0).firstSegmentation();
+        Replies replies = new Replies();
+
+        service.startAt(null, null, empty, 0, 263_000, replies);
+
+        assertNotNull(replies.error);
+        assertTrue(replies.error.contains("fonte definida"),
+                "preset vazio não pode mais ser recusado por falta de fase: " + replies.error);
+    }
+
+    /** Guarda o que o serviço respondeu, para os ramos de erro que param antes do áudio. */
+    private static final class Replies extends com.jagrosh.jmusicbot.commands.BaseOutputAdapter
+    {
+        String error;
+
+        @Override
+        public void replyError(String content)
+        {
+            error = content;
+        }
+    }
+
+    // ── reloadIfPlaying ──────────────────────────────────────────────────────
+    //
+    // Depois de editar uma fase da faixa que está tocando, o player é recarregado para a mudança
+    // valer na hora. Recarregar pelo preset errado não estoura nada: a música simplesmente vira
+    // outra segmentação no meio da sessão, e o mestre só descobre pelo áudio.
+
+    /** Duas segmentações da mesma música; a que interessa é a segunda. */
+    private static final String TWO_PRESETS_FILE = """
+        { "tracks": [ { "name": "Crown", "source": "s", "presets": [
+            { "name": "Combate",    "phases": [ { "name": "A", "start": 0,  "end": 30 } ] },
+            { "name": "Exploração", "phases": [ { "name": "B", "start": 60, "end": 90 } ] } ] } ] }
+        """;
+
+    @Test
+    @DisplayName("recarrega o preset que está tocando, não o primeiro da faixa")
+    void reloadKeepsThePlayingPreset() throws Exception
+    {
+        write(TWO_PRESETS_FILE);
+
+        PhaseConfig.Segmentation target =
+                PhaseService.reloadTarget(PhaseConfig.load(), "Crown", "Exploração");
+
+        assertNotNull(target);
+        assertEquals("Exploração", target.presetName(),
+                "marcar durante o preset 1 não pode jogar a reprodução no preset 0");
+        assertEquals("B", target.phases().get(0).name);
+    }
+
+    @Test
+    @DisplayName("preset renomeado no meio do caminho não troca a reprodução de segmentação")
+    void reloadStopsWhenThePlayingPresetWasRenamed() throws Exception
+    {
+        write(TWO_PRESETS_FILE);
+        assertNull(new PresetService().rename("Crown", "Exploração", "Viagem"));
+
+        assertNull(PhaseService.reloadTarget(PhaseConfig.load(), "Crown", "Exploração"),
+                "sem o preset antigo, cair no primeiro trocaria a música por outra segmentação");
+    }
+
+    @Test
+    @DisplayName("preset excluído no meio do caminho não troca a reprodução de segmentação")
+    void reloadStopsWhenThePlayingPresetWasDeleted() throws Exception
+    {
+        write(TWO_PRESETS_FILE);
+        assertNull(new PresetService().delete("Crown", "Exploração"));
+
+        assertNull(PhaseService.reloadTarget(PhaseConfig.load(), "Crown", "Exploração"));
+    }
+
+    @Test
+    @DisplayName("preset que ficou sem fases não é recarregado")
+    void reloadStopsWhenThePresetRanOutOfPhases() throws Exception
+    {
+        write(EMPTY_PRESET_FILE);
+
+        assertNull(PhaseService.reloadTarget(PhaseConfig.load(), "Crown", "Do zero"),
+                "não há fase nenhuma para onde voltar");
+    }
+
+    @Test
+    @DisplayName("faixa que sumiu do arquivo não recarrega nem estoura")
+    void reloadStopsWhenTheTrackIsGone() throws Exception
+    {
+        write(TWO_PRESETS_FILE);
+
+        assertNull(PhaseService.reloadTarget(PhaseConfig.load(), "Sumiu", "Combate"));
+        assertNull(PhaseService.reloadTarget(PhaseConfig.load(), "Crown", null));
+    }
+
     // ── planEntry ────────────────────────────────────────────────────────────
     //
     // Decide em que fase o modo fase entra quando a troca acontece com a música tocando, e que

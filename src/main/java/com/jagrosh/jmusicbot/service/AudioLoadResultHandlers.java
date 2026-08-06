@@ -279,7 +279,10 @@ public final class AudioLoadResultHandlers
                                 {
                                     event.editMessage(PHASE_EMOJI + " Iniciando modo fase para **" + phased.name + "**...")
                                             .setComponents().queue();
-                                    bot.getPhaseService().startAt(guild, channel, segmentation, 0, errorsOnly(event));
+                                    // a faixa já está resolvida aqui: é o único caminho que sabe
+                                    // a duração, e é dela que sai a fase implícita de um preset vazio
+                                    bot.getPhaseService().startAt(guild, channel, segmentation, 0,
+                                            track.getDuration(), errorsOnly(event));
                                 }
                                 else
                                 {

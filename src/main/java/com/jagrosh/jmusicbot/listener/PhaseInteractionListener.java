@@ -114,8 +114,10 @@ public class PhaseInteractionListener extends ListenerAdapter
         }
 
         event.deferReply(true).queue();
+        // o painel não resolve a faixa no lavaplayer, então não tem a duração que um preset
+        // vazio precisaria para tocar a música inteira
         bot.getPhaseService().startAt(event.getGuild(), event.getChannel(),
-                segmentation, 0, OutputAdapters.forPhaseDeferred(event));
+                segmentation, 0, 0, OutputAdapters.forPhaseDeferred(event));
     }
 
     /**
@@ -209,8 +211,9 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
 
         event.deferReply(true).queue();
+        // pular de fase só existe quando já há fases tocando, então nunca improvisa
         bot.getPhaseService().startAt(event.getGuild(), event.getChannel(),
-                player.getSegmentation(), phaseIndex, OutputAdapters.forPhaseDeferred(event));
+                player.getSegmentation(), phaseIndex, 0, OutputAdapters.forPhaseDeferred(event));
     }
 
     private void deletePhase(StringSelectInteractionEvent event, int trackIndex, int phaseIndex)

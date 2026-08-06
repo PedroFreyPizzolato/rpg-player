@@ -76,21 +76,32 @@ public class PhaseService
                     + PhaseConfig.FILE_NAME + "`.");
             return;
         }
-        startAt(guild, channel, match.segmentation, match.phaseIndex, output);
+        // o !fase não passa pelo lavaplayer, então não há duração em mãos para um preset vazio
+        startAt(guild, channel, match.segmentation, match.phaseIndex, 0, output);
     }
 
     /**
      * Começa (ou reinicia) o modo fase numa fase específica. Decodificar o trecho leva alguns
      * segundos, então o aviso vai pelo canal quando termina, não como resposta da interação.
+     *
+     * <p>{@code durationMs} só serve para montar a fase implícita de um preset vazio; quem não
+     * souber a duração passa 0.
      */
-    public void startAt(Guild guild, MessageChannel channel, PhaseConfig.Segmentation segmentation,
-                        int phaseIndex, MusicService.OutputAdapter output)
+    public void startAt(Guild guild, MessageChannel channel, PhaseConfig.Segmentation requested,
+                        int phaseIndex, long durationMs, MusicService.OutputAdapter output)
     {
-        if (segmentation.phases().isEmpty())
+        // preset vazio não é recusado: quem está montando a segmentação ao vivo precisa ouvir a
+        // música inteira em loop para marcar, ouvindo, onde cada fase começa
+        boolean improvising = requested.phases().isEmpty();
+        if (improvising && durationMs <= 0)
         {
-            output.replyError("`" + segmentation.trackName() + "` não tem nenhuma fase definida.");
+            output.replyError("Não consegui descobrir a duração de `"
+                    + requested.trackName() + "` para tocar sem preset.");
             return;
         }
+
+        PhaseConfig.Segmentation segmentation = improvising
+                ? improvise(requested, durationMs) : requested;
         if (segmentation.identifier() == null)
         {
             output.replyError("`" + segmentation.trackName() + "` não tem fonte definida (URL ou arquivo).");
@@ -137,6 +148,36 @@ public class PhaseService
                     // a tela do modo fase já traz os controles; é ela que o mestre opera
                     refreshNowPlaying(handler, guild, channel);
                 });
+    }
+
+    /**
+     * A fase que um preset vazio toca: a música inteira em loop. Existe só em memória — quem
+     * está montando a segmentação ao vivo ainda não marcou nada, e gravar isto criaria uma
+     * fase de verdade que a pessoa não pediu.
+     */
+    static PhaseConfig.Phase implicitPhase(long durationMs)
+    {
+        PhaseConfig.Phase phase = new PhaseConfig.Phase();
+        phase.name = "Música inteira";
+        phase.start = 0;
+        phase.end = durationMs / 1000.0;
+        return phase;
+    }
+
+    /**
+     * A segmentação com que um preset vazio entra em reprodução. O preset devolvido é
+     * descartável e nunca é o objeto que veio do arquivo: acrescentar a fase implícita ao
+     * original faria a gravação seguinte selá-la como fase de verdade.
+     *
+     * <p>O nome, porém, é o do original de propósito — é por ele que a marcação ao vivo acha o
+     * preset onde gravar a fase que o mestre acabou de marcar.
+     */
+    static PhaseConfig.Segmentation improvise(PhaseConfig.Segmentation empty, long durationMs)
+    {
+        PhaseConfig.Preset preset = new PhaseConfig.Preset();
+        preset.name = empty.presetName();
+        preset.phases.add(implicitPhase(durationMs));
+        return new PhaseConfig.Segmentation(empty.track, preset);
     }
 
     // ── troca de modo com a música tocando ───────────────────────────────────
@@ -679,18 +720,33 @@ public class PhaseService
 
         try
         {
-            PhaseConfig.Track updated = rawFind(PhaseConfig.load(), trackName);
-            // TAREFA 3: recarregar o preset que está tocando — pegar o primeiro troca a
-            // reprodução de preset quando o mestre edita durante um preset que não é o 0
-            PhaseConfig.Segmentation segmentation = updated == null ? null : updated.firstSegmentation();
-            if (segmentation == null || segmentation.phases().isEmpty())
+            PhaseConfig.Segmentation reloaded = reloadTarget(PhaseConfig.load(), trackName,
+                    player.getSegmentation().presetName());
+            if (reloaded == null)
                 return;
-            startAt(guild, channel, segmentation, player.getPhaseIndex(), silent());
+            startAt(guild, channel, reloaded, player.getPhaseIndex(), 0, silent());
         }
         catch (IOException e)
         {
             LOG.warn("Não consegui recarregar a faixa em reprodução", e);
         }
+    }
+
+    /**
+     * A segmentação a recarregar depois de uma edição: a mesma faixa e o <i>mesmo</i> preset que
+     * já estão tocando. Null quando não há o que recarregar.
+     *
+     * <p>Preset renomeado ou excluído no meio do caminho também devolve null. Cair no primeiro
+     * preset da faixa trocaria a segmentação no ar por outra sem o mestre pedir — e ele só veria
+     * pelo áudio, porque a edição já respondeu que deu certo.
+     */
+    static PhaseConfig.Segmentation reloadTarget(PhaseConfig config, String trackName, String presetName)
+    {
+        PhaseConfig.Track track = rawFind(config, trackName);
+        PhaseConfig.Preset preset = track == null ? null : track.preset(presetName);
+        if (preset == null || preset.phases.isEmpty())
+            return null;
+        return new PhaseConfig.Segmentation(track, preset);
     }
 
     // ── acesso ao estado ─────────────────────────────────────────────────────
