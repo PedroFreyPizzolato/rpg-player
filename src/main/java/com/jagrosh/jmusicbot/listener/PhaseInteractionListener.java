@@ -105,7 +105,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        // TAREFA 2: preset escolhido, não o primeiro
+        // TAREFA 4: o preset escolhido no painel, não o primeiro
         PhaseConfig.Segmentation segmentation = track.firstSegmentation();
         if (segmentation == null)
         {
@@ -328,7 +328,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        // TAREFA 2: preset escolhido, não o primeiro
+        // TAREFA 4: o preset escolhido no painel, não o primeiro
         List<PhaseConfig.Phase> phases = track.presets.isEmpty()
                 ? List.of() : track.presets.get(0).phases;
         PhaseConfig.Phase existing = phaseIndex >= 0 && phaseIndex < phases.size()

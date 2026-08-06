@@ -207,7 +207,7 @@ public class PhaseMessageFormatter
         return mb.build();
     }
 
-    /** As fases que o painel mostra e edita. TAREFA 2: preset escolhido, não o primeiro. */
+    /** As fases que o painel mostra e edita. TAREFA 4: o preset escolhido, não o primeiro. */
     private static List<PhaseConfig.Phase> panelPhases(PhaseConfig.Track track)
     {
         PhaseConfig.Segmentation segmentation = track.firstSegmentation();

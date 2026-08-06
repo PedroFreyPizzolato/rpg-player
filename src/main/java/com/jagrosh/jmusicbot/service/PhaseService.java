@@ -171,7 +171,7 @@ public class PhaseService
         }
 
         PhaseConfig.Track track = findMatchingPhases(playing);
-        // TAREFA 2: preset escolhido, não o primeiro
+        // TAREFA 5: com mais de um preset, perguntar qual em vez de assumir o primeiro
         PhaseConfig.Segmentation segmentation = track == null ? null : track.firstSegmentation();
         // preset sem fase nenhuma (faixa recém-criada) não tem em que fase entrar
         if (segmentation == null || segmentation.phases().isEmpty())
@@ -415,7 +415,7 @@ public class PhaseService
         for (PhaseConfig.Track track : config.tracks)
         {
             message.append("`").append(track.name).append("` — ");
-            // TAREFA 2: preset escolhido, não o primeiro
+            // TAREFA 6: listar as fases de cada preset, não só as do primeiro
             PhaseConfig.Segmentation segmentation = track.firstSegmentation();
             List<PhaseConfig.Phase> phases = segmentation == null ? List.of() : segmentation.phases();
             for (int i = 0; i < phases.size(); i++)
@@ -680,7 +680,8 @@ public class PhaseService
         try
         {
             PhaseConfig.Track updated = rawFind(PhaseConfig.load(), trackName);
-            // TAREFA 2: preset escolhido, não o primeiro
+            // TAREFA 3: recarregar o preset que está tocando — pegar o primeiro troca a
+            // reprodução de preset quando o mestre edita durante um preset que não é o 0
             PhaseConfig.Segmentation segmentation = updated == null ? null : updated.firstSegmentation();
             if (segmentation == null || segmentation.phases().isEmpty())
                 return;

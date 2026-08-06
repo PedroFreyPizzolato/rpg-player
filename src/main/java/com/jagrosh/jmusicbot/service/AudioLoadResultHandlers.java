@@ -255,7 +255,7 @@ public final class AudioLoadResultHandlers
          */
         private void offerPhaseMode(AudioTrack track, PhaseConfig.Track phased)
         {
-            // TAREFA 2: preset escolhido, não o primeiro
+            // TAREFA 5: com mais de um preset, a oferta vira um menu de escolha
             PhaseConfig.Segmentation segmentation = phased.firstSegmentation();
             String question = FormatUtil.filter(bot.getConfig().getSuccess() + " **"
                     + FormatUtil.getTrackTitle(track) + "** tem fases cadastradas (`" + phased.name

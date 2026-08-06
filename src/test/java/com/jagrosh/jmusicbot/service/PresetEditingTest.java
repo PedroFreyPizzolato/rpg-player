@@ -174,6 +174,27 @@ class PresetEditingTest
     }
 
     /**
+     * O painel do Discord fica aberto por tempo indefinido, então o preset pode ser renomeado ou
+     * excluído entre abrir o painel e enviar o modal. Sem o ramo de preset inexistente o
+     * {@code preset.phases} estoura NullPointerException dentro do listener do JDA — a interação
+     * morre calada, que é o modo de falha que as guardas existem para evitar.
+     */
+    @Test
+    @DisplayName("editar com preset inexistente responde com erro em vez de estourar")
+    void editingAMissingPresetAnswersWithAnError() throws Exception
+    {
+        seed();
+
+        assertNotNull(phases.savePhase("Crown", "Sumido", -1, "A", "0", "30", null));
+        assertNotNull(phases.deletePhase("Crown", "Sumido", 0));
+        assertNotNull(phases.applyMark("Crown", "Sumido", 12_000, "new"));
+
+        assertEquals(1, PhaseConfig.load().tracks.get(0).presets.size(),
+                "recusar não pode ter criado nem mexido em preset nenhum");
+        assertEquals(2, PhaseConfig.load().tracks.get(0).preset("Combate").phases.size());
+    }
+
+    /**
      * O {@code editingOnePresetLeavesTheOtherAlone} cobre o {@code deletePhase}, mas os testes de
      * {@code savePhase} acima editam o preset 0 — onde o {@code presets.get(0)} da Tarefa 1 dá
      * exatamente o mesmo resultado. Aqui os dois métodos escrevem no preset de trás, que é o
