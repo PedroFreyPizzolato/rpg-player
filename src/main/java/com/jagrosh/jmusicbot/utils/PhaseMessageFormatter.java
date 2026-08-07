@@ -440,7 +440,12 @@ public class PhaseMessageFormatter
                 .setRequired(true)
                 .build();
 
-        Modal.Builder modal = Modal.create(id("presetmodal:" + trackIndex + ":" + presetIndex),
+        // a ação vai no id, e não é deduzida da ausência do campo "copiar de": campo opcional
+        // vazio pode voltar do Discord como string vazia, e confundir criar com renomear
+        // trocaria o nome do preset em vez de fazer um novo
+        Modal.Builder modal = Modal.create(
+                        id("presetmodal:" + trackIndex + ":" + presetIndex
+                                + (renaming ? ":rename" : ":new")),
                         renaming ? "Renomear preset" : "Novo preset")
                 .addComponents(Label.of("Nome", name));
 

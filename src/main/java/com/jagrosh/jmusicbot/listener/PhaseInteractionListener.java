@@ -369,10 +369,10 @@ public class PhaseInteractionListener extends ListenerAdapter
 
             PhaseConfig.Track track = config.tracks.get(trackIndex);
             String name = field(event, "name");
-            String copyFrom = field(event, "copyfrom");
             String error;
-            // o modal de renomear não tem o campo de cópia; é assim que os dois se distinguem
-            if (copyFrom == null)
+            // a ação vem no id do modal, não da ausência do campo "copiar de": campo opcional
+            // vazio pode voltar como string vazia, e aí criar viraria renomear em silêncio
+            if ("rename".equals(argText(parts, 3)))
             {
                 PhaseConfig.Preset preset = requirePreset(event, track, presetArg(parts));
                 if (preset == null)
@@ -381,7 +381,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             }
             else
             {
-                error = bot.getPresetService().create(track.name, name, copyFrom);
+                error = bot.getPresetService().create(track.name, name, field(event, "copyfrom"));
             }
             if (error != null)
             {
@@ -631,6 +631,11 @@ public class PhaseInteractionListener extends ListenerAdapter
     private static int argInt(String[] parts, int index, int fallback)
     {
         return index < parts.length ? parseInt(parts[index], fallback) : fallback;
+    }
+
+    private static String argText(String[] parts, int index)
+    {
+        return index < parts.length ? parts[index] : null;
     }
 
     private static long argLong(String[] parts, int index, long fallback)
