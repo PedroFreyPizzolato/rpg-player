@@ -176,12 +176,13 @@ public class PhaseMessageFormatter
     }
 
     /**
-     * O painel do editor. As faixas são referenciadas pelo índice no arquivo, não pelo nome:
-     * o id de componente do Discord tem 100 caracteres e nome de faixa pode passar disso (ou
-     * conter o separador). O painel é redesenhado depois de cada alteração, então o índice
-     * nunca fica velho na prática.
+     * O painel do editor. As faixas e os presets são referenciados pelo índice no arquivo, não
+     * pelo nome: o id de componente do Discord tem 100 caracteres e nome de faixa pode passar
+     * disso (ou conter o separador). O painel é redesenhado depois de cada alteração, então o
+     * índice nunca fica velho na prática.
      */
-    public static MessageEditData buildPanel(PhaseConfig config, int selectedTrack, String notice)
+    public static MessageEditData buildPanel(PhaseConfig config, int selectedTrack, int selectedPreset,
+                                             String notice)
     {
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("🎬 Segmentações");
@@ -189,37 +190,42 @@ public class PhaseMessageFormatter
         PhaseConfig.Track track = selectedTrack >= 0 && selectedTrack < config.tracks.size()
                 ? config.tracks.get(selectedTrack)
                 : null;
+        // um índice velho cai no primeiro preset, então o painel e os ids que ele monta precisam
+        // concordar sobre qual preset é esse — daí o índice sair do objeto já resolvido
+        PhaseConfig.Preset preset = track == null ? null : track.presetAt(selectedPreset);
+        int presetIndex = preset == null ? 0 : track.presets.indexOf(preset);
 
         if (config.tracks.isEmpty())
-            eb.setDescription("Nenhuma faixa cadastrada ainda. Use **Nova faixa** para criar a"
-                    + " primeira: informe o nome e a URL (ou caminho do arquivo).");
+            eb.setDescription("Nenhuma faixa cadastrada ainda. Use **➕ Nova faixa**, na lista de"
+                    + " faixas, para criar a primeira: informe o nome e a URL (ou caminho do arquivo).");
         else if (track == null)
             eb.setDescription("Escolha uma faixa abaixo para ver e editar as fases dela.");
         else
-            eb.setDescription(describeTrack(track));
+            eb.setDescription(describeTrack(track, preset, presetIndex));
 
         if (notice != null && !notice.isEmpty())
             eb.setFooter(notice);
 
         MessageEditBuilder mb = new MessageEditBuilder();
         mb.setEmbeds(eb.build());
-        mb.setComponents(panelComponents(config, selectedTrack, track));
+        mb.setComponents(panelComponents(config, selectedTrack, track, preset, presetIndex));
         return mb.build();
     }
 
-    /** As fases que o painel mostra e edita. TAREFA 4: o preset escolhido, não o primeiro. */
-    private static List<PhaseConfig.Phase> panelPhases(PhaseConfig.Track track)
+    private static String describeTrack(PhaseConfig.Track track, PhaseConfig.Preset preset, int presetIndex)
     {
-        PhaseConfig.Segmentation segmentation = track.firstSegmentation();
-        return segmentation == null ? List.of() : segmentation.phases();
-    }
-
-    private static String describeTrack(PhaseConfig.Track track)
-    {
-        List<PhaseConfig.Phase> phases = panelPhases(track);
+        List<PhaseConfig.Phase> phases = preset == null ? List.of() : preset.phases;
         StringBuilder sb = new StringBuilder();
         sb.append("**Fonte:** `").append(cut(track.identifier() == null ? "—" : track.identifier(), 300))
                 .append("`\n");
+
+        // de qual das segmentações da faixa são as fases listadas abaixo: o select mostra o nome
+        // do preset escolhido, mas não que existem outros ao lado dele
+        if (preset == null)
+            sb.append("**Preset:** _nenhum_ — crie um para poder guardar fases.\n");
+        else
+            sb.append("**Preset:** `").append(cut(preset.name, 100)).append("` (")
+                    .append(presetIndex + 1).append("/").append(track.presets.size()).append(")\n");
 
         if (track.aliases.isEmpty())
             sb.append("_Toca a mesma música por outro link (YouTube Music, outra URL)? Dê play nela e"
@@ -261,67 +267,97 @@ public class PhaseMessageFormatter
         return sb.toString();
     }
 
-    private static List<ActionRow> panelComponents(PhaseConfig config, int trackIndex, PhaseConfig.Track track)
+    /**
+     * As cinco linhas do painel. O Discord só aceita cinco {@code ActionRow} por mensagem, e
+     * faixa escolhida já ocupa as cinco — por isso "nova faixa" e as ações de preset viajam como
+     * opções no fim dos próprios selects, em vez de virarem uma sexta linha de botões.
+     */
+    private static List<ActionRow> panelComponents(PhaseConfig config, int trackIndex,
+                                                   PhaseConfig.Track track, PhaseConfig.Preset preset,
+                                                   int presetIndex)
     {
         List<ActionRow> rows = new ArrayList<>();
+        // faixa e preset acompanham cada componente: é por eles que a interação seguinte sabe o
+        // que o painel estava mostrando quando o mestre clicou
+        String scope = ":" + trackIndex + ":" + presetIndex;
 
-        if (!config.tracks.isEmpty())
+        List<SelectOption> tracks = new ArrayList<>();
+        for (int i = 0; i < Math.min(config.tracks.size(), MAX_SELECT_OPTIONS - 1); i++)
         {
-            List<SelectOption> tracks = new ArrayList<>();
-            for (int i = 0; i < Math.min(config.tracks.size(), MAX_SELECT_OPTIONS); i++)
-            {
-                PhaseConfig.Track option = config.tracks.get(i);
-                tracks.add(SelectOption.of(cut(option.name, 100), String.valueOf(i))
-                        .withDescription(panelPhases(option).size() + " fase(s)")
-                        .withDefault(i == trackIndex));
-            }
-            rows.add(ActionRow.of(StringSelectMenu.create(id("selecttrack"))
-                    .setPlaceholder("Escolha uma faixa...")
-                    .addOptions(tracks)
-                    .build()));
+            PhaseConfig.Track option = config.tracks.get(i);
+            tracks.add(SelectOption.of(cut(option.name, 100), String.valueOf(i))
+                    .withDescription(option.presets.size() + " preset(s)")
+                    .withDefault(i == trackIndex));
+        }
+        tracks.add(SelectOption.of("➕ Nova faixa", "newtrack")
+                .withDescription("Cadastrar outra música"));
+        rows.add(ActionRow.of(StringSelectMenu.create(id("selecttrack"))
+                .setPlaceholder("Escolha uma faixa...")
+                .addOptions(tracks)
+                .build()));
+
+        if (track == null)
+        {
+            // sem faixa escolhida a linha de ações não existe, e é lá que o Atualizar mora
+            rows.add(ActionRow.of(Button.secondary(id("refresh" + scope), "Atualizar")
+                    .withEmoji(Emoji.fromUnicode("🔄"))));
+            return rows;
         }
 
-        boolean hasPhases = track != null && !panelPhases(track).isEmpty();
-        if (track != null)
-        {
-            rows.add(ActionRow.of(
-                    Button.success(id("add:" + trackIndex), "Adicionar fase")
-                            .withEmoji(Emoji.fromUnicode("➕")),
-                    Button.primary(id("play:" + trackIndex), "Tocar")
-                            .withEmoji(Emoji.fromUnicode("▶"))
-                            .withDisabled(!hasPhases),
-                    Button.secondary(id("editsrc:" + trackIndex), "Editar fonte")
-                            .withEmoji(Emoji.fromUnicode("🔗")),
-                    Button.secondary(id("linksrc:" + trackIndex), "Vincular fonte atual")
-                            .withEmoji(Emoji.fromUnicode("📎"))
-            ));
+        List<PhaseConfig.Phase> trackPhases = preset == null ? List.of() : preset.phases;
+        boolean hasPhases = !trackPhases.isEmpty();
 
-            if (hasPhases)
-            {
-                List<PhaseConfig.Phase> trackPhases = panelPhases(track);
-                List<SelectOption> phases = new ArrayList<>();
-                for (int i = 0; i < Math.min(trackPhases.size(), MAX_SELECT_OPTIONS); i++)
-                {
-                    PhaseConfig.Phase phase = trackPhases.get(i);
-                    phases.add(SelectOption.of(cut(phase.name, 100), String.valueOf(i))
-                            .withDescription(TimeUtil.formatTime(phase.startMs()) + " – "
-                                    + TimeUtil.formatTime(phase.endMs())));
-                }
-                rows.add(ActionRow.of(StringSelectMenu.create(id("editphase:" + trackIndex))
-                        .setPlaceholder("Editar uma fase...")
-                        .addOptions(phases)
-                        .build()));
-                rows.add(ActionRow.of(StringSelectMenu.create(id("delphase:" + trackIndex))
-                        .setPlaceholder("Excluir uma fase...")
-                        .addOptions(phases)
-                        .build()));
-            }
+        List<SelectOption> presets = new ArrayList<>();
+        for (int i = 0; i < Math.min(track.presets.size(), MAX_SELECT_OPTIONS - 3); i++)
+        {
+            PhaseConfig.Preset option = track.presets.get(i);
+            presets.add(SelectOption.of(cut(option.name, 100), String.valueOf(i))
+                    .withDescription(option.phases.size() + " fase(s)")
+                    .withDefault(i == presetIndex));
         }
+        presets.add(SelectOption.of("➕ Novo preset", "new")
+                .withDescription("Do zero, ou copiando as fases de outro"));
+        presets.add(SelectOption.of("✏ Renomear este preset", "rename"));
+        presets.add(SelectOption.of("🗑 Excluir este preset", "delete"));
+        rows.add(ActionRow.of(StringSelectMenu.create(id("selectpreset" + scope))
+                .setPlaceholder(preset == null
+                        ? "Nenhum preset — crie um aqui" : "Preset: " + cut(preset.name, 80))
+                .addOptions(presets)
+                .build()));
 
         rows.add(ActionRow.of(
-                Button.secondary(id("newtrack"), "Nova faixa").withEmoji(Emoji.fromUnicode("🎵")),
-                Button.secondary(id("refresh:" + trackIndex), "Atualizar").withEmoji(Emoji.fromUnicode("🔄"))
+                Button.success(id("add" + scope), "Adicionar fase")
+                        .withEmoji(Emoji.fromUnicode("➕")),
+                Button.primary(id("play" + scope), "Tocar")
+                        .withEmoji(Emoji.fromUnicode("▶"))
+                        .withDisabled(!hasPhases),
+                Button.secondary(id("editsrc" + scope), "Editar fonte")
+                        .withEmoji(Emoji.fromUnicode("🔗")),
+                Button.secondary(id("linksrc" + scope), "Vincular fonte atual")
+                        .withEmoji(Emoji.fromUnicode("📎")),
+                Button.secondary(id("refresh" + scope), "Atualizar")
+                        .withEmoji(Emoji.fromUnicode("🔄"))
         ));
+
+        if (hasPhases)
+        {
+            List<SelectOption> phases = new ArrayList<>();
+            for (int i = 0; i < Math.min(trackPhases.size(), MAX_SELECT_OPTIONS); i++)
+            {
+                PhaseConfig.Phase phase = trackPhases.get(i);
+                phases.add(SelectOption.of(cut(phase.name, 100), String.valueOf(i))
+                        .withDescription(TimeUtil.formatTime(phase.startMs()) + " – "
+                                + TimeUtil.formatTime(phase.endMs())));
+            }
+            rows.add(ActionRow.of(StringSelectMenu.create(id("editphase" + scope))
+                    .setPlaceholder("Editar uma fase...")
+                    .addOptions(phases)
+                    .build()));
+            rows.add(ActionRow.of(StringSelectMenu.create(id("delphase" + scope))
+                    .setPlaceholder("Excluir uma fase...")
+                    .addOptions(phases)
+                    .build()));
+        }
         return rows;
     }
 
@@ -331,7 +367,8 @@ public class PhaseMessageFormatter
      * Modal de fase. {@code phaseIndex} negativo cria uma nova; os valores pré-preenchidos
      * vêm em segundos, o mesmo formato em que o arquivo guarda.
      */
-    public static Modal phaseModal(int trackIndex, int phaseIndex, PhaseConfig.Phase existing,
+    public static Modal phaseModal(int trackIndex, int presetIndex, int phaseIndex,
+                                   PhaseConfig.Phase existing,
                                    double suggestedStart, double suggestedEnd)
     {
         boolean creating = phaseIndex < 0;
@@ -357,7 +394,7 @@ public class PhaseMessageFormatter
                 .setRequired(false)
                 .build();
 
-        return Modal.create(id("phasemodal:" + trackIndex + ":" + phaseIndex),
+        return Modal.create(id("phasemodal:" + trackIndex + ":" + presetIndex + ":" + phaseIndex),
                         creating ? "Nova fase" : "Editar fase")
                 .addComponents(
                         Label.of("Nome", name),
@@ -368,7 +405,7 @@ public class PhaseMessageFormatter
                 .build();
     }
 
-    public static Modal trackModal(int trackIndex, String existingName, String existingSource)
+    public static Modal trackModal(int trackIndex, int presetIndex, String existingName, String existingSource)
     {
         boolean creating = trackIndex < 0;
         TextInput name = TextInput.create("name", TextInputStyle.SHORT)
@@ -382,12 +419,41 @@ public class PhaseMessageFormatter
                 .setRequired(true)
                 .build();
 
-        return Modal.create(id("trackmodal:" + trackIndex),
+        return Modal.create(id("trackmodal:" + trackIndex + ":" + presetIndex),
                         creating ? "Nova faixa" : "Editar fonte")
                 .addComponents(Label.of("Nome", name),
                         Label.of("Fonte principal", "Outras fontes da mesma música se vinculam"
                                 + " depois, pelo botão \"Vincular fonte atual\" no painel", source))
                 .build();
+    }
+
+    /**
+     * Criar e renomear usam o mesmo modal. O campo "copiar de" só aparece ao criar — é a
+     * ausência dele que o listener usa para saber qual das duas ações executar.
+     */
+    public static Modal presetModal(int trackIndex, int presetIndex, String currentName)
+    {
+        boolean renaming = currentName != null;
+        TextInput name = TextInput.create("name", TextInputStyle.SHORT)
+                .setValue(currentName)
+                .setPlaceholder("Combate, Exploração, Tensão...")
+                .setRequired(true)
+                .build();
+
+        Modal.Builder modal = Modal.create(id("presetmodal:" + trackIndex + ":" + presetIndex),
+                        renaming ? "Renomear preset" : "Novo preset")
+                .addComponents(Label.of("Nome", name));
+
+        if (!renaming)
+        {
+            TextInput copyFrom = TextInput.create("copyfrom", TextInputStyle.SHORT)
+                    .setPlaceholder("Nome do preset a copiar — vazio começa do zero")
+                    .setRequired(false)
+                    .build();
+            modal.addComponents(Label.of("Copiar de", "Nome de um preset desta faixa, para começar"
+                    + " com as fases dele já prontas", copyFrom));
+        }
+        return modal.build();
     }
 
     /** Onde guardar a posição marcada: início ou fim de qual fase, ou uma fase nova. */

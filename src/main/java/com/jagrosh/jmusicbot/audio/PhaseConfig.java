@@ -314,6 +314,19 @@ public class PhaseConfig
             return presets.isEmpty() ? null : new Segmentation(this, presets.get(0));
         }
 
+        /**
+         * O preset de {@code index}, caindo no primeiro quando o índice veio de um painel velho —
+         * o painel é redesenhado a cada alteração, então isso só acontece com uma tela deixada
+         * aberta enquanto outra apagava presets. Null só quando a faixa não tem preset nenhum;
+         * quem chama trata esse caso, que é o da faixa migrada sem segmentação.
+         */
+        public Preset presetAt(int index)
+        {
+            if (presets.isEmpty())
+                return null;
+            return presets.get(index >= 0 && index < presets.size() ? index : 0);
+        }
+
         /** O que mandar pro lavaplayer resolver. */
         public String identifier()
         {

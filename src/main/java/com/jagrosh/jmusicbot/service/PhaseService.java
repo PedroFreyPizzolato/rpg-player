@@ -796,7 +796,7 @@ public class PhaseService
             config = new PhaseConfig();
         }
         return net.dv8tion.jda.api.utils.messages.MessageCreateData.fromEditData(
-                com.jagrosh.jmusicbot.utils.PhaseMessageFormatter.buildPanel(config, -1, null));
+                com.jagrosh.jmusicbot.utils.PhaseMessageFormatter.buildPanel(config, -1, 0, null));
     }
 
     public SegmentPlayer getSegmentPlayer(Guild guild)

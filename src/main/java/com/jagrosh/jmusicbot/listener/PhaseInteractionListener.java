@@ -39,9 +39,9 @@ import java.util.List;
  * Botões, selects e modais do modo fase: controlar a reprodução e editar as segmentações
  * sem sair do Discord.
  *
- * <p>Os ids seguem {@code phase:<ação>[:<índice>...]}. Faixas e fases entram por índice
- * (ver {@link PhaseMessageFormatter#buildPanel}), então o painel é sempre redesenhado depois
- * de uma alteração para os índices não ficarem velhos.
+ * <p>Os ids seguem {@code phase:<ação>[:<faixa>:<preset>[:<fase>]]}. Faixa, preset e fase entram
+ * por índice (ver {@link PhaseMessageFormatter#buildPanel}), então o painel é sempre redesenhado
+ * depois de uma alteração para os índices não ficarem velhos.
  */
 public class PhaseInteractionListener extends ListenerAdapter
 {
@@ -70,12 +70,11 @@ public class PhaseInteractionListener extends ListenerAdapter
         switch (action)
         {
             case "panel" -> showPanel(event, -1, null);
-            case "refresh" -> refreshPanel(event, argInt(parts, 1, -1), null);
-            case "newtrack" -> event.replyModal(PhaseMessageFormatter.trackModal(-1, null, null)).queue();
-            case "editsrc" -> openTrackModal(event, argInt(parts, 1, -1));
-            case "linksrc" -> linkCurrentSource(event, argInt(parts, 1, -1));
-            case "add" -> openPhaseModal(event, argInt(parts, 1, -1), -1);
-            case "play" -> playTrack(event, argInt(parts, 1, -1));
+            case "refresh" -> refreshPanel(event, argInt(parts, 1, -1), presetArg(parts), null);
+            case "editsrc" -> openTrackModal(event, argInt(parts, 1, -1), presetArg(parts));
+            case "linksrc" -> linkCurrentSource(event, argInt(parts, 1, -1), presetArg(parts));
+            case "add" -> openPhaseModal(event, argInt(parts, 1, -1), presetArg(parts), -1);
+            case "play" -> playTrack(event, argInt(parts, 1, -1), presetArg(parts));
 
             case "tophases" -> switchMode(event, true);
             case "tonormal" -> switchMode(event, false);
@@ -91,7 +90,7 @@ public class PhaseInteractionListener extends ListenerAdapter
         }
     }
 
-    private void playTrack(ButtonInteractionEvent event, int trackIndex)
+    private void playTrack(ButtonInteractionEvent event, int trackIndex, int presetIndex)
     {
         PhaseConfig config = load(event);
         if (config == null)
@@ -105,19 +104,16 @@ public class PhaseInteractionListener extends ListenerAdapter
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        // TAREFA 4: o preset escolhido no painel, não o primeiro
-        PhaseConfig.Segmentation segmentation = track.firstSegmentation();
-        if (segmentation == null)
-        {
-            reply(event, "`" + track.name + "` não tem nenhuma fase definida.");
+        PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
+        if (preset == null)
             return;
-        }
 
         event.deferReply(true).queue();
         // o painel não resolve a faixa no lavaplayer, então não tem a duração que um preset
         // vazio precisaria para tocar a música inteira
         bot.getPhaseService().startAt(event.getGuild(), event.getChannel(),
-                segmentation, 0, 0, OutputAdapters.forPhaseDeferred(event));
+                new PhaseConfig.Segmentation(track, preset), 0, 0,
+                OutputAdapters.forPhaseDeferred(event));
     }
 
     /**
@@ -138,7 +134,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             bot.getPhaseService().switchToNormal(event.getGuild(), event.getChannel(), output);
     }
 
-    private void linkCurrentSource(ButtonInteractionEvent event, int trackIndex)
+    private void linkCurrentSource(ButtonInteractionEvent event, int trackIndex, int presetIndex)
     {
         PhaseConfig config = load(event);
         if (config == null || !validTrack(event, config, trackIndex))
@@ -160,7 +156,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             reply(event, error);
             return;
         }
-        refreshPanel(event, trackIndex, "Fonte atual vinculada.");
+        refreshPanel(event, trackIndex, presetIndex, "Fonte atual vinculada.");
     }
 
     private void markHere(ButtonInteractionEvent event)
@@ -190,12 +186,62 @@ public class PhaseInteractionListener extends ListenerAdapter
 
         switch (action)
         {
-            case "selecttrack" -> refreshPanel(event, parseInt(value, -1), null);
-            case "editphase" -> openPhaseModal(event, argInt(parts, 1, -1), parseInt(value, -1));
-            case "delphase" -> deletePhase(event, argInt(parts, 1, -1), parseInt(value, -1));
+            case "selecttrack" -> selectTrack(event, value);
+            case "selectpreset" -> selectPreset(event, argInt(parts, 1, -1), presetArg(parts), value);
+            case "editphase" -> openPhaseModal(event, argInt(parts, 1, -1), presetArg(parts),
+                    parseInt(value, -1));
+            case "delphase" -> deletePhase(event, argInt(parts, 1, -1), presetArg(parts),
+                    parseInt(value, -1));
             case "jump" -> jumpToPhase(event, parseInt(value, -1));
             case "markto" -> applyMark(event, argLong(parts, 1, -1), value);
             default -> { }
+        }
+    }
+
+    /**
+     * A última opção da lista de faixas é o cadastro de uma faixa nova: o Discord só dá 5 linhas
+     * por mensagem e o painel já usava todas, então o botão virou opção do próprio select.
+     */
+    private void selectTrack(StringSelectInteractionEvent event, String value)
+    {
+        if ("newtrack".equals(value))
+            event.replyModal(PhaseMessageFormatter.trackModal(-1, 0, null, null)).queue();
+        else
+            // trocar de faixa recomeça no primeiro preset: o índice em exibição era da outra faixa
+            refreshPanel(event, parseInt(value, -1), 0, null);
+    }
+
+    /** Pelo mesmo motivo, as três últimas opções da lista de presets são comandos, não presets. */
+    private void selectPreset(StringSelectInteractionEvent event, int trackIndex, int presetIndex,
+                              String value)
+    {
+        PhaseConfig config = load(event);
+        if (config == null || !validTrack(event, config, trackIndex))
+            return;
+        PhaseConfig.Track track = config.tracks.get(trackIndex);
+
+        switch (value)
+        {
+            case "new" -> event.replyModal(
+                    PhaseMessageFormatter.presetModal(trackIndex, presetIndex, null)).queue();
+            case "rename" -> {
+                PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
+                if (preset != null)
+                    event.replyModal(PhaseMessageFormatter.presetModal(trackIndex, presetIndex,
+                            preset.name)).queue();
+            }
+            case "delete" -> {
+                PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
+                if (preset == null)
+                    return;
+                String error = bot.getPresetService().delete(track.name, preset.name);
+                if (error != null)
+                    reply(event, error);
+                else
+                    // o preset em exibição deixou de existir; sobra o primeiro dos que ficaram
+                    refreshPanel(event, trackIndex, 0, "Preset excluído.");
+            }
+            default -> refreshPanel(event, trackIndex, parseInt(value, 0), null);
         }
     }
 
@@ -216,7 +262,8 @@ public class PhaseInteractionListener extends ListenerAdapter
                 player.getSegmentation(), phaseIndex, 0, OutputAdapters.forPhaseDeferred(event));
     }
 
-    private void deletePhase(StringSelectInteractionEvent event, int trackIndex, int phaseIndex)
+    private void deletePhase(StringSelectInteractionEvent event, int trackIndex, int presetIndex,
+                             int phaseIndex)
     {
         PhaseConfig config = load(event);
         if (config == null || !validTrack(event, config, trackIndex))
@@ -224,14 +271,15 @@ public class PhaseInteractionListener extends ListenerAdapter
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
         String trackName = track.name;
-        String error = bot.getPhaseService().deletePhase(trackName, selectedPreset(track), phaseIndex);
+        String error = bot.getPhaseService().deletePhase(trackName, presetName(track, presetIndex),
+                phaseIndex);
         if (error != null)
         {
             reply(event, error);
             return;
         }
         bot.getPhaseService().reloadIfPlaying(event.getGuild(), trackName, event.getChannel());
-        refreshPanel(event, trackIndex, "Fase excluída.");
+        refreshPanel(event, trackIndex, presetIndex, "Fase excluída.");
     }
 
     private void applyMark(StringSelectInteractionEvent event, long positionMs, String target)
@@ -275,29 +323,32 @@ public class PhaseInteractionListener extends ListenerAdapter
         if ("trackmodal".equals(parts[0]))
         {
             int trackIndex = argInt(parts, 1, -1);
-            String original = trackIndex >= 0 && trackIndex < config.tracks.size()
-                    ? config.tracks.get(trackIndex).name : null;
+            PhaseConfig.Track original = trackIndex >= 0 && trackIndex < config.tracks.size()
+                    ? config.tracks.get(trackIndex) : null;
+            PhaseConfig.Preset preset = original == null ? null : original.presetAt(presetArg(parts));
             String name = field(event, "name");
-            String error = bot.getPhaseService().saveTrack(original, name, field(event, "source"));
+            String error = bot.getPhaseService().saveTrack(original == null ? null : original.name,
+                    name, field(event, "source"));
             if (error != null)
             {
                 reply(event, error);
                 return;
             }
-            refreshPanelInPlace(event, name, "Faixa salva.");
+            refreshPanelInPlace(event, name, preset == null ? null : preset.name, "Faixa salva.");
             return;
         }
 
         if ("phasemodal".equals(parts[0]))
         {
             int trackIndex = argInt(parts, 1, -1);
-            int phaseIndex = argInt(parts, 2, -1);
+            int phaseIndex = argInt(parts, 3, -1);
             if (!validTrack(event, config, trackIndex))
                 return;
 
             PhaseConfig.Track track = config.tracks.get(trackIndex);
             String trackName = track.name;
-            String error = bot.getPhaseService().savePhase(trackName, selectedPreset(track),
+            String preset = presetName(track, presetArg(parts));
+            String error = bot.getPhaseService().savePhase(trackName, preset,
                     phaseIndex, field(event, "name"), field(event, "start"), field(event, "end"),
                     field(event, "fade"));
             if (error != null)
@@ -306,53 +357,105 @@ public class PhaseInteractionListener extends ListenerAdapter
                 return;
             }
             bot.getPhaseService().reloadIfPlaying(event.getGuild(), trackName, event.getChannel());
-            refreshPanelInPlace(event, trackName, "Fase salva.");
+            refreshPanelInPlace(event, trackName, preset, "Fase salva.");
+            return;
+        }
+
+        if ("presetmodal".equals(parts[0]))
+        {
+            int trackIndex = argInt(parts, 1, -1);
+            if (!validTrack(event, config, trackIndex))
+                return;
+
+            PhaseConfig.Track track = config.tracks.get(trackIndex);
+            String name = field(event, "name");
+            String copyFrom = field(event, "copyfrom");
+            String error;
+            // o modal de renomear não tem o campo de cópia; é assim que os dois se distinguem
+            if (copyFrom == null)
+            {
+                PhaseConfig.Preset preset = requirePreset(event, track, presetArg(parts));
+                if (preset == null)
+                    return;
+                error = bot.getPresetService().rename(track.name, preset.name, name);
+            }
+            else
+            {
+                error = bot.getPresetService().create(track.name, name, copyFrom);
+            }
+            if (error != null)
+            {
+                reply(event, error);
+                return;
+            }
+            // criar e renomear terminam no preset que acabou de receber esse nome
+            refreshPanelInPlace(event, track.name, name, "Preset salvo.");
         }
     }
 
     /**
      * Reabre o painel na mesma mensagem que originou o modal (o Discord repassa qual foi),
-     * já com a faixa que acabou de mudar selecionada — em vez de mandar uma confirmação solta
-     * e deixar o painel velho, sem atualizar, parado no chat.
+     * já com a faixa e o preset que acabaram de mudar selecionados — em vez de mandar uma
+     * confirmação solta e deixar o painel velho, sem atualizar, parado no chat.
+     *
+     * <p>Faixa e preset voltam pelo nome, não pelo índice, porque a gravação acabou de mexer nos
+     * dois: criar acrescenta ao fim e renomear troca o nome, então o índice que veio no modal
+     * apontaria para o preset errado.
      */
-    private void refreshPanelInPlace(ModalInteractionEvent event, String trackName, String notice)
+    private void refreshPanelInPlace(ModalInteractionEvent event, String trackName, String presetName,
+                                     String notice)
     {
         PhaseConfig fresh = load(event);
         if (fresh == null)
             return;
         int trackIndex = fresh.indexOfName(trackName);
-        event.editMessage(PhaseMessageFormatter.buildPanel(fresh, trackIndex, notice)).queue();
+        event.editMessage(PhaseMessageFormatter.buildPanel(fresh, trackIndex,
+                indexOfPreset(fresh, trackIndex, presetName), notice)).queue();
     }
 
-    private <T extends IReplyCallback & IModalCallback> void openPhaseModal(T event, int trackIndex, int phaseIndex)
+    /** Onde o preset ficou depois da gravação; 0 (o primeiro) quando não dá para reencontrá-lo. */
+    private static int indexOfPreset(PhaseConfig config, int trackIndex, String presetName)
+    {
+        if (trackIndex < 0 || trackIndex >= config.tracks.size() || presetName == null)
+            return 0;
+        List<PhaseConfig.Preset> presets = config.tracks.get(trackIndex).presets;
+        for (int i = 0; i < presets.size(); i++)
+            if (presets.get(i).name != null && presets.get(i).name.equalsIgnoreCase(presetName.trim()))
+                return i;
+        return 0;
+    }
+
+    private <T extends IReplyCallback & IModalCallback> void openPhaseModal(T event, int trackIndex,
+                                                                            int presetIndex, int phaseIndex)
     {
         PhaseConfig config = load(event);
         if (config == null || !validTrack(event, config, trackIndex))
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        // TAREFA 4: o preset escolhido no painel, não o primeiro
-        List<PhaseConfig.Phase> phases = track.presets.isEmpty()
-                ? List.of() : track.presets.get(0).phases;
+        PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
+        if (preset == null)
+            return;
+        List<PhaseConfig.Phase> phases = preset.phases;
         PhaseConfig.Phase existing = phaseIndex >= 0 && phaseIndex < phases.size()
                 ? phases.get(phaseIndex) : null;
 
         // fase nova já vem sugerida logo depois da última, que é o caso comum
         double suggestedStart = phases.isEmpty() ? 0 : phases.get(phases.size() - 1).end;
-        Modal modal = PhaseMessageFormatter.phaseModal(trackIndex, phaseIndex, existing,
+        Modal modal = PhaseMessageFormatter.phaseModal(trackIndex, presetIndex, phaseIndex, existing,
                 suggestedStart, suggestedStart + 60);
         event.replyModal(modal).queue();
     }
 
-    private void openTrackModal(ButtonInteractionEvent event, int trackIndex)
+    private void openTrackModal(ButtonInteractionEvent event, int trackIndex, int presetIndex)
     {
         PhaseConfig config = load(event);
         if (config == null || !validTrack(event, config, trackIndex))
             return;
 
         PhaseConfig.Track track = config.tracks.get(trackIndex);
-        event.replyModal(PhaseMessageFormatter.trackModal(trackIndex, track.name, track.identifier()))
-                .queue();
+        event.replyModal(PhaseMessageFormatter.trackModal(trackIndex, presetIndex, track.name,
+                track.identifier())).queue();
     }
 
     // ── painel ───────────────────────────────────────────────────────────────
@@ -372,7 +475,7 @@ public class PhaseInteractionListener extends ListenerAdapter
         if (trackIndex < 0)
             trackIndex = detectCurrentTrackIndex(event.getGuild(), config);
         event.reply(net.dv8tion.jda.api.utils.messages.MessageCreateData.fromEditData(
-                        PhaseMessageFormatter.buildPanel(config, trackIndex, notice)))
+                        PhaseMessageFormatter.buildPanel(config, trackIndex, 0, notice)))
                 .setEphemeral(true).queue();
     }
 
@@ -392,12 +495,12 @@ public class PhaseInteractionListener extends ListenerAdapter
 
     /** Redesenha o painel já aberto (o índice das faixas pode ter mudado). */
     private void refreshPanel(net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent event,
-                              int trackIndex, String notice)
+                              int trackIndex, int presetIndex, String notice)
     {
         PhaseConfig config = load(event);
         if (config == null)
             return;
-        event.editMessage(PhaseMessageFormatter.buildPanel(config, trackIndex, notice)).queue();
+        event.editMessage(PhaseMessageFormatter.buildPanel(config, trackIndex, presetIndex, notice)).queue();
     }
 
     /** Executa a ação e redesenha o now-playing do modo fase por cima do botão clicado. */
@@ -434,14 +537,35 @@ public class PhaseInteractionListener extends ListenerAdapter
     }
 
     /**
-     * O preset em que o painel edita. Hoje é sempre o primeiro, porque o painel ainda mostra só
-     * ele; a Tarefa 4 traz a escolha do mestre. Faixa sem preset devolve null de propósito — o
+     * O preset que o painel estava mostrando, lido do id do componente que disparou a interação.
+     * Componente sem esse pedaço (ou com lixo no lugar) cai no primeiro preset.
+     */
+    private static int presetArg(String[] parts)
+    {
+        return Math.max(0, argInt(parts, 2, 0));
+    }
+
+    /**
+     * Nome do preset em que o painel edita. Faixa sem preset devolve null de propósito — o
      * {@code PhaseService} já tem a mensagem certa para esse caso.
      */
-    private static String selectedPreset(PhaseConfig.Track track)
+    private static String presetName(PhaseConfig.Track track, int presetIndex)
     {
-        // TAREFA 4: preset escolhido no painel, não o primeiro
-        return track.presets.isEmpty() ? null : track.presets.get(0).name;
+        PhaseConfig.Preset preset = track.presetAt(presetIndex);
+        return preset == null ? null : preset.name;
+    }
+
+    /**
+     * O preset em exibição, ou null depois de avisar que não há nenhum — o que só acontece com
+     * faixa herdada do painel antigo, que a migração deixou sem segmentação alguma.
+     */
+    private PhaseConfig.Preset requirePreset(IReplyCallback event, PhaseConfig.Track track, int presetIndex)
+    {
+        PhaseConfig.Preset preset = track.presetAt(presetIndex);
+        if (preset == null)
+            reply(event, "`" + track.name + "` não tem nenhum preset. Crie um em **➕ Novo preset**,"
+                    + " na lista de presets do painel.");
+        return preset;
     }
 
     private boolean validTrack(IReplyCallback event, PhaseConfig config, int trackIndex)
