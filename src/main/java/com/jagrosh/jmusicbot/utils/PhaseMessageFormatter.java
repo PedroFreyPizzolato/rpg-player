@@ -50,6 +50,8 @@ public class PhaseMessageFormatter
     public static final String PREFIX = "phase:";
     /** Limite do Discord para opções de um select menu. */
     public static final int MAX_SELECT_OPTIONS = 25;
+    /** Valor reservado no select "Copiar de": nenhum preset se chama assim. */
+    public static final String COPY_FROM_SCRATCH = "__scratch__";
 
     private static final int BAR_SLOTS = 12;
 
@@ -269,8 +271,10 @@ public class PhaseMessageFormatter
 
     /**
      * As cinco linhas do painel. O Discord só aceita cinco {@code ActionRow} por mensagem, e
-     * faixa escolhida já ocupa as cinco — por isso "nova faixa" e as ações de preset viajam como
-     * opções no fim dos próprios selects, em vez de virarem uma sexta linha de botões.
+     * faixa escolhida já ocupa as cinco — por isso as ações de preset viajam como opções no fim
+     * do próprio select, em vez de virarem uma sexta linha de botões. "Nova faixa" é a exceção:
+     * é botão porque cabe no lugar do "Atualizar" que ele substituiu (cada interação já
+     * redesenha o painel sozinho, então um botão só de atualizar tinha pouca serventia).
      */
     private static List<ActionRow> panelComponents(PhaseConfig config, int trackIndex,
                                                    PhaseConfig.Track track, PhaseConfig.Preset preset,
@@ -282,25 +286,27 @@ public class PhaseMessageFormatter
         String scope = ":" + trackIndex + ":" + presetIndex;
 
         List<SelectOption> tracks = new ArrayList<>();
-        for (int i = 0; i < Math.min(config.tracks.size(), MAX_SELECT_OPTIONS - 1); i++)
+        for (int i = 0; i < Math.min(config.tracks.size(), MAX_SELECT_OPTIONS); i++)
         {
             PhaseConfig.Track option = config.tracks.get(i);
             tracks.add(SelectOption.of(cut(option.name, 100), String.valueOf(i))
                     .withDescription(option.presets.size() + " preset(s)")
                     .withDefault(i == trackIndex));
         }
-        tracks.add(SelectOption.of("➕ Nova faixa", "newtrack")
-                .withDescription("Cadastrar outra música"));
-        rows.add(ActionRow.of(StringSelectMenu.create(id("selecttrack"))
-                .setPlaceholder("Escolha uma faixa...")
-                .addOptions(tracks)
-                .build()));
+        // um select sem opção nenhuma é inválido pro Discord; sem faixa cadastrada ele não entra
+        if (!tracks.isEmpty())
+        {
+            rows.add(ActionRow.of(StringSelectMenu.create(id("selecttrack"))
+                    .setPlaceholder("Escolha uma faixa...")
+                    .addOptions(tracks)
+                    .build()));
+        }
 
         if (track == null)
         {
-            // sem faixa escolhida a linha de ações não existe, e é lá que o Atualizar mora
-            rows.add(ActionRow.of(Button.secondary(id("refresh" + scope), "Atualizar")
-                    .withEmoji(Emoji.fromUnicode("🔄"))));
+            // sem faixa escolhida (nenhuma cadastrada ainda, ou o índice ficou velho) só resta criar
+            rows.add(ActionRow.of(Button.success(id("newtrack" + scope), "Nova faixa")
+                    .withEmoji(Emoji.fromUnicode("➕"))));
             return rows;
         }
 
@@ -326,6 +332,8 @@ public class PhaseMessageFormatter
                 .build()));
 
         rows.add(ActionRow.of(
+                Button.secondary(id("newtrack" + scope), "Nova faixa")
+                        .withEmoji(Emoji.fromUnicode("➕")),
                 Button.success(id("add" + scope), "Adicionar fase")
                         .withEmoji(Emoji.fromUnicode("➕")),
                 Button.primary(id("play" + scope), "Tocar")
@@ -334,9 +342,7 @@ public class PhaseMessageFormatter
                 Button.secondary(id("editsrc" + scope), "Editar fonte")
                         .withEmoji(Emoji.fromUnicode("🔗")),
                 Button.secondary(id("linksrc" + scope), "Vincular fonte atual")
-                        .withEmoji(Emoji.fromUnicode("📎")),
-                Button.secondary(id("refresh" + scope), "Atualizar")
-                        .withEmoji(Emoji.fromUnicode("🔄"))
+                        .withEmoji(Emoji.fromUnicode("📎"))
         ));
 
         if (hasPhases)
@@ -428,10 +434,12 @@ public class PhaseMessageFormatter
     }
 
     /**
-     * Criar e renomear usam o mesmo modal. O campo "copiar de" só aparece ao criar — é a
-     * ausência dele que o listener usa para saber qual das duas ações executar.
+     * Criar e renomear usam o mesmo modal. O campo "copiar de" só aparece ao criar — a ação em
+     * si vai no id do modal, não na presença desse campo, porque um select sempre manda algum
+     * valor (diferente do texto livre de antes, que podia voltar vazio e confundir as duas).
      */
-    public static Modal presetModal(int trackIndex, int presetIndex, String currentName)
+    public static Modal presetModal(int trackIndex, int presetIndex, String currentName,
+                                     List<String> copyOptions)
     {
         boolean renaming = currentName != null;
         TextInput name = TextInput.create("name", TextInputStyle.SHORT)
@@ -440,9 +448,6 @@ public class PhaseMessageFormatter
                 .setRequired(true)
                 .build();
 
-        // a ação vai no id, e não é deduzida da ausência do campo "copiar de": campo opcional
-        // vazio pode voltar do Discord como string vazia, e confundir criar com renomear
-        // trocaria o nome do preset em vez de fazer um novo
         Modal.Builder modal = Modal.create(
                         id("presetmodal:" + trackIndex + ":" + presetIndex
                                 + (renaming ? ":rename" : ":new")),
@@ -451,12 +456,19 @@ public class PhaseMessageFormatter
 
         if (!renaming)
         {
-            TextInput copyFrom = TextInput.create("copyfrom", TextInputStyle.SHORT)
-                    .setPlaceholder("Nome do preset a copiar — vazio começa do zero")
-                    .setRequired(false)
+            List<SelectOption> options = new ArrayList<>();
+            for (int i = 0; i < Math.min(copyOptions.size(), MAX_SELECT_OPTIONS - 1); i++)
+            {
+                String presetName = copyOptions.get(i);
+                options.add(SelectOption.of(cut(presetName, 100), presetName));
+            }
+            options.add(SelectOption.of("➕ Começar do zero", COPY_FROM_SCRATCH)
+                    .withDefault(true));
+            StringSelectMenu copyFrom = StringSelectMenu.create("copyfrom")
+                    .addOptions(options)
                     .build();
-            modal.addComponents(Label.of("Copiar de", "Nome de um preset desta faixa, para começar"
-                    + " com as fases dele já prontas", copyFrom));
+            modal.addComponents(Label.of("Copiar de", "Um preset desta faixa, para começar com"
+                    + " as fases dele já prontas", copyFrom));
         }
         return modal.build();
     }

@@ -70,7 +70,7 @@ public class PhaseInteractionListener extends ListenerAdapter
         switch (action)
         {
             case "panel" -> showPanel(event, -1, null);
-            case "refresh" -> refreshPanel(event, argInt(parts, 1, -1), presetArg(parts), null);
+            case "newtrack" -> event.replyModal(PhaseMessageFormatter.trackModal(-1, 0, null, null)).queue();
             case "editsrc" -> openTrackModal(event, argInt(parts, 1, -1), presetArg(parts));
             case "linksrc" -> linkCurrentSource(event, argInt(parts, 1, -1), presetArg(parts));
             case "add" -> openPhaseModal(event, argInt(parts, 1, -1), presetArg(parts), -1);
@@ -230,17 +230,10 @@ public class PhaseInteractionListener extends ListenerAdapter
         }
     }
 
-    /**
-     * A última opção da lista de faixas é o cadastro de uma faixa nova: o Discord só dá 5 linhas
-     * por mensagem e o painel já usava todas, então o botão virou opção do próprio select.
-     */
     private void selectTrack(StringSelectInteractionEvent event, String value)
     {
-        if ("newtrack".equals(value))
-            event.replyModal(PhaseMessageFormatter.trackModal(-1, 0, null, null)).queue();
-        else
-            // trocar de faixa recomeça no primeiro preset: o índice em exibição era da outra faixa
-            refreshPanel(event, parseInt(value, -1), 0, null);
+        // trocar de faixa recomeça no primeiro preset: o índice em exibição era da outra faixa
+        refreshPanel(event, parseInt(value, -1), 0, null);
     }
 
     /** Pelo mesmo motivo, as três últimas opções da lista de presets são comandos, não presets. */
@@ -254,13 +247,13 @@ public class PhaseInteractionListener extends ListenerAdapter
 
         switch (value)
         {
-            case "new" -> event.replyModal(
-                    PhaseMessageFormatter.presetModal(trackIndex, presetIndex, null)).queue();
+            case "new" -> event.replyModal(PhaseMessageFormatter.presetModal(trackIndex,
+                    presetIndex, null, presetNames(track))).queue();
             case "rename" -> {
                 PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
                 if (preset != null)
                     event.replyModal(PhaseMessageFormatter.presetModal(trackIndex, presetIndex,
-                            preset.name)).queue();
+                            preset.name, List.of())).queue();
             }
             case "delete" -> {
                 PhaseConfig.Preset preset = requirePreset(event, track, presetIndex);
@@ -413,7 +406,7 @@ public class PhaseInteractionListener extends ListenerAdapter
             }
             else
             {
-                error = bot.getPresetService().create(track.name, name, field(event, "copyfrom"));
+                error = bot.getPresetService().create(track.name, name, copyFromSelection(event));
             }
             if (error != null)
             {
@@ -587,6 +580,12 @@ public class PhaseInteractionListener extends ListenerAdapter
         return preset == null ? null : preset.name;
     }
 
+    /** Opções do select "Copiar de", no modal de criar preset. */
+    private static List<String> presetNames(PhaseConfig.Track track)
+    {
+        return track.presets.stream().map(p -> p.name).toList();
+    }
+
     /**
      * O preset em exibição, ou null depois de avisar que não há nenhum — o que só acontece com
      * faixa herdada do painel antigo, que a migração deixou sem segmentação alguma.
@@ -639,6 +638,19 @@ public class PhaseInteractionListener extends ListenerAdapter
     {
         var value = event.getValue(id);
         return value == null ? null : value.getAsString();
+    }
+
+    /** O select "Copiar de" sempre manda um valor; o sentinela de "começar do zero" vira null. */
+    private static String copyFromSelection(ModalInteractionEvent event)
+    {
+        var value = event.getValue("copyfrom");
+        if (value == null)
+            return null;
+        List<String> selected = value.getAsStringList();
+        if (selected.isEmpty())
+            return null;
+        String chosen = selected.get(0);
+        return PhaseMessageFormatter.COPY_FROM_SCRATCH.equals(chosen) ? null : chosen;
     }
 
     /** Para ações cuja resposta visível é o próprio painel redesenhado. */

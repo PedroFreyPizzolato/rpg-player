@@ -4,6 +4,7 @@
 /test/
 *.json
 *.txt
+*.bak
 nb*.xml
 
 # IDEs
