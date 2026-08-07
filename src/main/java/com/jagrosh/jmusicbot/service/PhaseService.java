@@ -172,13 +172,29 @@ public class PhaseService
     }
 
     /**
-     * A segmentação com que um preset vazio entra em reprodução. O preset devolvido é
-     * descartável e nunca é o objeto que veio do arquivo: acrescentar a fase implícita ao
-     * original faria a gravação seguinte selá-la como fase de verdade.
-     *
-     * <p>O nome, porém, é o do original de propósito — é por ele que a marcação ao vivo acha o
-     * preset onde gravar a fase que o mestre acabou de marcar.
+     * Se vale a pena perguntar qual segmentação tocar. Com uma só não há escolha a fazer, e
+     * sem nenhuma a faixa nem chega a ser oferecida — perguntar renderia um menu vazio.
      */
+    public static boolean needsPresetChoice(PhaseConfig.Track track)
+    {
+        return track != null && track.presets.size() > 1;
+    }
+
+    /**
+     * A segmentação pedida pelo nome, ou a primeira da faixa quando ninguém pediu nenhuma.
+     * Devolve null tanto para faixa sem preset quanto para nome que não existe — quem chama
+     * distingue os dois casos pelo que passou.
+     */
+    static PhaseConfig.Segmentation resolveSegmentation(PhaseConfig.Track track, String presetName)
+    {
+        if (track == null)
+            return null;
+        if (presetName == null || presetName.isBlank())
+            return track.firstSegmentation();
+        PhaseConfig.Preset preset = track.preset(presetName);
+        return preset == null ? null : new PhaseConfig.Segmentation(track, preset);
+    }
+
     /**
      * A duração que serve para montar a fase implícita, ou 0 quando não dá para saber.
      *
@@ -199,6 +215,14 @@ public class PhaseService
         return duration == Units.DURATION_MS_UNKNOWN ? 0 : duration;
     }
 
+    /**
+     * A segmentação com que um preset vazio entra em reprodução. O preset devolvido é
+     * descartável e nunca é o objeto que veio do arquivo: acrescentar a fase implícita ao
+     * original faria a gravação seguinte selá-la como fase de verdade.
+     *
+     * <p>O nome, porém, é o do original de propósito — é por ele que a marcação ao vivo acha o
+     * preset onde gravar a fase que o mestre acabou de marcar.
+     */
     static PhaseConfig.Segmentation improvise(PhaseConfig.Segmentation empty, long durationMs)
     {
         PhaseConfig.Preset preset = new PhaseConfig.Preset();
@@ -218,6 +242,16 @@ public class PhaseService
      * a fase <i>inteira</i>, não só o que falta dela, senão o loop ficaria preso no pedaço final.
      */
     public void switchToPhases(Guild guild, MessageChannel channel, MusicService.OutputAdapter output)
+    {
+        switchToPhases(guild, channel, null, output);
+    }
+
+    /**
+     * @param presetName qual segmentação usar; nulo cai na primeira da faixa, que é o certo
+     *                   quando ela só tem uma
+     */
+    public void switchToPhases(Guild guild, MessageChannel channel, String presetName,
+                               MusicService.OutputAdapter output)
     {
         AudioHandler handler = getHandler(guild);
         if (handler == null)
@@ -239,8 +273,13 @@ public class PhaseService
         }
 
         PhaseConfig.Track track = findMatchingPhases(playing);
-        // TAREFA 5: com mais de um preset, perguntar qual em vez de assumir o primeiro
-        PhaseConfig.Segmentation segmentation = track == null ? null : track.firstSegmentation();
+        PhaseConfig.Segmentation segmentation = resolveSegmentation(track, presetName);
+        if (segmentation == null && track != null && presetName != null)
+        {
+            output.replyError("A segmentação `" + presetName + "` não existe mais em `"
+                    + track.name + "`.");
+            return;
+        }
         // preset sem fase nenhuma (faixa recém-criada) não tem em que fase entrar
         if (segmentation == null || segmentation.phases().isEmpty())
         {

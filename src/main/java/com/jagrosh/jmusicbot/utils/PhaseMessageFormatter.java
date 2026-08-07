@@ -461,6 +461,30 @@ public class PhaseMessageFormatter
         return modal.build();
     }
 
+    /**
+     * A pergunta de qual segmentação usar ao trocar para o modo fase com a música tocando.
+     * Só aparece quando a faixa tem mais de uma — com uma só não há escolha a fazer.
+     */
+    public static MessageCreateData buildSwitchPresetPrompt(PhaseConfig.Track track)
+    {
+        List<SelectOption> options = new ArrayList<>();
+        for (int i = 0; i < Math.min(track.presets.size(), MAX_SELECT_OPTIONS); i++)
+        {
+            PhaseConfig.Preset preset = track.presets.get(i);
+            options.add(SelectOption.of(cut(preset.name, 100), preset.name)
+                    .withDescription(preset.phases.size() + " fase(s)"));
+        }
+
+        return new MessageCreateBuilder()
+                .setContent("🔁 **" + FormatUtil.filter(track.name) + "** tem "
+                        + track.presets.size() + " segmentações. Qual usar?")
+                .setComponents(ActionRow.of(StringSelectMenu.create(id("switchpreset"))
+                        .setPlaceholder("Escolher segmentação...")
+                        .addOptions(options)
+                        .build()))
+                .build();
+    }
+
     /** Onde guardar a posição marcada: início ou fim de qual fase, ou uma fase nova. */
     public static MessageCreateData buildMarkPrompt(SegmentPlayer player, long positionMs)
     {

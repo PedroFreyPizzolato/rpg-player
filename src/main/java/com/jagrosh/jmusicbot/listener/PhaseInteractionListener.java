@@ -126,12 +126,36 @@ public class PhaseInteractionListener extends ListenerAdapter
         if (!inSameVoiceChannel(event))
             return;
 
+        // com mais de uma segmentação, assumir a primeira seria escolher pelo mestre; a pergunta
+        // vem antes de qualquer decodificação, que é a parte cara
+        if (toPhases)
+        {
+            PhaseConfig.Track phased = playingTrackPhases(event);
+            if (com.jagrosh.jmusicbot.service.PhaseService.needsPresetChoice(phased))
+            {
+                event.reply(PhaseMessageFormatter.buildSwitchPresetPrompt(phased))
+                        .setEphemeral(true).queue();
+                return;
+            }
+        }
+
         event.deferReply(true).queue();
         var output = OutputAdapters.forPhaseDeferred(event);
         if (toPhases)
             bot.getPhaseService().switchToPhases(event.getGuild(), event.getChannel(), output);
         else
             bot.getPhaseService().switchToNormal(event.getGuild(), event.getChannel(), output);
+    }
+
+    /** As segmentações da faixa que o lavaplayer está tocando agora, ou null. */
+    private PhaseConfig.Track playingTrackPhases(ButtonInteractionEvent event)
+    {
+        var handler = (com.jagrosh.jmusicbot.audio.AudioHandler)
+                event.getGuild().getAudioManager().getSendingHandler();
+        if (handler == null || handler.getSegmentPlayer() != null)
+            return null;
+        var playing = handler.getPlayer().getPlayingTrack();
+        return playing == null ? null : bot.getPhaseService().findMatchingPhases(playing);
     }
 
     private void linkCurrentSource(ButtonInteractionEvent event, int trackIndex, int presetIndex)
@@ -188,6 +212,14 @@ public class PhaseInteractionListener extends ListenerAdapter
         {
             case "selecttrack" -> selectTrack(event, value);
             case "selectpreset" -> selectPreset(event, argInt(parts, 1, -1), presetArg(parts), value);
+            case "switchpreset" -> {
+                if (inSameVoiceChannel(event))
+                {
+                    event.deferReply(true).queue();
+                    bot.getPhaseService().switchToPhases(event.getGuild(), event.getChannel(),
+                            value, OutputAdapters.forPhaseDeferred(event));
+                }
+            }
             case "editphase" -> openPhaseModal(event, argInt(parts, 1, -1), presetArg(parts),
                     parseInt(value, -1));
             case "delphase" -> deletePhase(event, argInt(parts, 1, -1), presetArg(parts),

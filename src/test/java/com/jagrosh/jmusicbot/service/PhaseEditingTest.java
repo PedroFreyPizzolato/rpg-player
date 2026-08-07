@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,6 +51,46 @@ class PhaseEditingTest
 {
     /** O preset que o {@code findOrCreate} dá a toda faixa nova — é nele que estes testes editam. */
     private static final String PRESET = PhaseConfig.LEGACY_PRESET_NAME;
+
+    // ── escolha de preset na hora de tocar ───────────────────────────────────
+
+    private static PhaseConfig.Track trackWithPresets(int howMany)
+    {
+        PhaseConfig.Track track = new PhaseConfig.Track();
+        track.name = "Crown";
+        track.source = "https://youtu.be/x";
+        for (int i = 0; i < howMany; i++)
+        {
+            PhaseConfig.Preset preset = new PhaseConfig.Preset();
+            preset.name = "P" + i;
+            track.presets.add(preset);
+        }
+        return track;
+    }
+
+    @Test
+    @DisplayName("um preset só carrega direto, sem perguntar")
+    void singlePresetSkipsTheQuestion()
+    {
+        assertFalse(PhaseService.needsPresetChoice(trackWithPresets(1)));
+    }
+
+    @Test
+    @DisplayName("dois ou mais presets abrem a escolha")
+    void multiplePresetsAskWhichOne()
+    {
+        assertTrue(PhaseService.needsPresetChoice(trackWithPresets(2)));
+        assertTrue(PhaseService.needsPresetChoice(trackWithPresets(5)));
+    }
+
+    @Test
+    @DisplayName("faixa sem preset, ou nula, não chega a perguntar")
+    void noPresetNeverAsks()
+    {
+        assertFalse(PhaseService.needsPresetChoice(trackWithPresets(0)),
+                "sem preset a faixa nem aparece na detecção; perguntar seria menu vazio");
+        assertFalse(PhaseService.needsPresetChoice(null));
+    }
 
     @TempDir Path dir;
     private String previousUserDir;

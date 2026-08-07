@@ -29,15 +29,21 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.selections.SelectOption;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -47,6 +53,9 @@ import java.util.concurrent.TimeUnit;
 public final class AudioLoadResultHandlers
 {
     private static final Logger LOG = LoggerFactory.getLogger(AudioLoadResultHandlers.class);
+
+    /** Teto de 25 opções do Discord, menos a linha do "começar do zero". */
+    private static final int MAX_PRESET_OPTIONS = 24;
 
     private AudioLoadResultHandlers()
     {
@@ -255,7 +264,15 @@ public final class AudioLoadResultHandlers
          */
         private void offerPhaseMode(AudioTrack track, PhaseConfig.Track phased)
         {
-            // TAREFA 5: com mais de um preset, a oferta vira um menu de escolha
+            if (PhaseService.needsPresetChoice(phased))
+                offerPresetChoice(track, phased);
+            else
+                offerSinglePreset(track, phased);
+        }
+
+        /** Uma segmentação só: não há o que escolher, o botão já entra nela. */
+        private void offerSinglePreset(AudioTrack track, PhaseConfig.Track phased)
+        {
             PhaseConfig.Segmentation segmentation = phased.firstSegmentation();
             String question = FormatUtil.filter(bot.getConfig().getSuccess() + " **"
                     + FormatUtil.getTrackTitle(track) + "** tem fases cadastradas (`" + phased.name
@@ -279,10 +296,7 @@ public final class AudioLoadResultHandlers
                                 {
                                     event.editMessage(PHASE_EMOJI + " Iniciando modo fase para **" + phased.name + "**...")
                                             .setComponents().queue();
-                                    // a faixa já está resolvida aqui: é o único caminho que sabe
-                                    // a duração, e é dela que sai a fase implícita de um preset vazio
-                                    bot.getPhaseService().startAt(guild, channel, segmentation, 0,
-                                            PhaseService.knownDurationMs(track), errorsOnly(event));
+                                    startPhases(track, phased, segmentation, errorsOnly(event));
                                 }
                                 else
                                 {
@@ -299,7 +313,144 @@ public final class AudioLoadResultHandlers
             });
         }
 
-        private static MusicService.OutputAdapter errorsOnly(ButtonInteractionEvent event)
+        /**
+         * Duas ou mais segmentações: a escolha vira um menu, e o "tocar normalmente" continua
+         * botão. O menu leva também a opção de entrar sem segmentação nenhuma, para quem quer
+         * montar uma nova ouvindo a música inteira em loop.
+         */
+        private void offerPresetChoice(AudioTrack track, PhaseConfig.Track phased)
+        {
+            String question = FormatUtil.filter(bot.getConfig().getSuccess() + " **"
+                    + FormatUtil.getTrackTitle(track) + "** tem " + phased.presets.size()
+                    + " segmentações. Como tocar?");
+
+            List<SelectOption> options = new ArrayList<>();
+            // o menu ainda precisa caber a opção de começar do zero
+            for (int i = 0; i < Math.min(phased.presets.size(), MAX_PRESET_OPTIONS); i++)
+            {
+                PhaseConfig.Preset preset = phased.presets.get(i);
+                options.add(SelectOption.of(cutTo(preset.name, 100), "preset:" + i)
+                        .withDescription(preset.phases.size() + " fase(s)"));
+            }
+            options.add(SelectOption.of("➕ Começar do zero", "blank")
+                    .withDescription("Modo fase sem segmentação, para marcar ouvindo"));
+
+            MessageEditBuilder editBuilder = new MessageEditBuilder()
+                    .setContent(question)
+                    .setComponents(
+                            ActionRow.of(StringSelectMenu.create("phase_offer_preset")
+                                    .setPlaceholder("Escolher segmentação...")
+                                    .addOptions(options)
+                                    .build()),
+                            ActionRow.of(Button.secondary("phase_offer_normal", "Tocar normalmente")));
+
+            output.editMessage(question, m -> {
+                m.editMessage(editBuilder.build()).queue(msg -> {
+                    // o menu e o botão são eventos de tipos diferentes, então são duas esperas;
+                    // quem chegar primeiro desarma a mensagem, e a outra expira sozinha
+                    bot.getWaiter().waitForEvent(StringSelectInteractionEvent.class,
+                            event -> event.getMessageId().equals(msg.getId())
+                                    && event.getComponentId().equals("phase_offer_preset")
+                                    && event.getUser().getIdLong() == member.getIdLong(),
+                            event -> {
+                                String value = event.getValues().isEmpty() ? "" : event.getValues().get(0);
+                                PhaseConfig.Preset chosen = resolveChoice(phased, value);
+                                if (chosen == null)
+                                {
+                                    event.editMessage("Essa segmentação não existe mais.")
+                                            .setComponents().queue();
+                                    return;
+                                }
+                                event.editMessage(PHASE_EMOJI + " Iniciando **" + phased.name
+                                                + "** — `" + chosen.name + "`...")
+                                        .setComponents().queue();
+                                startPhases(track, phased,
+                                        new PhaseConfig.Segmentation(phased, chosen), errorsOnly(event));
+                            },
+                            30, TimeUnit.SECONDS, () -> { });
+
+                    bot.getWaiter().waitForEvent(ButtonInteractionEvent.class,
+                            event -> event.getMessageId().equals(msg.getId())
+                                    && event.getComponentId().equals("phase_offer_normal")
+                                    && event.getUser().getIdLong() == member.getIdLong(),
+                            event -> {
+                                event.editMessage(question).setComponents().queue();
+                                loadSingle(track, null);
+                            },
+                            30, TimeUnit.SECONDS,
+                            () -> {
+                                msg.editMessage(question).setComponents().queue();
+                                loadSingle(track, null);
+                            });
+                });
+            });
+        }
+
+        /**
+         * O preset que a opção escolhida representa. "Começar do zero" devolve um preset novo,
+         * já gravado na faixa — é ele que a marcação ao vivo vai preencher.
+         */
+        private PhaseConfig.Preset resolveChoice(PhaseConfig.Track phased, String value)
+        {
+            if ("blank".equals(value))
+                return createBlankPreset(phased);
+            if (!value.startsWith("preset:"))
+                return null;
+            int index = parseIndex(value.substring("preset:".length()));
+            return index >= 0 && index < phased.presets.size() ? phased.presets.get(index) : null;
+        }
+
+        /**
+         * Cria e grava um preset vazio para o mestre montar ouvindo. Precisa existir no arquivo
+         * antes de a reprodução começar: é o nome dele que o botão "Marcar aqui" procura.
+         */
+        private PhaseConfig.Preset createBlankPreset(PhaseConfig.Track phased)
+        {
+            String name = "Nova segmentação";
+            for (int i = 2; phased.preset(name) != null; i++)
+                name = "Nova segmentação " + i;
+
+            String error = bot.getPresetService().create(phased.name, name, null);
+            if (error != null)
+            {
+                LOG.warn("Não consegui criar o preset vazio de '{}': {}", phased.name, error);
+                return null;
+            }
+            PhaseConfig.Preset created = new PhaseConfig.Preset();
+            created.name = name;
+            phased.presets.add(created);
+            return created;
+        }
+
+        private void startPhases(AudioTrack track, PhaseConfig.Track phased,
+                                 PhaseConfig.Segmentation segmentation, MusicService.OutputAdapter out)
+        {
+            // a faixa já está resolvida aqui: é o único caminho que sabe a duração, e é dela que
+            // sai a fase implícita de um preset vazio
+            bot.getPhaseService().startAt(guild, channel, segmentation, 0,
+                    PhaseService.knownDurationMs(track), out);
+        }
+
+        private static int parseIndex(String text)
+        {
+            try
+            {
+                return Integer.parseInt(text.trim());
+            }
+            catch (NumberFormatException e)
+            {
+                return -1;
+            }
+        }
+
+        private static String cutTo(String text, int limit)
+        {
+            if (text == null)
+                return "(sem nome)";
+            return text.length() <= limit ? text : text.substring(0, limit - 1) + "…";
+        }
+
+        private static MusicService.OutputAdapter errorsOnly(IReplyCallback event)
         {
             return new com.jagrosh.jmusicbot.commands.BaseOutputAdapter()
             {
