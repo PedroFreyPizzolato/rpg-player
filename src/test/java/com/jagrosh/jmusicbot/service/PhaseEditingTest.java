@@ -16,7 +16,9 @@
 package com.jagrosh.jmusicbot.service;
 
 import com.jagrosh.jmusicbot.audio.PhaseConfig;
+import com.jagrosh.jmusicbot.audio.SegmentCapture;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.tools.Units;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackState;
@@ -416,7 +418,41 @@ class PhaseEditingTest
         service.startAt(null, null, empty, 0, 0, replies);
 
         assertNotNull(replies.error);
-        assertTrue(replies.error.contains("duração"), replies.error);
+        assertTrue(replies.error.contains("Crown"), replies.error);
+        assertTrue(replies.error.contains("preset sem nenhuma fase"),
+                "a recusa é sobre o preset vazio, não sobre um defeito interno: " + replies.error);
+        assertTrue(replies.error.contains("/play"),
+                "e tem que dizer por onde tocar: " + replies.error);
+    }
+
+    @Test
+    @DisplayName("transmissão ao vivo não tem duração para a fase implícita")
+    void liveStreamHasNoUsableDuration()
+    {
+        assertEquals(0, PhaseService.knownDurationMs(fakeTrack("http://radio/x", "x", 600_000, true)),
+                "stream não tem fim: a fase implícita não teria onde terminar");
+    }
+
+    @Test
+    @DisplayName("a duração 'não sei' do lavaplayer não vira uma captura sem fim")
+    void unknownDurationNeverBecomesAnEndlessCapture()
+    {
+        // Units.DURATION_MS_UNKNOWN é Long.MAX_VALUE e passa direto por uma guarda de "<= 0":
+        // a fase implícita sairia com endMs() saturado em SegmentCapture.UNTIL_END, e a captura
+        // decodificaria sem limite superior até derrubar a JVM
+        assertEquals(SegmentCapture.UNTIL_END,
+                PhaseService.implicitPhase(Units.DURATION_MS_UNKNOWN).endMs(),
+                "é este o estrago que a leitura da duração tem que evitar");
+        assertEquals(0, PhaseService.knownDurationMs(
+                fakeTrack("https://example.com/x", "x", Units.DURATION_MS_UNKNOWN, false)));
+    }
+
+    @Test
+    @DisplayName("faixa comum entrega a duração de verdade")
+    void ordinaryTrackReportsItsDuration()
+    {
+        assertEquals(263_000, PhaseService.knownDurationMs(
+                fakeTrack("https://example.com/x", "x", 263_000, false)));
     }
 
     @Test
@@ -590,11 +626,18 @@ class PhaseEditingTest
     /** AudioTrack mínimo: só getInfo()/getIdentifier() importam pro matching. */
     private static AudioTrack fakeTrack(String uri, String identifier)
     {
-        AudioTrackInfo info = new AudioTrackInfo("título", "autor", 1000, identifier, false, uri);
+        return fakeTrack(uri, identifier, 1000, false);
+    }
+
+    /** Idem, com a duração e o "é transmissão ao vivo" que a fase implícita consulta. */
+    private static AudioTrack fakeTrack(String uri, String identifier, long durationMs, boolean stream)
+    {
+        AudioTrackInfo info = new AudioTrackInfo("título", "autor", durationMs, identifier, stream, uri);
         return new AudioTrack()
         {
             public AudioTrackInfo getInfo() { return info; }
             public String getIdentifier() { return identifier; }
+            public long getDuration() { return durationMs; }
             public AudioTrackState getState() { throw new UnsupportedOperationException(); }
             public void stop() { throw new UnsupportedOperationException(); }
             public boolean isSeekable() { throw new UnsupportedOperationException(); }
@@ -603,7 +646,6 @@ class PhaseEditingTest
             public void setMarker(TrackMarker marker) { throw new UnsupportedOperationException(); }
             public void addMarker(TrackMarker marker) { throw new UnsupportedOperationException(); }
             public void removeMarker(TrackMarker marker) { throw new UnsupportedOperationException(); }
-            public long getDuration() { throw new UnsupportedOperationException(); }
             public AudioTrack makeClone() { throw new UnsupportedOperationException(); }
             public AudioSourceManager getSourceManager() { throw new UnsupportedOperationException(); }
             public void setUserData(Object data) { throw new UnsupportedOperationException(); }

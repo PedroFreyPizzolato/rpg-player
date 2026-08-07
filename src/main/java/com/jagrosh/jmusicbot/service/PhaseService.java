@@ -23,8 +23,10 @@ import com.jagrosh.jmusicbot.audio.SegmentPlayer;
 import com.jagrosh.jmusicbot.utils.TimeUtil;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
+import com.sedmelluq.discord.lavaplayer.tools.Units;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -95,8 +97,13 @@ public class PhaseService
         boolean improvising = requested.phases().isEmpty();
         if (improvising && durationMs <= 0)
         {
-            output.replyError("Não consegui descobrir a duração de `"
-                    + requested.trackName() + "` para tocar sem preset.");
+            // a duração só chega pelo /play; o painel e o !fase não resolvem a faixa no
+            // lavaplayer, e transmissão ao vivo não tem duração nenhuma. Dizer só "não descobri a
+            // duração" mandaria o mestre procurar defeito onde só falta o caminho certo
+            output.replyError("`" + requested.trackName() + "` tem um preset sem nenhuma fase."
+                    + " Dá pra tocar assim mesmo — a música inteira em loop, pra você marcar as"
+                    + " fases ouvindo —, mas pra isso eu preciso da duração da música, que só"
+                    + " tenho quando ela entra pelo `/play` (e que transmissão ao vivo não tem).");
             return;
         }
 
@@ -172,6 +179,26 @@ public class PhaseService
      * <p>O nome, porém, é o do original de propósito — é por ele que a marcação ao vivo acha o
      * preset onde gravar a fase que o mestre acabou de marcar.
      */
+    /**
+     * A duração que serve para montar a fase implícita, ou 0 quando não dá para saber.
+     *
+     * <p>Transmissão ao vivo não tem fim, e o lavaplayer usa {@link Units#DURATION_MS_UNKNOWN}
+     * ({@code Long.MAX_VALUE}) como "não sei" em vez de sinalizar erro. Repassar esse valor seria
+     * pior que recusar: a fase implícita terminaria com {@code endMs()} saturado exatamente em
+     * {@link com.jagrosh.jmusicbot.audio.SegmentCapture#UNTIL_END}, e a captura decodificaria sem
+     * limite superior até a memória acabar.
+     */
+    static long knownDurationMs(AudioTrack track)
+    {
+        if (track == null)
+            return 0;
+        AudioTrackInfo info = track.getInfo();
+        if (info != null && info.isStream)
+            return 0;
+        long duration = track.getDuration();
+        return duration == Units.DURATION_MS_UNKNOWN ? 0 : duration;
+    }
+
     static PhaseConfig.Segmentation improvise(PhaseConfig.Segmentation empty, long durationMs)
     {
         PhaseConfig.Preset preset = new PhaseConfig.Preset();
