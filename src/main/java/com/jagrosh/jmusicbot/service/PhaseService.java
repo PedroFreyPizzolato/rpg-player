@@ -67,6 +67,20 @@ public class PhaseService
 
     public void start(Guild guild, MessageChannel channel, String query, MusicService.OutputAdapter output)
     {
+        // "busca | preset" escolhe a segmentação; sem a barra, vale a primeira da faixa
+        String presetName = null;
+        int bar = query.lastIndexOf('|');
+        if (bar >= 0)
+        {
+            presetName = query.substring(bar + 1).trim();
+            query = query.substring(0, bar).trim();
+        }
+        start(guild, channel, query, presetName, output);
+    }
+
+    public void start(Guild guild, MessageChannel channel, String query, String presetName,
+                      MusicService.OutputAdapter output)
+    {
         PhaseConfig config = loadOrReport(output);
         if (config == null)
             return;
@@ -78,8 +92,27 @@ public class PhaseService
                     + PhaseConfig.FILE_NAME + "`.");
             return;
         }
+
+        PhaseConfig.Segmentation segmentation = match.segmentation;
+        int phaseIndex = match.phaseIndex;
+        if (presetName != null && !presetName.isBlank())
+        {
+            PhaseConfig.Segmentation chosen =
+                    resolveSegmentation(match.segmentation.track, presetName);
+            if (chosen == null)
+            {
+                output.replyError("`" + match.segmentation.trackName() + "` não tem uma segmentação"
+                        + " chamada `" + presetName + "`.");
+                return;
+            }
+            // o índice veio de uma busca por nome de fase no preset achado; noutro preset ele
+            // apontaria para outra fase qualquer, então a escolha explícita recomeça do início
+            segmentation = chosen;
+            phaseIndex = 0;
+        }
+
         // o !fase não passa pelo lavaplayer, então não há duração em mãos para um preset vazio
-        startAt(guild, channel, match.segmentation, match.phaseIndex, 0, output);
+        startAt(guild, channel, segmentation, phaseIndex, 0, output);
     }
 
     /**
@@ -521,19 +554,28 @@ public class PhaseService
         StringBuilder message = new StringBuilder("**Faixas com fases:**\n");
         for (PhaseConfig.Track track : config.tracks)
         {
-            message.append("`").append(track.name).append("` — ");
-            // TAREFA 6: listar as fases de cada preset, não só as do primeiro
-            PhaseConfig.Segmentation segmentation = track.firstSegmentation();
-            List<PhaseConfig.Phase> phases = segmentation == null ? List.of() : segmentation.phases();
-            for (int i = 0; i < phases.size(); i++)
-                message.append(i > 0 ? ", " : "").append(phases.get(i).name);
-            message.append("\n");
+            message.append("**").append(track.name).append("**\n");
+            if (track.presets.isEmpty())
+            {
+                message.append("  _(sem segmentação)_\n");
+                continue;
+            }
+            for (PhaseConfig.Preset preset : track.presets)
+            {
+                message.append("  `").append(preset.name).append("` — ");
+                if (preset.phases.isEmpty())
+                    message.append("_vazia_");
+                for (int i = 0; i < preset.phases.size(); i++)
+                    message.append(i > 0 ? ", " : "").append(preset.phases.get(i).name);
+                message.append("\n");
+            }
         }
 
         SegmentPlayer playing = getSegmentPlayer(guild);
         if (playing != null)
             message.append("\nTocando agora: **").append(playing.getSegmentation().trackName())
-                    .append("** — `").append(playing.getPhaseName()).append("`");
+                    .append("** — `").append(playing.getSegmentation().presetName())
+                    .append("` / `").append(playing.getPhaseName()).append("`");
 
         output.replySuccess(message.toString());
     }

@@ -33,8 +33,10 @@ public class PhaseCmd extends MusicCommand
         super(bot);
         this.phaseService = bot.getPhaseService();
         this.name = "fase";
-        this.help = "toca uma faixa em fases, loopando cada uma";
-        this.arguments = "<nome da faixa | next | stop | normal | list>";
+        this.help = "toca uma faixa em fases, loopando cada uma."
+                + " Para escolher entre várias segmentações da mesma música,"
+                + " use `nome da faixa | nome da segmentação`";
+        this.arguments = "<nome da faixa [| segmentação]> ou next / stop / normal / list";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
         this.bePlaying = false;

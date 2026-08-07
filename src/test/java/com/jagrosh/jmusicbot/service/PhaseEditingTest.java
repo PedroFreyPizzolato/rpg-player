@@ -92,6 +92,37 @@ class PhaseEditingTest
         assertFalse(PhaseService.needsPresetChoice(null));
     }
 
+    @Test
+    @DisplayName("sem nome pedido, vale a primeira segmentação da faixa")
+    void resolvesToTheFirstPresetByDefault()
+    {
+        PhaseConfig.Track track = trackWithPresets(3);
+
+        assertEquals("P0", PhaseService.resolveSegmentation(track, null).presetName());
+        assertEquals("P0", PhaseService.resolveSegmentation(track, "   ").presetName(),
+                "nome em branco é o mesmo que não pedir nenhum");
+    }
+
+    @Test
+    @DisplayName("a segmentação pedida pelo nome é achada sem diferenciar maiúsculas")
+    void resolvesTheRequestedPresetByName()
+    {
+        PhaseConfig.Track track = trackWithPresets(3);
+
+        assertEquals("P2", PhaseService.resolveSegmentation(track, "P2").presetName());
+        assertEquals("P1", PhaseService.resolveSegmentation(track, "p1").presetName());
+    }
+
+    @Test
+    @DisplayName("nome que não existe devolve null em vez de cair na primeira")
+    void unknownPresetNameResolvesToNull()
+    {
+        assertNull(PhaseService.resolveSegmentation(trackWithPresets(3), "Sumida"),
+                "cair na primeira calado tocaria uma segmentação que ninguém pediu");
+        assertNull(PhaseService.resolveSegmentation(null, "P0"));
+        assertNull(PhaseService.resolveSegmentation(trackWithPresets(0), null));
+    }
+
     @TempDir Path dir;
     private String previousUserDir;
     private PhaseService service;

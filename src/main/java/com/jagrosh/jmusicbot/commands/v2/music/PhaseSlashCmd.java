@@ -39,8 +39,9 @@ public class PhaseSlashCmd extends MusicSlashCommand
         this.phaseService = bot.getPhaseService();
         this.name = "fase";
         this.help = "toca uma faixa em fases, loopando cada uma";
-        this.options = Collections.singletonList(
-                new OptionData(OptionType.STRING, "acao", "nome da faixa, ou next / stop / normal / list", false)
+        this.options = java.util.List.of(
+                new OptionData(OptionType.STRING, "acao", "nome da faixa, ou next / stop / normal / list", false),
+                new OptionData(OptionType.STRING, "preset", "qual segmentação usar (padrão: a primeira da faixa)", false)
         );
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
@@ -65,6 +66,10 @@ public class PhaseSlashCmd extends MusicSlashCommand
         else if (args.equalsIgnoreCase("normal"))
             phaseService.switchToNormal(event.getGuild(), event.getChannel(), output);
         else
-            phaseService.start(event.getGuild(), event.getChannel(), args, output);
+        {
+            OptionMapping preset = event.getOption("preset");
+            phaseService.start(event.getGuild(), event.getChannel(), args,
+                    preset == null ? null : preset.getAsString().trim(), output);
+        }
     }
 }
