@@ -37,6 +37,7 @@ import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.YoutubeSourceOptions;
 import dev.lavalink.youtube.clients.AndroidVrWithThumbnail;
 import dev.lavalink.youtube.clients.ClientOptions;
+import dev.lavalink.youtube.clients.IosWithThumbnail;
 import dev.lavalink.youtube.clients.MWebWithThumbnail;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5SimplyWithThumbnail;
@@ -266,8 +267,15 @@ public enum AudioSource
     /**
      * Builds the appropriate YouTube clients based on OAuth setting.
      * 
+     * <p><b>IosWithThumbnail</b> is listed first in both modes: since agosto/2026 o YouTube
+     * bloqueia os demais clients anonimos com "Sign in to confirm you're not a bot", e o IOS e
+     * o unico que ainda entrega formatos de audio sem login. Ele nao serve Opus, entao o
+     * lavaplayer transcodifica (custa mais CPU) - por isso os outros continuam na lista como
+     * fallback, caso o YouTube volte a aceita-los.
+     *
      * <p>When OAuth is enabled, we use a combination of clients:
      * <ul>
+     *   <li><b>IosWithThumbnail</b> - Playback + metadata (non-OAuth)</li>
      *   <li><b>AndroidVrWithThumbnail</b> - Metadata loading (non-embedded, non-OAuth)</li>
      *   <li><b>MWebWithThumbnail</b> - Metadata loading (non-embedded, non-OAuth)</li>
      *   <li><b>Web</b> - Metadata loading (non-embedded, non-OAuth)</li>
@@ -289,6 +297,7 @@ public enum AudioSource
             metadataOnly.setPlayback(false);
             
             return new Client[] {
+                new IosWithThumbnail(),                   // unico client que ainda reproduz sem login
                 new AndroidVrWithThumbnail(metadataOnly), // metadata loading (non-embedded, non-OAuth)
                 new MWebWithThumbnail(metadataOnly),      // metadata loading (non-embedded, non-OAuth)
                 new WebWithThumbnail(metadataOnly),       // metadata loading (non-embedded, non-OAuth)
@@ -298,6 +307,7 @@ public enum AudioSource
         }
         // Clients are required even without OAuth to properly handle YouTube URLs
         return new Client[] {
+            new IosWithThumbnail(),
             new AndroidVrWithThumbnail(),
             new MWebWithThumbnail(),
             new WebWithThumbnail(),
