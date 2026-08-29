@@ -16,6 +16,7 @@
 package com.jagrosh.jmusicbot.audio;
 
 import com.jagrosh.jmusicbot.Bot;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.jagrosh.jmusicbot.utils.MessageFormatter;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -99,7 +100,12 @@ public class NowPlayingHandler
         // Track start should force a fresh message; stop should reconcile existing location.
         if (track != null)
         {
-            requestReconcile(guildId, "track-start", true);
+            // Exceto no repeat: ali a faixa reinicia sem parar, e postar de novo a cada volta
+            // enche o canal de notificacoes falsas. Editar mantem o player no lugar, como no
+            // modo fase. Se a mensagem sumir, handleUpdateError zera o location e a proxima
+            // reconciliacao posta uma nova.
+            boolean repeating = bot.getSettingsManager().getSettings(guildId).getRepeatMode() != RepeatMode.OFF;
+            requestReconcile(guildId, "track-start", !repeating);
         }
         else
         {

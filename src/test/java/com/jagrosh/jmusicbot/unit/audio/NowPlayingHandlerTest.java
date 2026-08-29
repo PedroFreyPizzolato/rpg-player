@@ -19,6 +19,7 @@ import com.jagrosh.jmusicbot.audio.AudioHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingHandler;
 import com.jagrosh.jmusicbot.audio.NowPlayingInfo;
 import com.jagrosh.jmusicbot.audio.RequestMetadata;
+import com.jagrosh.jmusicbot.settings.RepeatMode;
 import com.jagrosh.jmusicbot.testutil.audio.AudioTestFixture;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -313,6 +314,42 @@ public class NowPlayingHandlerTest
             // Then - second reconcile pass edits the tracked message after send completes
             verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
             verify(fixture.getTextChannel()).editMessageById(eq(MESSAGE_ID), any(MessageEditData.class));
+        }
+
+        @Test
+        @DisplayName("onTrackUpdate() edits the tracked message instead of posting a new one while repeating")
+        void onTrackUpdate_editsTrackedMessage_whenRepeatIsOn()
+        {
+            // Given - a tracked NP message and repeat turned on
+            fixture.withRepeatMode(RepeatMode.SINGLE);
+            nowPlayingHandler.setLastNPMessage(fixture.getMessage());
+            AudioTrack track = fixture.createMockTrack("Looping Song", "Artist", 180000);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createNowPlayingMessage());
+
+            // When - the track restarts
+            nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
+
+            // Then - the existing message is edited, no new message and no notification
+            verify(fixture.getTextChannel()).editMessageById(eq(MESSAGE_ID), any(MessageEditData.class));
+            verify(fixture.getTextChannel(), never()).sendMessage(any(MessageCreateData.class));
+        }
+
+        @Test
+        @DisplayName("onTrackUpdate() posts a new message when repeat is off")
+        void onTrackUpdate_postsNewMessage_whenRepeatIsOff()
+        {
+            // Given - a tracked NP message and repeat off (fixture default)
+            nowPlayingHandler.setLastNPMessage(fixture.getMessage());
+            AudioTrack track = fixture.createMockTrack("Next Song", "Artist", 180000);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createNowPlayingMessage());
+
+            // When
+            nowPlayingHandler.onTrackUpdate(GUILD_ID, track);
+
+            // Then - a fresh message is posted, as before
+            verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
         }
 
         @Test
