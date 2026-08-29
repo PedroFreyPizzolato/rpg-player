@@ -509,6 +509,10 @@
                     <includes>
                         <include>**/unit/**/*Test.java</include>
                         <include>**/unit/**/*Tests.java</include>
+                        <!-- Sem estes dois, os includes viram um filtro de nome de classe que
+                             descarta as @Nested (Outer$Inner), e classes inteiras rodam 0 testes. -->
+                        <include>**/unit/**/*Test$*.java</include>
+                        <include>**/unit/**/*Tests$*.java</include>
                     </includes>
                 </configuration>
             </plugin>
