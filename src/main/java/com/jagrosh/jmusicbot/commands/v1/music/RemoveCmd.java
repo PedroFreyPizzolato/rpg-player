@@ -39,6 +39,7 @@ public class RemoveCmd extends MusicCommand
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
         this.bePlaying = true;
+        this.forcesFreshNowPlaying = true;
     }
 
     @Override

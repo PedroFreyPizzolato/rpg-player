@@ -38,6 +38,7 @@ public class RepeatCmd extends DJCommand
         this.arguments = "[off|all|single]";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.guildOnly = true;
+        this.forcesFreshNowPlaying = true;
     }
 
     // override musiccommand's execute because we don't actually care where this is used

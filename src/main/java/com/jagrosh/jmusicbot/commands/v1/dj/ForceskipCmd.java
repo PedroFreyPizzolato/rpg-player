@@ -36,6 +36,7 @@ public class ForceskipCmd extends DJCommand
         this.help = "skips the current song";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.bePlaying = true;
+        this.forcesFreshNowPlaying = true;
     }
 
     @Override
