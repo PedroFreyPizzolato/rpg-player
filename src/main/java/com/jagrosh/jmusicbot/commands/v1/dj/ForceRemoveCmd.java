@@ -47,6 +47,7 @@ public class ForceRemoveCmd extends DJCommand
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = false;
         this.bePlaying = true;
+        this.forcesFreshNowPlaying = true;
         this.botPermissions = new Permission[]{Permission.MESSAGE_EMBED_LINKS};
     }
 

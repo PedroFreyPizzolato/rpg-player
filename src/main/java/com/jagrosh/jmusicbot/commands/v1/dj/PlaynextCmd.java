@@ -41,6 +41,7 @@ public class PlaynextCmd extends DJCommand
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
         this.bePlaying = false;
+        this.forcesFreshNowPlaying = true;
     }
 
     @Override

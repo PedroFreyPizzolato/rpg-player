@@ -33,6 +33,9 @@ public abstract class MusicCommand extends Command
     protected final Bot bot;
     protected boolean bePlaying;
     protected boolean beListening;
+    /** Commands that change what's currently playing set this so users see the reply even if
+     * repeat mode would otherwise keep editing an older message further up the channel. */
+    protected boolean forcesFreshNowPlaying = false;
     
     public MusicCommand(Bot bot)
     {
@@ -100,6 +103,8 @@ public abstract class MusicCommand extends Command
         if (valid)
         {
             doCommand(event);
+            if (forcesFreshNowPlaying)
+                bot.getNowplayingHandler().forceFreshNowPlaying(event.getGuild().getIdLong());
         }
     }
     

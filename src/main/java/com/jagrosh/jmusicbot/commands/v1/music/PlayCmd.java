@@ -48,6 +48,7 @@ public class PlayCmd extends MusicCommand
         this.aliases = bot.getConfig().getAliases(this.name);
         this.beListening = true;
         this.bePlaying = false;
+        this.forcesFreshNowPlaying = true;
         this.children = new Command[]{new PlaylistCmd(bot)};
     }
 
@@ -94,6 +95,7 @@ public class PlayCmd extends MusicCommand
             this.help = "plays the provided playlist";
             this.beListening = true;
             this.bePlaying = false;
+            this.forcesFreshNowPlaying = true;
         }
 
         @Override

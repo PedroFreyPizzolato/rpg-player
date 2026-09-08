@@ -21,6 +21,7 @@ public class MoveTrackCmd extends DJCommand
         this.arguments = "<from> <to>";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.bePlaying = true;
+        this.forcesFreshNowPlaying = true;
     }
 
     @Override

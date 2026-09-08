@@ -336,6 +336,26 @@ public class NowPlayingHandlerTest
         }
 
         @Test
+        @DisplayName("forceFreshNowPlaying() posts a new message even while repeating")
+        void forceFreshNowPlaying_postsNewMessage_evenWhileRepeating()
+        {
+            // Given - a tracked NP message and repeat turned on (the auto-edit path)
+            fixture.withRepeatMode(RepeatMode.SINGLE);
+            nowPlayingHandler.setLastNPMessage(fixture.getMessage());
+            AudioTrack track = fixture.createMockTrack("Looping Song", "Artist", 180000);
+            when(fixture.getAudioPlayer().getPlayingTrack()).thenReturn(track);
+            when(audioHandler.getNowPlaying(fixture.getJda())).thenReturn(createNowPlayingMessage());
+
+            // When - a command explicitly asks for a fresh message
+            nowPlayingHandler.forceFreshNowPlaying(GUILD_ID);
+
+            // Then - old message is dropped and a new one is sent, overriding the repeat edit path
+            verify(fixture.getTextChannel()).deleteMessageById(MESSAGE_ID);
+            verify(fixture.getTextChannel()).sendMessage(any(MessageCreateData.class));
+            verify(fixture.getTextChannel(), never()).editMessageById(eq(MESSAGE_ID), any(MessageEditData.class));
+        }
+
+        @Test
         @DisplayName("onTrackUpdate() posts a new message when repeat is off")
         void onTrackUpdate_postsNewMessage_whenRepeatIsOff()
         {

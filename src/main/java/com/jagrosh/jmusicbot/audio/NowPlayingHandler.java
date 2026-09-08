@@ -142,6 +142,17 @@ public class NowPlayingHandler
         requestReconcile(guildId, "refresh", false);
     }
 
+    /**
+     * Forces the next now-playing update to post a fresh message instead of editing the
+     * tracked one, even if repeat mode would normally keep editing in place. Used by
+     * commands that explicitly change the player, so the reply is visible even when it
+     * scrolled away during a long repeat.
+     */
+    public void forceFreshNowPlaying(long guildId)
+    {
+        requestReconcile(guildId, "command", true);
+    }
+
     private void requestReconcile(long guildId, String reason, boolean forceNewMessage)
     {
         GuildState state = getOrCreateState(guildId);

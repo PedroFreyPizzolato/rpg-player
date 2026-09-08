@@ -37,6 +37,7 @@ public class SkiptoCmd extends DJCommand
         this.arguments = "<position>";
         this.aliases = bot.getConfig().getAliases(this.name);
         this.bePlaying = true;
+        this.forcesFreshNowPlaying = true;
     }
 
     @Override
